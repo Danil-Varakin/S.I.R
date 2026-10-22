@@ -1,4 +1,4 @@
-import type { HatchFile, Hunk } from './ast.ts';
+import type { SirFile, Hunk } from './ast.ts';
 import type { LanguageAdapter, SourceMap, MapCache } from '../lang/source-map.ts';
 import { mapFor } from '../lang/source-map.ts';
 import type { Edit } from './patcher.ts';
@@ -31,7 +31,7 @@ export interface HunkLink {
   readonly mdSpan?: readonly [number, number];
   /** the hunk's `# note` text, when it has one. Protocol 4. */
   readonly note?: string;
-  /** lines of the `.hatch` from `# note` to its `# end`. Protocol 4. */
+  /** lines of the `.sirp` from `# note` to its `# end`. Protocol 4. */
   readonly noteSpan?: readonly [number, number];
   readonly base?: Span;
   readonly final?: Span;
@@ -47,7 +47,7 @@ export interface ResolveResult {
 
 export function resolveHunks(
   baseline: string,
-  file: HatchFile,
+  file: SirFile,
   adapter: LanguageAdapter,
   maps?: MapCache,
 ): ResolveResult {
@@ -78,13 +78,10 @@ export function resolveHunks(
   return { links: drafts.map((d) => project(d, staged, current)), applied: current };
 }
 
-interface Draft {
-  readonly index: number;
-  readonly hunk: Hunk;
-  readonly edit: Edit | null;
-  readonly dependsOnEarlier: boolean;
-  readonly failure?: LinkFailure;
-}
+/** A hunk laid — or, with no edit, refused, and then always with what it failed with. */
+type Draft =
+  | { readonly index: number; readonly hunk: Hunk; readonly edit: Edit; readonly dependsOnEarlier: boolean }
+  | { readonly index: number; readonly hunk: Hunk; readonly edit: null; readonly dependsOnEarlier: false; readonly failure: LinkFailure };
 
 function project(draft: Draft, staged: readonly (Edit | null)[], applied: string): HunkLink {
   const mdSpan = draft.hunk.mdSpan;
@@ -94,31 +91,29 @@ function project(draft: Draft, staged: readonly (Edit | null)[], applied: string
     const failure = draft.failure;
     return {
       index: draft.index,
-      status: failure === undefined ? 'error' : statusOf(failure.kind),
+      status: statusOf(failure.kind),
       dependsOnEarlier: false,
       ...(mdSpan !== undefined ? { mdSpan } : {}),
       ...noted,
-      ...(failure !== undefined ? { failure } : {}),
+      failure,
     };
   }
 
-  let baseStart = draft.edit.start;
-  let baseEnd = draft.edit.end;
+  let base: Span = { start: draft.edit.start, end: draft.edit.end };
   for (let j = draft.index - 1; j >= 0; j--) {
     const earlier = staged[j];
     if (earlier === null || earlier === undefined) continue;
-    baseStart = backThrough(baseStart, earlier);
-    baseEnd = backThrough(baseEnd, earlier);
+    base = spanBack(base, earlier);
   }
+  const { start: baseStart, end: baseEnd } = base;
 
-  let finalStart = draft.edit.start;
-  let finalEnd = draft.edit.start + draft.edit.text.length;
+  let final: Span = { start: draft.edit.start, end: draft.edit.start + draft.edit.text.length };
   for (let j = draft.index + 1; j < staged.length; j++) {
     const later = staged[j];
     if (later === null || later === undefined) continue;
-    finalStart = forwardThrough(finalStart, later);
-    finalEnd = forwardThrough(finalEnd, later);
+    final = spanThrough(final, later);
   }
+  const { start: finalStart, end: finalEnd } = final;
 
   return {
     index: draft.index,
@@ -132,23 +127,42 @@ function project(draft: Draft, staged: readonly (Edit | null)[], applied: string
   };
 }
 
-function backThrough(pos: number, edit: Edit): number {
-  if (pos <= edit.start) return pos;
+/** Where `span` of the text after `edit` was before it. What `edit` replaced is never
+ *  inside the span — the start goes past it, the end stays before it; inside what `edit`
+ *  wrote the baseline has no place, and both go to where the edit writes. */
+function spanBack(span: Span, edit: Edit): Span {
+  const start = backThrough(span.start, edit, 'start');
+  const end = backThrough(span.end, edit, 'end');
+  return end < start ? { start: end, end } : { start, end };
+}
+
+function backThrough(pos: number, edit: Edit, side: 'start' | 'end'): number {
+  if (side === 'start' ? pos < edit.start : pos <= edit.start) return pos;
   const writtenEnd = edit.start + edit.text.length;
   if (pos >= writtenEnd) return pos - edit.text.length + (edit.end - edit.start);
   return edit.start; // inside what the edit wrote — the baseline has no such place
 }
 
 /** Where `span` of the text before `edit` is after it — the projection `resolve` does
- *  for `final`, for a caller that lays hunks one at a time (`generate/steer.ts`). */
+ *  for `final`, for a caller that lays hunks one at a time (`generate/steer.ts`). What
+ *  `edit` writes is never inside the span: the start goes past it, the end stays before
+ *  it. A span `edit` replaced whole is left empty where it stood. */
 export function spanThrough(span: Span, edit: Edit): Span {
-  return { start: forwardThrough(span.start, edit), end: forwardThrough(span.end, edit) };
+  const start = startThrough(span.start, edit);
+  const end = endThrough(span.end, edit);
+  return end < start ? { start: end, end } : { start, end };
 }
 
-function forwardThrough(pos: number, edit: Edit): number {
-  if (pos <= edit.start) return pos;
+function startThrough(pos: number, edit: Edit): number {
+  if (pos < edit.start) return pos;
   if (pos >= edit.end) return pos + edit.text.length - (edit.end - edit.start);
-  return edit.start; // inside what the edit replaced — that text is gone
+  return edit.start + edit.text.length; // inside what the edit replaced — the rest follows its text
+}
+
+function endThrough(pos: number, edit: Edit): number {
+  if (pos <= edit.start) return pos;
+  if (pos > edit.end) return pos + edit.text.length - (edit.end - edit.start);
+  return edit.start; // up to the end of what the edit replaced — the rest precedes its text
 }
 
 function fitsBaseline(hunk: Hunk, baselineMap: SourceMap, adapter: LanguageAdapter): boolean {

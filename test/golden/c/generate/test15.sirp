@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/c/generate/test15.new.c
+Grammar: tree-sitter-c@0.24.1
+
+# match c
+    ...
+    static void setup(
+    ...
+    ) {
+    ...
+    >>>
+      REGISTER(handler_a, "alpha", 1);
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    REGISTER(handler_a, "alpha", 2);
+# end

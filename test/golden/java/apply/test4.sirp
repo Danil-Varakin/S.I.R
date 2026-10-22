@@ -1,0 +1,16 @@
+Sir: 2
+Target: test/golden/java/apply/test4.java
+
+# match java
+    ...
+        public void evictAll(Collection<? extends K> keys) {
+    ...
+    >>>
+                store.remove(key);
+    <<<
+    ...
+# end
+# patch
+    store.remove(key);
+                onEvict(key);
+# end

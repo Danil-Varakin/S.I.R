@@ -1,0 +1,23 @@
+Sir: 2
+Target: test/golden/tsx/apply/test8.tsx
+Grammar: tree-sitter-typescript@0.23.2
+
+# match tsx
+    ...
+      return (
+        <>
+          <
+    ...
+    >refresh</button>
+          <
+    ...
+    >clear</button>
+    >>>
+    ...
+    )
+    ...
+# end
+# patch
+
+          <button type="button">export</button>
+# end

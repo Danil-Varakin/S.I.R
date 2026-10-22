@@ -11,10 +11,10 @@ import { digest, grammarDirs, packageGrammarDir, resolveGrammar } from '../../sr
 import { adaptersByName } from '../../src/lang/adapter.ts';
 import { GrammarError } from '../../src/core/errors.ts';
 
-// Stage 4 of 0.4: grammars ship inside hatch. Looked for in $HATCH_GRAMMAR_DIR, then
+// Stage 4 of 0.4: grammars ship inside sir. Looked for in $SIR_GRAMMAR_DIR, then
 // grammars/ of the package; the bytes must be the pinned ones; nothing is downloaded.
 
-const CLI = fileURLToPath(new URL('../../src/bin/hatch.ts', import.meta.url));
+const CLI = fileURLToPath(new URL('../../src/bin/sir.ts', import.meta.url));
 const BYTES = new TextEncoder().encode('not really wasm');
 const SOURCE = { file: 'tree-sitter-nonesuch.wasm', package: 'tree-sitter-nonesuch', version: '1.2.3', sha256: digest(BYTES) };
 
@@ -35,8 +35,9 @@ async function withEnv(vars: Record<string, string | undefined>, fn: () => Promi
 }
 
 test('every pinned grammar is in grammars/ of the package, with its pinned bytes', async () => {
-  await withEnv({ HATCH_GRAMMAR_DIR: undefined }, async () => {
+  await withEnv({ SIR_GRAMMAR_DIR: undefined }, async () => {
     for (const adapter of new Set(adaptersByName().values())) {
+      if (adapter.grammar === undefined) continue; // read as text: nothing pinned
       assert.ok(existsSync(join(packageGrammarDir(), adapter.grammar.file)), adapter.name);
       // resolveGrammar refuses bytes that are not the pin: reading it is the check
       assert.ok((await resolveGrammar(adapter.grammar)).byteLength > 0, adapter.name);
@@ -44,10 +45,10 @@ test('every pinned grammar is in grammars/ of the package, with its pinned bytes
   });
 });
 
-test('HATCH_GRAMMAR_DIR comes first; its file must be the pinned one, or it is refused', async () => {
-  const dir = await mkdtemp(join(tmpdir(), 'hatch-grammar-dir-'));
+test('SIR_GRAMMAR_DIR comes first; its file must be the pinned one, or it is refused', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'sir-grammar-dir-'));
   await writeFile(join(dir, SOURCE.file), BYTES);
-  await withEnv({ HATCH_GRAMMAR_DIR: dir }, async () => {
+  await withEnv({ SIR_GRAMMAR_DIR: dir }, async () => {
     assert.deepEqual(grammarDirs(), [dir, packageGrammarDir()]);
     assert.equal(digest(await resolveGrammar(SOURCE)), SOURCE.sha256);
     await assert.rejects(
@@ -58,12 +59,12 @@ test('HATCH_GRAMMAR_DIR comes first; its file must be the pinned one, or it is r
 });
 
 test('a grammar nowhere is a fault of the build, named with where it was looked for — nothing is fetched', async () => {
-  await withEnv({ HATCH_GRAMMAR_DIR: undefined }, async () => {
+  await withEnv({ SIR_GRAMMAR_DIR: undefined }, async () => {
     await assert.rejects(
       () => resolveGrammar({ ...SOURCE, file: 'tree-sitter-absent.wasm' }, 'absent'),
       (e: unknown) =>
         e instanceof GrammarError &&
-        /the absent grammar .* is missing from this build of hatch/.test(e.message) &&
+        /the absent grammar .* is missing from this build of sir/.test(e.message) &&
         e.message.includes(packageGrammarDir()) &&
         !/download|fetch/.test(e.message),
     );
@@ -71,24 +72,24 @@ test('a grammar nowhere is a fault of the build, named with where it was looked 
 });
 
 test('an explicit path is that file, checked the same way', async () => {
-  const dir = await mkdtemp(join(tmpdir(), 'hatch-grammar-path-'));
+  const dir = await mkdtemp(join(tmpdir(), 'sir-grammar-path-'));
   const path = join(dir, 'g.wasm');
   await writeFile(path, BYTES);
   assert.equal(digest(await resolveGrammar({ ...SOURCE, path })), SOURCE.sha256);
   await assert.rejects(() => resolveGrammar({ ...SOURCE, path: 'relative.wasm' }), /must be absolute/);
 });
 
-test('F2: `hatch grammars` and --download-grammars still work in 0.4, do nothing and say so', () => {
-  const grammars = spawnSync(process.execPath, ['--experimental-strip-types', CLI, 'grammars', '--language', 'cpp'], { encoding: 'utf8' });
-  assert.equal(grammars.status, 0, grammars.stderr);
-  assert.match(grammars.stderr, /grammars ship inside hatch since 0\.4.*removed in 0\.5/);
+test('F2: the command `sir grammars` and the flag --download-grammars are both gone', () => {
+  const grammars = spawnSync(process.execPath, ['--experimental-strip-types', CLI, 'grammars'], { encoding: 'utf8' });
+  assert.equal(grammars.status, 1, 'an unknown command is a usage error');
+  assert.match(grammars.stderr, /unknown command 'grammars'/);
+  assert.doesNotMatch(grammars.stderr, /known commands: [^\n]*\bgrammars\b/, 'and it is not offered back');
 
   const apply = spawnSync(
     process.execPath,
-    ['--experimental-strip-types', CLI, 'apply', '--match', 'nope.hatch', '--in', 'x.cc', '--dry-run', '--download-grammars'],
+    ['--experimental-strip-types', CLI, 'apply', '--match', 'nope.sirp', '--in', 'x.cc', '--dry-run', '--download-grammars'],
     { encoding: 'utf8' },
   );
-  assert.doesNotMatch(apply.stderr, /unknown|unrecognized|usage/i, 'the flag is still known');
-  assert.equal(apply.status, 1, 'the missing patch is refused as before');
-  assert.match(apply.stderr, /no such file: nope\.hatch/, 'for that reason, not for the flag');
+  assert.equal(apply.status, 1);
+  assert.match(apply.stderr, /unknown argument: --download-grammars/);
 });

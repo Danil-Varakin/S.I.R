@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/toml/apply/test1.toml
+
+# match toml
+    ...
+    ignore = [
+    ...
+    >>>
+    ]
+    ...
+# end
+# patch
+      "brave/third_party/",
+
+# end

@@ -2,7 +2,7 @@ import type { Canon } from './canon.ts';
 import type { SourceMap, BlockSpan } from './source-map.ts';
 import { isWordChar } from './word.ts';
 
-export function makeSourceMap(canon: Canon, spans: readonly BlockSpan[]): SourceMap {
+export function makeSourceMap(canon: Canon, spans: readonly BlockSpan[], closesByOutdent = false): SourceMap {
   const text = canon.text;
   const eof = text.length;
 
@@ -27,8 +27,19 @@ export function makeSourceMap(canon: Canon, spans: readonly BlockSpan[]): Source
     return scan(text, norm, from, to);
   };
 
+  // the ends of the blocks with no closing token, once a map, and only where the language
+  // closes by outdent: a brace language never asks
+  const implicitEnds = closesByOutdent
+    ? new Set(spans.filter((s) => s.closeEnd === undefined).map((s) => s.close))
+    : null;
+
   return {
     eof,
+    closesByOutdent,
+
+    endsImplicitBlock(close: number): boolean {
+      return implicitEnds !== null && implicitEnds.has(close);
+    },
 
     matchesAt(norm: string, pos: number): boolean {
       assertNorm(norm);

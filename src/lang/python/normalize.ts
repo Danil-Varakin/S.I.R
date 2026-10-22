@@ -15,7 +15,9 @@ export function normalize(raw: string): string {
 }
 
 function collapseRun(raw: string, ws: string, off: number): string {
-  if (off === 0) return ws;
+  // The indentation at the start of the file stays, as on every line — but a BOM is no
+  // indentation: kept, it stood before a pattern pinned to the first line (07-findings Н6)
+  if (off === 0) return ws.replace(/^\uFEFF/, '');
   const lastNewline = ws.lastIndexOf('\n');
   if (lastNewline !== -1) {
     const newlines = ws.slice(0, lastNewline + 1).replace(/[^\n]/g, '');

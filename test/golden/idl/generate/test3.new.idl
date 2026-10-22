@@ -1,0 +1,11 @@
+// [DICT] новый член словаря между двумя похожими
+dictionary CanvasRenderingContext2DSettings {
+    boolean alpha = true;
+    boolean desynchronized = false;
+    boolean braveFarbling = true;
+    PredefinedColorSpace colorSpace = "srgb";
+};
+
+dictionary ImageBitmapRenderingContextSettings {
+    boolean alpha = true;
+};

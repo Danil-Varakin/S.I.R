@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/c/generate/test8.new.c
+Grammar: tree-sitter-c@0.24.1
+
+# match c
+    ...
+    >>>
+        long: sizeof(long),          \
+    <<<
+    ...
+# end
+# patch
+    long: sizeof(long long),     \
+# end

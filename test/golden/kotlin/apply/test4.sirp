@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/kotlin/apply/test4.kt
+
+# match kotlin
+    ...
+        fun warm(keys: List<String>) {
+    ...
+    >>>
+                    cache[key] = Setting(key, raw.trim())
+    <<<
+    ...
+# end
+# patch
+    cache[key] = Setting(key, raw.squeeze())
+# end

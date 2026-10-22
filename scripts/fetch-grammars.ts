@@ -1,5 +1,5 @@
 // Fills grammars/ of the package with the grammars src/lang/*/index.ts pins — for
-// development, CI and `npm pack` only: hatch itself never downloads anything
+// development, CI and `npm pack` only: sir itself never downloads anything
 // (src/infra/grammar-store.ts). Every file is checked against its sha256 pin; a file
 // already there with the right bytes is left alone.
 //
@@ -7,9 +7,12 @@
 //   node --experimental-strip-types scripts/fetch-grammars.ts --pin tree-sitter-go@0.25.0
 //       download one grammar and print the block to paste into a new language's index.ts
 //
-// Where the bytes come from, in order: grammars/ itself; the user cache hatch 0.1–0.3
+// Where the bytes come from, in order: grammars/ itself; the user cache sir 0.1–0.3
 // filled (a machine that ran it has them, and they are checked like any other); the npm
-// CDNs, jsdelivr then unpkg.
+// CDNs, jsdelivr then unpkg; last, for a package whose npm archive has no .wasm
+// (@tree-sitter-grammars/tree-sitter-xml), the GitHub Release of the same version — its
+// repository read from the npm registry, its tag `v<version>`. The pin is the same in
+// every case, and so is the check.
 
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -26,17 +29,59 @@ function urls(source: GrammarSource): string[] {
   return [`https://cdn.jsdelivr.net/npm/${spec}`, `https://unpkg.com/${spec}`];
 }
 
-/** Where hatch 0.1–0.3 kept its downloads — read, never written. */
+/** The file in the GitHub Release `v<version>` of the package's repository, as the npm
+ *  registry names it; undefined when the repository is not on GitHub. */
+async function releaseUrl(source: GrammarSource): Promise<string | undefined> {
+  const response = await fetch(`https://registry.npmjs.org/${source.package!}/${source.version!}`, {
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const manifest = (await response.json()) as { repository?: string | { url?: string } };
+  const repository = typeof manifest.repository === 'string' ? manifest.repository : manifest.repository?.url;
+  const m = /github\.com[/:]([^/]+)\/([^/#]+?)(?:\.git)?(?:#.*)?$/.exec(repository ?? '');
+  if (m === null) return undefined;
+  return `https://github.com/${m[1]!}/${m[2]!}/releases/download/v${source.version!}/${source.file}`;
+}
+
+/** The pinned bytes from the CDNs, then from the GitHub Release; every source checked. */
+async function downloadPinned(source: GrammarSource, failures: string[]): Promise<Uint8Array | undefined> {
+  for (const url of urls(source)) {
+    const got = await tryDownload(url, source, failures);
+    if (got !== undefined) return got;
+  }
+  let release: string | undefined;
+  try {
+    release = await releaseUrl(source);
+  } catch (e) {
+    failures.push(`npm registry: ${(e as Error).message}`);
+  }
+  return release === undefined ? undefined : tryDownload(release, source, failures);
+}
+
+async function tryDownload(url: string, source: GrammarSource, failures: string[]): Promise<Uint8Array | undefined> {
+  try {
+    const got = await download(url);
+    if (source.sha256 !== undefined && digest(got) !== source.sha256) {
+      throw new Error(`checksum mismatch: expected ${source.sha256}, received ${digest(got)}`);
+    }
+    return got;
+  } catch (e) {
+    failures.push(`${url}: ${(e as Error).message}`);
+    return undefined;
+  }
+}
+
+/** Where sir 0.1–0.3 kept its downloads — read, never written. */
 function legacyCacheEntry(source: GrammarSource): string {
   const xdg = process.env['XDG_CACHE_HOME'];
   const root =
     xdg !== undefined && xdg !== ''
-      ? join(xdg, 'hatch', 'grammars')
+      ? join(xdg, 'sir', 'grammars')
       : process.platform === 'darwin'
-        ? join(homedir(), 'Library', 'Caches', 'hatch', 'grammars')
+        ? join(homedir(), 'Library', 'Caches', 'sir', 'grammars')
         : process.platform === 'win32'
-          ? join(process.env['LOCALAPPDATA'] ?? homedir(), 'hatch', 'grammars')
-          : join(homedir(), '.cache', 'hatch', 'grammars');
+          ? join(process.env['LOCALAPPDATA'] ?? homedir(), 'sir', 'grammars')
+          : join(homedir(), '.cache', 'sir', 'grammars');
   return join(root, `${source.package!.replace('/', '+')}@${source.version!}`, source.file);
 }
 
@@ -63,18 +108,7 @@ async function fetchPinned(source: GrammarSource, dir: string): Promise<'present
   let bytes: Uint8Array | undefined = cached !== null && digest(cached) === source.sha256 ? cached : undefined;
   const how = bytes !== undefined ? 'copied' : 'downloaded';
   const failures: string[] = [];
-  for (const url of bytes === undefined ? urls(source) : []) {
-    try {
-      const got = await download(url);
-      if (digest(got) !== source.sha256) {
-        throw new Error(`checksum mismatch: expected ${source.sha256}, received ${digest(got)}`);
-      }
-      bytes = got;
-      break;
-    } catch (e) {
-      failures.push(`${url}: ${(e as Error).message}`);
-    }
-  }
+  bytes ??= await downloadPinned(source, failures);
   if (bytes === undefined) throw new Error(`could not get ${source.file}\n  ${failures.join('\n  ')}`);
 
   const temp = `${target}.${process.pid}.tmp`;
@@ -89,7 +123,9 @@ async function pin(spec: string): Promise<void> {
   const pkg = spec.slice(0, at);
   const version = spec.slice(at + 1);
   const file = `${pkg.split('/').pop()}.wasm`;
-  const bytes = await download(urls({ file, package: pkg, version })[0]!);
+  const failures: string[] = [];
+  const bytes = await downloadPinned({ file, package: pkg, version }, failures);
+  if (bytes === undefined) throw new Error(`could not get ${file}\n  ${failures.join('\n  ')}`);
   process.stdout.write(
     [
       '  grammar: {',
@@ -113,9 +149,10 @@ async function main(argv: readonly string[]): Promise<void> {
   const seen = new Set<string>();
   const counts = { present: 0, copied: 0, downloaded: 0 };
   for (const adapter of adaptersByName().values()) {
-    if (seen.has(adapter.grammar.file)) continue;
-    seen.add(adapter.grammar.file);
-    counts[await fetchPinned(adapter.grammar, dir)]++;
+    const grammar = adapter.grammar;
+    if (grammar === undefined || seen.has(grammar.file)) continue; // a language read as text pins none
+    seen.add(grammar.file);
+    counts[await fetchPinned(grammar, dir)]++;
   }
   process.stderr.write(
     `grammars/: ${seen.size} grammar(s) — ${counts.present} present, ${counts.copied} copied, ${counts.downloaded} downloaded\n`,

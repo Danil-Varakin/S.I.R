@@ -1,0 +1,22 @@
+Sir: 2
+Target: test/golden/rust/generate/test1.new.rs
+Grammar: tree-sitter-rust@0.24.0
+
+# match rust
+    ...
+    pub fn longest<
+    ...
+    >(
+    ...
+    ) -> &'a str {
+    ...
+    >>>
+        if left.len() > right.len() { left } else { right }
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    if left.len() > right.len() { right } else { left }
+# end

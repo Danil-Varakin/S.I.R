@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/java/generate/test6.new.java
+Grammar: tree-sitter-java@0.23.5
+
+# match java
+    ...
+            int apply(
+    ...
+    ) {
+    ...
+    >>>
+                return a + b;
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    return Math.addExact(a, b);
+# end

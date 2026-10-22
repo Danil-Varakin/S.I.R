@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/rust/generate/test19.new.rs
+Grammar: tree-sitter-rust@0.24.0
+
+# match rust
+    ...
+        ($cond:expr, $msg:literal) => {
+    ...
+            if !$cond {
+    >>>
+    ...
+    }
+    ...
+# end
+# patch
+
+                log::error!("{}", $msg);
+# end

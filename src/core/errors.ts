@@ -1,10 +1,15 @@
+import type { Hunk } from './ast.ts';
+
 /** The first line of an error's message — a reason quoted inside another message. */
 export function firstLineOf(e: unknown): string {
   return String(e instanceof Error ? e.message : e).trim().split('\n')[0] ?? '';
 }
 
-export abstract class HatchError extends Error {
+export abstract class SirError extends Error {
   abstract readonly exitCode: number;
+  /** The hunk of a patch the client sent that the error is about, and its line there —
+   *  set where a patch written by hand is checked (`generate`'s `keep`). */
+  hunkAt: { readonly hunk: number; readonly mdLine?: number } | undefined;
 
   constructor(message: string) {
     super(message);
@@ -19,9 +24,9 @@ export abstract class HatchError extends Error {
   }
 }
 
-export class ParseError extends HatchError {
+export class ParseError extends SirError {
   readonly exitCode = 2;
-  /** the line of the `.hatch`, counted from 1 (the name is from the format before 0.4) */
+  /** the line of the `.sirp`, counted from 1 (the name is from the format before 0.4) */
   readonly mdLine: number;
   readonly hint?: string;
 
@@ -39,7 +44,7 @@ export class ParseError extends HatchError {
   }
 }
 
-export class MatchError extends HatchError {
+export class MatchError extends SirError {
   readonly exitCode = 3;
   readonly deepestPos: number;
   readonly failedStepIndex: number;
@@ -84,7 +89,7 @@ export class MatchError extends HatchError {
   }
 }
 
-export class PathError extends HatchError {
+export class PathError extends SirError {
   readonly exitCode = 1;
   readonly path: string;
   readonly blocker: string;
@@ -100,7 +105,7 @@ export class PathError extends HatchError {
   }
 }
 
-export class ConfigError extends HatchError {
+export class ConfigError extends SirError {
   readonly exitCode = 5;
   readonly file: string | undefined;
   /** `keys` not in the schema `version` the config names — each `{ path, since, until }`. */
@@ -118,7 +123,7 @@ export class ConfigError extends HatchError {
   }
 }
 
-export class GrammarError extends HatchError {
+export class GrammarError extends SirError {
   readonly exitCode = 6;
   readonly grammar: string | undefined;
 
@@ -132,7 +137,7 @@ export class GrammarError extends HatchError {
   }
 }
 
-export class LanguageError extends HatchError {
+export class LanguageError extends SirError {
   readonly exitCode = 1;
   readonly language: string | undefined;
   readonly extension: string | undefined;
@@ -166,7 +171,7 @@ export type GitErrorReason =
   | 'bad-coordinate'
   | 'no-git';
 
-export class GitError extends HatchError {
+export class GitError extends SirError {
   readonly exitCode = 1;
   readonly revision: string | undefined;
   readonly reason: GitErrorReason;
@@ -188,7 +193,7 @@ export class GitError extends HatchError {
 
 /** The new version is the base, as `generate` compares them — after normalization, or
  *  byte for byte with `exact`. There is nothing to write, and no patch is written. */
-export class NoChanges extends HatchError {
+export class NoChanges extends SirError {
   readonly exitCode = 7;
   readonly baseSpec: string | null;
 
@@ -205,32 +210,54 @@ export class NoChanges extends HatchError {
 /** Why `generate` wrote no patch: no pattern made of the text around a change lands
  *  there and only there — no candidate fitted, or none could be built (`no-match`), or
  *  the last fitted in more than one place (`ambiguous`) — or the hunks, applied, do not
- *  give the new version (`unreproduced`, a fault of synthesis itself). A `.hatch` that
+ *  give the new version (`unreproduced`, a fault of synthesis itself). A `.sirp` that
  *  does not apply is a MatchError or an AmbiguityError; this one had no patch to apply
  *  yet. */
 export type SynthesisFailure = 'no-match' | 'ambiguous' | 'unreproduced';
 
-export class SynthesisError extends HatchError {
+/** What a person needs to write an unanchored change by hand: the hunks so far and, last,
+ *  a hunk to start the change from (`generate/draft.ts`). */
+export interface SynthesisDraft {
+  readonly hunks: readonly Hunk[];
+  /** the change: its line in the text the hunks so far make of the old version (from
+   *  1), the lines it takes out and the lines it puts in */
+  readonly change: { readonly line: number; readonly removed: readonly string[]; readonly added: readonly string[] };
+  /** the draft as a `.sirp`, header first, and the line of the last hunk's `# match` in
+   *  it (from 1) — printed by `generate`, which has the header */
+  readonly printed?: { readonly text: string; readonly line: number };
+}
+
+export class SynthesisError extends SirError {
   readonly exitCode = 8;
   readonly reason: SynthesisFailure;
   /** the line of the new version the change starts on, counted from 1 */
   readonly newLine: number | undefined;
   /** the last candidate's failure, one line — for a message that names the change itself */
   readonly because: string;
+  /** the hunks to go on from by hand — none for `unreproduced`, which is no change's */
+  readonly draft: SynthesisDraft | undefined;
 
-  constructor(message: string, reason: SynthesisFailure, because: string, newLine?: number) {
+  constructor(message: string, reason: SynthesisFailure, because: string, newLine?: number, draft?: SynthesisDraft) {
     super(message);
     this.reason = reason;
     this.because = because;
     this.newLine = newLine;
+    this.draft = draft;
   }
 
   override detail(): Record<string, unknown> {
-    return { reason: this.reason, ...(this.newLine !== undefined ? { newLine: this.newLine } : {}) };
+    const printed = this.draft?.printed;
+    return {
+      reason: this.reason,
+      ...(this.newLine !== undefined ? { newLine: this.newLine } : {}),
+      ...(printed !== undefined
+        ? { draft: printed.text, draftHunk: this.draft!.hunks.length, draftLine: printed.line, change: this.draft!.change }
+        : {}),
+    };
   }
 }
 
-export class AmbiguityError extends HatchError {
+export class AmbiguityError extends SirError {
   readonly exitCode = 4;
   readonly positions: number[];
   readonly spanEnds: (number | undefined)[];

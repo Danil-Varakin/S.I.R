@@ -1,0 +1,7 @@
+/* [SELECTORLIST] новый селектор в многострочный список селекторов */
+cr-button,
+cr-icon-button,
+brave-button,
+paper-ripple {
+  --ink-color: currentColor;
+}

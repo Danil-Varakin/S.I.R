@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/rust/apply/test10.rs
+Grammar: tree-sitter-rust@0.24.0
+
+# match rust
+    ...
+        fn describe(
+    ...
+    ) -> String {
+    ...
+    >>>
+            format!("backend with {} keys", self.len())
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    format!("backend, {} keys", self.len())
+# end

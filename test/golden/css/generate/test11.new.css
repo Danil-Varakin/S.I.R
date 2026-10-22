@@ -1,0 +1,6 @@
+/* [SUPPORTS] правка в @supports с условием в скобках */
+@supports (backdrop-filter: blur(4px)) {
+  .overlay {
+    backdrop-filter: blur(8px);
+  }
+}

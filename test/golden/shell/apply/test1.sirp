@@ -1,0 +1,17 @@
+Sir: 2
+Target: test/golden/shell/apply/test1.sh
+
+# match shell
+    ...
+    update_good_repo() {
+    ...
+      APT_SOURCES_LIST="/etc/apt/sources.list.d/@@PACKAGE@@.list"
+    >>>
+    ...
+    }
+    ...
+# end
+# patch
+
+      BRAVE_REPO="https://brave-browser-apt-release.s3.brave.com/"
+# end

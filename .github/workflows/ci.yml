@@ -45,6 +45,42 @@ jobs:
       - name: test
         run: npm test
 
+  coverage:
+    # the code of the package, not the scripts around it: a test that stops reaching a
+    # branch fails here rather than going unnoticed (docs: test plan, stage 0). Not in
+    # `npm run check` — coverage slows the suite every commit would wait for.
+    name: coverage (src ≥ 98% lines, ≥ 95% branches)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: grammar cache
+        uses: actions/cache@v4
+        with:
+          path: grammars
+          key: grammars-${{ hashFiles('src/lang/*/index.ts') }}
+      - run: npm run grammars
+      - name: coverage thresholds
+        run: >-
+          node --test --experimental-strip-types --experimental-test-coverage
+          --test-coverage-include='src/**'
+          --test-coverage-lines=98 --test-coverage-branches=95
+          --test-reporter=spec --test-reporter-destination=stdout
+          --test-reporter=lcov --test-reporter-destination=lcov.info
+          "test/**/*.test.ts"
+      # a red run names the number, not the branch: the report shows which one is missed
+      - name: coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lcov
+          path: lcov.info
+          if-no-files-found: ignore
+
   package:
     name: package contents
     runs-on: ubuntu-latest
@@ -62,11 +98,14 @@ jobs:
         run: |
           npm pack --dry-run --json > pack.json
           node -e "const f=require('./pack.json')[0].files.map(x=>x.path); for (const g of ['tree-sitter-cpp.wasm','tree-sitter-python.wasm']) if (!f.includes('grammars/'+g)) { console.error('missing grammars/'+g); process.exit(1) }"
+      # the archive as README installs it: npm i -g, then the command, the API and the service
+      - name: the packed archive installs and works
+        run: npm run smoke:install
 
   apply-bin:
-    # hatch-apply bundles the engine into one file: an import that does not bundle, or a
+    # sir-apply bundles the engine into one file: an import that does not bundle, or a
     # runtime that looks for a file beside its JS, is caught here rather than at release
-    name: hatch-apply (linux-x64)
+    name: sir-apply (linux-x64)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -83,7 +122,7 @@ jobs:
       - name: build
         run: npm run build:apply-bin
       - name: apply goldens through the binary
-        run: node test/golden/run-binary.mjs build/hatch-apply-*-linux-x64
-      - name: hatch-apply tests through the binary
+        run: node test/golden/run-binary.mjs build/sir-apply-*-linux-x64
+      - name: sir-apply tests through the binary
         shell: bash
-        run: HATCH_APPLY_BIN="$(ls build/hatch-apply-*-linux-x64)" node --test --experimental-strip-types test/unit/hatch-apply.test.ts
+        run: SIR_APPLY_BIN="$(ls build/sir-apply-*-linux-x64)" node --test --experimental-strip-types test/unit/sir-apply.test.ts

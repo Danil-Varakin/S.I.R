@@ -1,0 +1,43 @@
+// [STATUSDUP] значение status в одной из двух фич с одинаковым телом — различитель только name
+{
+  // Each entry is a runtime feature. See README.md.
+  parameters: {
+    status: {
+      valid_values: ["stable", "experimental", "test"],
+    },
+    public: {
+      valid_type: "bool",
+    },
+  },
+
+  data: [
+    {
+      name: "Accelerated2dCanvas",
+      status: "stable",
+    },
+    {
+      name: "AIPromptAPI",
+      public: true,
+      status: {
+        "Win": "stable",
+        "Mac": "stable",
+        "default": "",
+      },
+    },
+    {
+      name: "AIRewriterAPI",
+      public: true,
+      status: {
+        "Win": "stable",
+        "Mac": "stable",
+        "default": "",
+      },
+    },
+    {
+      name: 'Fledge',
+      status: "stable",
+      // Keep in sync with the browser feature.
+      base_feature: "none",
+    },
+  ],
+}

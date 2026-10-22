@@ -1,0 +1,13 @@
+// [MOJOMIFACE] новый метод интерфейса — у соседнего интерфейса метод с тем же телом
+module side_panel.mojom;
+
+import "url/mojom/url.mojom";
+
+interface PageHandler {
+  OpenBookmark(int64 node_id, int32 parent_folder_depth);
+  ShowContextMenu(string id, gfx.mojom.Point point);
+};
+
+interface Page {
+  OpenBookmark(int64 node_id, int32 parent_folder_depth);
+};

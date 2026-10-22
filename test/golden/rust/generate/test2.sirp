@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/rust/generate/test2.new.rs
+Grammar: tree-sitter-rust@0.24.0
+
+# match rust
+    ...
+        fn fmt(
+    ...
+    ) -> fmt::Result {
+    ...
+    >>>
+            write!(f, "ticket #{}", self.id)
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    write!(f, "ticket #{} ({})", self.id, self.state)
+# end

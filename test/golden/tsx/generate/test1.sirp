@@ -1,0 +1,22 @@
+Sir: 2
+Target: test/golden/tsx/generate/test1.new.tsx
+Grammar: tree-sitter-typescript@0.23.2
+
+# match tsx
+    ...
+    <
+    ...
+    >(
+    ...
+    ): T => {
+    ...
+    >>>
+      return value;
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    return value as T;
+# end

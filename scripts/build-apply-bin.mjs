@@ -1,11 +1,11 @@
-// Builds `hatch-apply` — one executable with Node, the tree-sitter runtime and every
+// Builds `sir-apply` — one executable with Node, the tree-sitter runtime and every
 // pinned grammar inside — for the platform this runs on (a release builds it on each:
 // .github/workflows/release.yml). Node's single executable applications:
 // https://nodejs.org/api/single-executable-applications.html
 //
-//   node scripts/build-apply-bin.mjs            → build/hatch-apply-<version>-<os>-<arch>[.exe]
+//   node scripts/build-apply-bin.mjs            → build/sir-apply-<version>-<os>-<arch>[.exe]
 //
-// 1. esbuild bundles src/bin/hatch-apply.ts into one CommonJS file. `import.meta` does not
+// 1. esbuild bundles src/bin/sir-apply.ts into one CommonJS file. `import.meta` does not
 //    exist there: its `url` and `dirname` are defined from the executable's own path (the
 //    tree-sitter runtime reads `import.meta.url` to find files it is handed as assets
 //    instead), and the version is defined as a constant — there is no package.json.
@@ -25,8 +25,8 @@ const FUSE = 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2';
 
 const version = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version;
 const os = { darwin: 'darwin', linux: 'linux', win32: 'win' }[process.platform];
-if (os === undefined) throw new Error(`no hatch-apply for ${process.platform}`);
-const name = `hatch-apply-${version}-${os}-${process.arch}${os === 'win' ? '.exe' : ''}`;
+if (os === undefined) throw new Error(`no sir-apply for ${process.platform}`);
+const name = `sir-apply-${version}-${os}-${process.arch}${os === 'win' ? '.exe' : ''}`;
 
 function run(cmd, args) {
   execFileSync(cmd, args, { cwd: ROOT, stdio: 'inherit' });
@@ -37,21 +37,21 @@ mkdirSync(OUT, { recursive: true });
 
 // 1. the bundle
 await esbuild.build({
-  entryPoints: [join(ROOT, 'src', 'bin', 'hatch-apply.ts')],
+  entryPoints: [join(ROOT, 'src', 'bin', 'sir-apply.ts')],
   bundle: true,
   platform: 'node',
   format: 'cjs',
   target: `node${process.versions.node.split('.')[0]}`,
-  outfile: join(OUT, 'hatch-apply.cjs'),
+  outfile: join(OUT, 'sir-apply.cjs'),
   banner: {
     js:
-      "const __hatchUrl = require('node:url').pathToFileURL(process.execPath).href;\n" +
-      "const __hatchDirname = require('node:path').dirname(process.execPath);",
+      "const __sirUrl = require('node:url').pathToFileURL(process.execPath).href;\n" +
+      "const __sirDirname = require('node:path').dirname(process.execPath);",
   },
   define: {
-    'import.meta.url': '__hatchUrl',
-    'import.meta.dirname': '__hatchDirname',
-    __HATCH_VERSION__: JSON.stringify(version),
+    'import.meta.url': '__sirUrl',
+    'import.meta.dirname': '__sirDirname',
+    __SIR_VERSION__: JSON.stringify(version),
   },
   logLevel: 'warning',
 });
@@ -66,8 +66,8 @@ const seaConfig = join(OUT, 'sea-config.json');
 writeFileSync(
   seaConfig,
   JSON.stringify({
-    main: join(OUT, 'hatch-apply.cjs'),
-    output: join(OUT, 'hatch-apply.blob'),
+    main: join(OUT, 'sir-apply.cjs'),
+    output: join(OUT, 'sir-apply.blob'),
     disableExperimentalSEAWarning: true,
     // a code cache is tied to the V8 it was made by: every platform builds its own
     useCodeCache: true,
@@ -85,7 +85,7 @@ run(process.execPath, [
   join(ROOT, 'node_modules', 'postject', 'dist', 'cli.js'),
   exe,
   'NODE_SEA_BLOB',
-  join(OUT, 'hatch-apply.blob'),
+  join(OUT, 'sir-apply.blob'),
   '--sentinel-fuse',
   FUSE,
   ...(os === 'darwin' ? ['--macho-segment-name', 'NODE_SEA'] : []),

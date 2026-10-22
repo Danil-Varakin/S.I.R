@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/css/generate/test8.new.css
+Grammar: tree-sitter-css@0.25.0
+
+# match css
+    ...
+    cr-icon-button,
+    >>>
+    ...
+# end
+# patch
+
+    brave-button,
+# end

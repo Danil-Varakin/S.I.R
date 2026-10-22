@@ -1,0 +1,17 @@
+// [ARRAYOBJ] вставка объекта в массив объектов — запятая соседа
+{
+  "rules": [
+    {
+      "id": 1,
+      "action": "block"
+    },
+    {
+      "id": 2,
+      "action": "allow"
+    },
+    {
+      "id": 3,
+      "action": "upgradeScheme"
+    }
+  ]
+}

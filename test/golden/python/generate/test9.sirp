@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/python/generate/test9.new.py
+Grammar: tree-sitter-python@0.25.0
+
+# match python
+    ...
+    compute(
+    ...
+    >>>
+        beta=2,
+    <<<
+    ...
+    )
+    ...
+# end
+# patch
+    beta=20,
+# end

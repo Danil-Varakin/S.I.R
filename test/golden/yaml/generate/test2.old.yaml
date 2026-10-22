@@ -1,0 +1,7 @@
+# [YAMLITEM] элемент списка — такой же элемент в соседнем списке
+items:
+- caption: Disable DNS-over-HTTPS
+  value: 'off'
+- caption: Enable DNS-over-HTTPS with insecure fallback
+  value: automatic
+example_value: 'off'

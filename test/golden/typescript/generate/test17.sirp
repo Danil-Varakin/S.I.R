@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/typescript/generate/test17.new.ts
+Grammar: tree-sitter-typescript@0.23.2
+
+# match typescript
+    ...
+    >>>
+    type Span = [start: number, end: number, label?: string];
+    <<<
+    ...
+# end
+# patch
+    type Span = [start: number, end: number, label?: string, weight?: number];
+# end

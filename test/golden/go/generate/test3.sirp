@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/go/generate/test3.new.go
+Grammar: tree-sitter-go@0.25.0
+
+# match go
+    ...
+    func() {
+    ...
+    >>>
+    			f.Close()
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    _ = f.Close()
+# end

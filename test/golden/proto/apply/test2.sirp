@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/proto/apply/test2.proto
+
+# match proto
+    ...
+      oneof specifics_variant {
+    ...
+    >>>
+    }
+    ...
+# end
+# patch
+      BraveVgSpecifics brave_vg = 991001;
+      
+# end

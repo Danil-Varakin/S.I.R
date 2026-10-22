@@ -18,7 +18,7 @@ import {
 import type { FieldSpec, GenerateSettings, PartialSettings } from './schema.ts';
 import { CONFIG_VERSION } from './schema.ts';
 
-export const CONFIG_FILE_NAME = 'hatch.config.json';
+export const CONFIG_FILE_NAME = 'sir.config.json';
 
 export interface ResolvedConfig {
   readonly version: number;

@@ -1,0 +1,11 @@
+// [VALUE] значение в одном из двух объектов с одинаковыми ключами
+{
+  "stable": {
+    "channel": "stable",
+    "update_url": "https://example.com/stable"
+  },
+  "beta": {
+    "channel": "beta",
+    "update_url": "https://example.com/beta"
+  }
+}

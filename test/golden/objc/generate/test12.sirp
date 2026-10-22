@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/objc/generate/test12.new.m
+Grammar: tree-sitter-objc@3.0.2
+
+# match objc
+    ...
+    ^{
+    ...
+    >>>
+        [self.delegate didFinish:self];
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    [self.delegate didFinishLoading:self];
+# end

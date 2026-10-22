@@ -44,21 +44,21 @@ export interface Hunk {
 
 export interface Note {
   text: string;
-  /** lines of the `.hatch` from `# note` to its `# end`, counted from 1 (`md` is the
+  /** lines of the `.sirp` from `# note` to its `# end`, counted from 1 (`md` is the
    *  name from the format the patch had before 0.4; the field keeps it) */
   mdSpan: [number, number];
 }
 
-/** The header of a `.hatch` (`core/header.ts`): the format number and the fields hatch
- *  knows — `HeaderFields`, the one list of them. A file with no header is format 1 with
- *  no fields. */
-export interface HatchHeader extends HeaderFields {
+/** The header of a `.sirp` (`core/header.ts`): the format number and the fields sir
+ *  knows — `HeaderFields`, the one list of them. A file with no header is hunks alone,
+ *  read as `FORMAT_MIN` with no fields (VERSIONING.md H1). */
+export interface SirHeader extends HeaderFields {
   format: number;
 }
 
-export interface HatchFile {
+export interface SirFile {
   /** always there in a parsed file; one built in code may go without */
-  header?: HatchHeader;
+  header?: SirHeader;
   hunks: Hunk[];
   language?: string;
 }

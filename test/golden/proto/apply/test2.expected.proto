@@ -1,0 +1,12 @@
+// [NEAR] upstream добавил вариант oneof прямо над правкой
+syntax = "proto2";
+
+message EntitySpecifics {
+  oneof specifics_variant {
+    AutofillSpecifics autofill = 31729;
+    BookmarkSpecifics bookmark = 32904;
+    CollaborationGroupSpecifics collaboration_group = 4011;
+    DeviceInfoSpecifics device_info = 154522;
+    BraveVgSpecifics brave_vg = 991001;
+  }
+}

@@ -1,0 +1,5 @@
+<!-- [ENTITY] сущности &amp; &lt; в тексте и в атрибуте -->
+<resources>
+    <string name="terms">Terms &amp; Privacy</string>
+    <string name="warn" formatted="false">a &lt; b</string>
+</resources>

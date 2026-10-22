@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/c/generate/test11.new.c
+Grammar: tree-sitter-c@0.24.1
+
+# match c
+    ...
+    int open_all(
+    ...
+    ) {
+    ...
+    >>>
+      cleanup();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    cleanup_all();
+# end

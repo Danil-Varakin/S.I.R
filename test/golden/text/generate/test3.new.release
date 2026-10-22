@@ -1,0 +1,7 @@
+[RELEASE] chrome.release: строки в секции [GENERAL] — секция это строка, не блок
+[GENERAL]
+chrome.exe: %(ChromeDir)s\
+chrome.dll: %(VersionDir)s\
+brave_vpn_helper.exe: %(VersionDir)s\
+
+[HIDPI]

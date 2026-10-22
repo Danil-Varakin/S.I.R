@@ -1,0 +1,8 @@
+// [ENUM] новое значение enum — строки в кавычках, их пробелы данные
+enum CanvasFontStretch {
+    "ultra-condensed",
+    "condensed",
+    "normal",
+    "semi-expanded",
+    "expanded"
+};

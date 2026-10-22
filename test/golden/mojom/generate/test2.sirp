@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/mojom/generate/test2.new.mojom
+
+# match mojom
+    ...
+    enum ContentSetting {
+    ...
+    >>>
+    }
+    ...
+# end
+# patch
+      [MinVersion=2] DETECT_IMPORTANT_CONTENT,
+
+# end

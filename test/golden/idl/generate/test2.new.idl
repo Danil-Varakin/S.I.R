@@ -1,0 +1,12 @@
+// [PARTIAL] новый атрибут в partial interface; в файле два partial одного интерфейса
+[
+    SecureContext
+] partial interface Navigator {
+    [CallWith=ScriptState, HighEntropy=Direct, MeasureAs=NavigatorDeviceMemory] readonly attribute float deviceMemory;
+};
+
+[
+    Exposed=Window
+] partial interface Navigator {
+    readonly attribute boolean onLine;
+};

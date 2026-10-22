@@ -6,17 +6,17 @@ import { AmbiguityError, MatchError } from '../../src/core/errors.ts';
 import type { SynthEvent } from '../../src/generate/synth.ts';
 import { applyAll } from '../../src/core/apply.ts';
 import { cppAdapter } from '../../src/lang/cpp/index.ts';
-import { printPattern } from '../../src/core/hatch-printer.ts';
-import type { HatchFile } from '../../src/core/ast.ts';
+import { printPattern } from '../../src/core/sir-printer.ts';
+import type { SirFile } from '../../src/core/ast.ts';
 
-function hatchFile(hunks: ReturnType<typeof synthesize>): HatchFile {
+function sirFile(hunks: ReturnType<typeof synthesize>): SirFile {
   return { hunks: hunks.map((h) => ({ ...h, mdSpan: [0, 0] as [number, number] })) };
 }
 
 async function roundtrip(oldStr: string, newStr: string, bridgeGap = 0): Promise<void> {
   await cppAdapter.init();
   const hunks = synthesize(oldStr, newStr, cppAdapter, { bridgeGap, exact: true });
-  const { source } = applyAll(oldStr, hatchFile(hunks), cppAdapter);
+  const { source } = applyAll(oldStr, sirFile(hunks), cppAdapter);
   assert.equal(source, newStr);
 }
 
@@ -73,7 +73,7 @@ test('anchoring is STRUCTURAL: non-unique code is pinned by a PARENT, not a neig
   const oldStr = 'void a() {\n  int x = 1;\n}\nvoid b() {\n  int x = 1;\n}\n';
   const newStr = 'void a() {\n  int x = 1;\n}\nvoid b() {\n  int x = 99;\n}\n';
   const hunks = synthesize(oldStr, newStr, cppAdapter);
-  assert.equal(applyAll(oldStr, hatchFile(hunks), cppAdapter).source, newStr);
+  assert.equal(applyAll(oldStr, sirFile(hunks), cppAdapter).source, newStr);
   assert.match(printPattern(hunks[0]!.match), /void b\(\)/);
 });
 
@@ -84,7 +84,7 @@ test('hunks interfere: synthesis builds against the text earlier hunks already w
   const hunks = synthesize(oldStr, newStr, cppAdapter);
   assert.equal(hunks.length, 2);
   assert.match(printPattern(hunks[1]!.match), /void f\(/);
-  assert.equal(applyAll(oldStr, hatchFile(hunks), cppAdapter).source, newStr);
+  assert.equal(applyAll(oldStr, sirFile(hunks), cppAdapter).source, newStr);
 });
 
 test('a replacement changing the first indent: dedent and deepen, both round-tripping', async () => {
@@ -101,7 +101,7 @@ test('an insertion at the END of a block anchors on "}", not on the last line', 
   assert.match(p, /void g\(\)/);
   assert.doesNotMatch(p, /a\(\);\s*\n>>>/);
   const drifted = 'void f() {\n  a();\n}\nvoid g() {\n  a(x);\n}\n';
-  const { source } = applyAll(drifted, hatchFile(hunks), cppAdapter);
+  const { source } = applyAll(drifted, sirFile(hunks), cppAdapter);
   assert.ok(source.includes('NEW();') && source.includes('a(x)'), source);
 });
 
@@ -116,7 +116,9 @@ test('special cases: a BOF insertion, an EOF append, and replacing the whole fil
   await roundtrip('int a = 1;\n', 'int a = 1;\nint z = 9;\n');
 
   const whole = synthesize('int old = 1;\n', 'int a = 2;\nint b = 3;\n', cppAdapter);
-  assert.equal(printPattern(whole[0]!.match).replace(/\s/g, ''), '>>>...<<<');
+  // the whole file spells what it replaces: `>>> ... <<<` would fit every file and write
+  // over whatever upstream added to it (07-findings Н5)
+  assert.equal(printPattern(whole[0]!.match).replace(/\s/g, ''), '...>>>intold=1;<<<...');
   await roundtrip('int old = 1;\n', 'int a = 2;\nint b = 3;\n');
 });
 
@@ -132,7 +134,7 @@ test('verification: synthesize guarantees applyAll == new by construction', asyn
   const oldStr = 'namespace n {\nvoid f() {\n  int x = 1;\n  g(x);\n}\nvoid h() {\n  int y = 1;\n}\n}\n';
   const newStr = 'namespace n {\nvoid f() {\n  int x = 2;\n  g(x);\n  extra();\n}\nvoid h() {\n  int y = 1;\n}\n}\n';
   const hunks = synthesize(oldStr, newStr, cppAdapter);
-  assert.equal(applyAll(oldStr, hatchFile(hunks), cppAdapter).source, newStr);
+  assert.equal(applyAll(oldStr, sirFile(hunks), cppAdapter).source, newStr);
 });
 
 test('deleting a block under a BLANK line: the anchor moves to a non-blank, not to BOF', async () => {
@@ -141,7 +143,7 @@ test('deleting a block under a BLANK line: the anchor moves to a non-blank, not 
   const newStr = 'void Test() {\n  int a = 1;\n\n}\n';
   const hunks = synthesize(oldStr, newStr, cppAdapter);
   assert.doesNotMatch(printPattern(hunks[0]!.match), /^>>>/);
-  assert.equal(applyAll(oldStr, hatchFile(hunks), cppAdapter).source, newStr);
+  assert.equal(applyAll(oldStr, sirFile(hunks), cppAdapter).source, newStr);
 });
 
 test('deleting a line above a BLANK one: the cut does not run to EOF', async () => {
@@ -150,7 +152,7 @@ test('deleting a line above a BLANK one: the cut does not run to EOF', async () 
   const newStr = 'namespace n {\nvoid f() {\n  keep1();\n\n  keep2();\n}\n}\n';
   const hunks = synthesize(oldStr, newStr, cppAdapter);
   assert.doesNotMatch(hunks[0]!.patch, /namespace|keep2/);
-  assert.equal(applyAll(oldStr, hatchFile(hunks), cppAdapter).source, newStr);
+  assert.equal(applyAll(oldStr, sirFile(hunks), cppAdapter).source, newStr);
 });
 
 test('the tracer (--debug) shows the segment, an ambiguous probe and the chosen anchor', async () => {
@@ -174,7 +176,7 @@ test('8b: an Allman-style header ({ on its own line) anchors on the signature', 
   const p = printPattern(hunks[0]!.match);
   assert.match(p, /void b\(/);
   assert.doesNotMatch(p, /^\s*\.\.\.\s*\{\s*\.\.\./m);
-  assert.equal(applyAll(oldStr, hatchFile(hunks), cppAdapter).source, newStr);
+  assert.equal(applyAll(oldStr, sirFile(hunks), cppAdapter).source, newStr);
 });
 
 test('9: brackets generalise — a signature becomes `void render( ... )` and survives drift', async () => {
@@ -186,10 +188,10 @@ test('9: brackets generalise — a signature becomes `void render( ... )` and su
   const hunks = synthesize(oldStr, newStr, cppAdapter);
   const p = printPattern(hunks[0]!.match);
   assert.match(p, /void render\(\s*\.\.\.\s*\)/);
-  assert.equal(applyAll(oldStr, hatchFile(hunks), cppAdapter).source, newStr);
+  assert.equal(applyAll(oldStr, sirFile(hunks), cppAdapter).source, newStr);
   const drifted =
     'void handle(int code, bool flag) {\n  process();\n}\nvoid render(int code) {\n  process();\n}\n';
-  const { source } = applyAll(drifted, hatchFile(hunks), cppAdapter);
+  const { source } = applyAll(drifted, sirFile(hunks), cppAdapter);
   assert.ok(source.includes('process(2);') && source.includes('void render(int code) {'), source);
 });
 
@@ -200,7 +202,7 @@ test('8a: context taken from both sides — the discriminator lies BELOW', async
   const hunks = synthesize(oldStr, newStr, cppAdapter);
   const p = printPattern(hunks[0]!.match);
   assert.match(p, /b\(\);/);
-  assert.equal(applyAll(oldStr, hatchFile(hunks), cppAdapter).source, newStr);
+  assert.equal(applyAll(oldStr, sirFile(hunks), cppAdapter).source, newStr);
 });
 
 test('robustness: the edit still fits when its neighbours DRIFT, as they do upstream', async () => {
@@ -209,7 +211,7 @@ test('robustness: the edit still fits when its neighbours DRIFT, as they do upst
   const newStr = 'void a() {\n  int x = 1;\n}\nvoid b() {\n  int x = 99;\n}\n';
   const hunks = synthesize(oldStr, newStr, cppAdapter);
   const drifted = 'void a() {\n  int x = 1;\n}\nvoid b() {\n  int x = 1;\n  LOG(hi);\n}\n';
-  const { source } = applyAll(drifted, hatchFile(hunks), cppAdapter);
+  const { source } = applyAll(drifted, sirFile(hunks), cppAdapter);
   assert.ok(source.includes('int x = 99;'), source);
   assert.ok(source.includes('LOG(hi);'), 'the neighbour survived');
 });
@@ -229,9 +231,9 @@ test('deleting the FIRST line holds on to CONTENT, not to the start of the file'
   const newStr = 'int b = 2;\n';
   const hunks = synthesize(oldStr, newStr, cppAdapter);
   assert.match(printPattern(hunks[0]!.match), /^\.\.\./);
-  assert.equal(applyAll(oldStr, hatchFile(hunks), cppAdapter).source, newStr);
+  assert.equal(applyAll(oldStr, sirFile(hunks), cppAdapter).source, newStr);
   const drifted = '#include <a>\nint a = 1;\nint b = 2;\n';
-  assert.equal(applyAll(drifted, hatchFile(hunks), cppAdapter).source, '#include <a>\nint b = 2;\n');
+  assert.equal(applyAll(drifted, sirFile(hunks), cppAdapter).source, '#include <a>\nint b = 2;\n');
 });
 
 test('deleting the LAST line holds on to CONTENT, not to EOF', async () => {
@@ -239,9 +241,9 @@ test('deleting the LAST line holds on to CONTENT, not to EOF', async () => {
   const oldStr = 'int a = 1;\nint b = 2;\n';
   const newStr = 'int a = 1;\n';
   const hunks = synthesize(oldStr, newStr, cppAdapter);
-  assert.equal(applyAll(oldStr, hatchFile(hunks), cppAdapter).source, newStr);
+  assert.equal(applyAll(oldStr, sirFile(hunks), cppAdapter).source, newStr);
   const drifted = 'int a = 1;\nint b = 2;\nint c = 3;\n';
-  assert.equal(applyAll(drifted, hatchFile(hunks), cppAdapter).source, 'int a = 1;\nint c = 3;\n');
+  assert.equal(applyAll(drifted, sirFile(hunks), cppAdapter).source, 'int a = 1;\nint c = 3;\n');
 });
 
 test('deleting a BLANK line: the cut runs through the gap, with no empty literal', async () => {
@@ -264,7 +266,7 @@ test('the parent is CLOSED in the pattern, or the anchor catches a sibling block
   const p = printPattern(hunks[0]!.match);
   assert.match(p, /first\(/);
   assert.match(p, /<<<[\s\S]*\}/);
-  assert.equal(applyAll(oldStr, hatchFile(hunks), cppAdapter).source, newStr);
+  assert.equal(applyAll(oldStr, sirFile(hunks), cppAdapter).source, newStr);
 });
 
 test('inserting as the FIRST line of a block anchors on the parent header, no double `{`', async () => {
@@ -275,7 +277,7 @@ test('inserting as the FIRST line of a block anchors on the parent header, no do
   const p = printPattern(hunks[0]!.match);
   assert.match(p, /void c\(\)/);
   assert.doesNotMatch(p, /\{\n\.\.\.\n\{/);
-  assert.equal(applyAll(oldStr, hatchFile(hunks), cppAdapter).source, newStr);
+  assert.equal(applyAll(oldStr, sirFile(hunks), cppAdapter).source, newStr);
 });
 
 test('when an edit eats the parent `}` that block serves neither as anchor nor as closer', async () => {
@@ -295,10 +297,10 @@ test('the exact flag: strict reproduces verbatim, loose matches after normalizat
   const newStr = 'void f() {\n  deep();\n\n\tint tabbed = 1;\n  b();\n}\n';
 
   const strict = synthesize(oldStr, newStr, cppAdapter, { exact: true });
-  assert.equal(applyAll(oldStr, hatchFile(strict), cppAdapter).source, newStr);
+  assert.equal(applyAll(oldStr, sirFile(strict), cppAdapter).source, newStr);
 
   const loose = synthesize(oldStr, newStr, cppAdapter);
-  const looseOut = applyAll(oldStr, hatchFile(loose), cppAdapter).source;
+  const looseOut = applyAll(oldStr, sirFile(loose), cppAdapter).source;
   assert.equal(cppAdapter.normalize(looseOut), cppAdapter.normalize(newStr));
   assert.equal(looseOut, newStr);
 });
@@ -312,7 +314,7 @@ test('loose mode may NOT swallow a line: the check is per line, not over the who
   for (const exact of [false, true]) {
     const hunks = synthesize(oldStr, newStr, cppAdapter, { exact });
     assert.equal(
-      applyAll(oldStr, hatchFile(hunks), cppAdapter).source,
+      applyAll(oldStr, sirFile(hunks), cppAdapter).source,
       newStr,
       `exact=${exact} has to reproduce the set of lines`,
     );
@@ -325,9 +327,9 @@ test('structure from rung zero: even a self-unique edit still carries a parent',
   const newStr = 'void a() {\n  keep();\n}\nvoid b() {\n  keep();\n  target = 2;\n}\n';
   const hunks = synthesize(oldStr, newStr, cppAdapter);
   assert.match(printPattern(hunks[0]!.match), /void b\(\)/);
-  assert.equal(applyAll(oldStr, hatchFile(hunks), cppAdapter).source, newStr);
+  assert.equal(applyAll(oldStr, sirFile(hunks), cppAdapter).source, newStr);
   const drifted = 'void a() {\n  keep();\n}\nvoid b() {\n  keep();\n}\nvoid c() {\n  target = 1;\n}\n';
-  assert.throws(() => applyAll(drifted, hatchFile(hunks), cppAdapter), MatchError);
+  assert.throws(() => applyAll(drifted, sirFile(hunks), cppAdapter), MatchError);
 });
 
 test('synthesizeAsync: the same hunks; a signal stops it between two changes, with its reason', async () => {

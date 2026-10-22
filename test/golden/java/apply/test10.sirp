@@ -1,0 +1,17 @@
+Sir: 2
+Target: test/golden/java/apply/test10.java
+Grammar: tree-sitter-java@0.23.5
+
+# match java
+    ...
+                @Override
+                public void run() {
+    ...
+    >>>
+    }
+    ...
+# end
+# patch
+        capacity = 0;
+                
+# end

@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/tsx/apply/test6.tsx
+
+# match tsx
+    ...
+    interface Props<T> {
+      items: readonly T[];
+    >>>
+      loading: boolean;
+    ...
+# end
+# patch
+
+      dense?: boolean;
+# end

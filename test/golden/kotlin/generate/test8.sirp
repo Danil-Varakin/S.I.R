@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/kotlin/generate/test8.new.kt
+Grammar: @tree-sitter-grammars/tree-sitter-kotlin@1.1.0
+
+# match kotlin
+    ...
+    fun titleOf(
+    ...
+    ): String {
+    ...
+    >>>
+        return node?.header?.let { it.text.trim() } ?: "untitled"
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    return node?.header?.let { it.text.trim() } ?: "no title"
+# end

@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/cpp/generate/test53.new.cc
+Grammar: tree-sitter-cpp@0.23.4
+
+# match cpp
+    ...
+    void f() {
+    ...
+    >>>
+      std::map<std::string, std::vector<int>> second;
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    std::map<std::string, std::vector<long>> second;
+# end

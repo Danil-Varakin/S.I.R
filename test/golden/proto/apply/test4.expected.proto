@@ -1,0 +1,13 @@
+// [QUOTE] upstream поменял строку в одинарных кавычках ниже правки — шаблон держит enum, ложится
+syntax = "proto2";
+
+message Entry {
+  enum State {
+    NEW = 0;
+    ACTIVE = 1;
+    PAUSED = 2;
+    BRAVE_DEFERRED = 100;
+  }
+  optional State state = 1 [default = NEW];
+  optional string guid = 2 [default = 'x y'];
+}

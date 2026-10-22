@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/c/apply/test5.c
+
+# match c
+    ...
+    size_t ring_push( ... ) {
+    ...
+    >>>
+      memcpy(r->data + r->used, src, n);
+    <<<
+    ...
+# end
+# patch
+    memmove(r->data + r->used, src, n);
+# end

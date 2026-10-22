@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/proto/apply/test1.proto
+
+# match proto
+    ...
+    message DeviceInfoSpecifics {
+    ...
+    >>>
+    }
+    ...
+# end
+# patch
+      optional string brave_sync_chain_id = 1001;
+
+# end

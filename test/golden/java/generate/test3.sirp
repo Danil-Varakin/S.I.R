@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/java/generate/test3.new.java
+Grammar: tree-sitter-java@0.23.5
+
+# match java
+    ...
+    >>>
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    <<<
+    ...
+# end
+# patch
+    @SuppressWarnings({"unchecked", "rawtypes", "deprecation"})
+# end

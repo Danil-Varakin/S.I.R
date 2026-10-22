@@ -1,0 +1,16 @@
+Sir: 2
+Target: test/golden/java/apply/test5.java
+
+# match java
+    ...
+            return new Runnable() {
+    ...
+    >>>
+                    store.clear();
+    <<<
+    ...
+# end
+# patch
+    store.clear();
+                    LIMITS.clear();
+# end

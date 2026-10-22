@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/kotlin/generate/test2.new.kt
+Grammar: @tree-sitter-grammars/tree-sitter-kotlin@1.1.0
+
+# match kotlin
+    ...
+        rows.forEach {
+    ...
+    >>>
+            append(row.title)
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    append(row.caption)
+# end

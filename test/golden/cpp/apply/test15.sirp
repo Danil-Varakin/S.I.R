@@ -1,0 +1,12 @@
+# match cpp
+    ...
+    void Writer::Flush() {
+    ...
+    >>>
+    }
+    ...
+# end
+# patch
+      Sync();
+
+# end

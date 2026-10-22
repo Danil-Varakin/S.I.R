@@ -51,7 +51,7 @@ export interface GitVersion {
   readonly text: string;
   /** `<revision>:<path>` — what was actually read, for messages and logs. */
   readonly spec: string;
-  /** the id of the blob read — a patch's `Generated-From` */
+  /** the id of the blob read — a patch's `Base-Blob` */
   readonly blob: string;
 }
 
@@ -74,6 +74,8 @@ export interface GitBase {
   readonly spec: string;
   readonly sha: string;
   readonly root: string;
+  /** the id of the blob there — a patch's `Base-Blob` — named, not read */
+  readonly blob: string;
   readonly watch: readonly string[];
 }
 
@@ -84,7 +86,9 @@ export async function gitBaseOf(source: GitSource, inPath: string, ask: Ask = RE
   // the path must name a file there, as fileFromGit would find out by reading it — asked
   // by its type, without handing the bytes over
   await mustBeFile(found.git, found.revision, found.path, found.root);
-  return { spec: found.spec, sha, root: found.root, watch: await refFiles(found.git, found.root, found.revision) };
+  const id = (await attempt(found.git, ['rev-parse', '--verify', '--quiet', found.spec]))?.trim();
+  if (id === undefined || id === '') throw new GitError(`${found.spec}: git names no object for the file`, 'no-such-file', { revision: found.revision });
+  return { spec: found.spec, sha, root: found.root, blob: id, watch: await refFiles(found.git, found.root, found.revision) };
 }
 
 interface Located {

@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/objc/generate/test3.new.m
+Grammar: tree-sitter-objc@3.0.2
+
+# match objc
+    ...
+    @implementation Session {
+    ...
+    >>>
+      NSString *_token;
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    NSString *_sessionToken;
+# end

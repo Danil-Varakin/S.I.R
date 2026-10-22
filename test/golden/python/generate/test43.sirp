@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/python/generate/test43.new.py
+Grammar: tree-sitter-python@0.25.0
+
+# match python
+    ...
+    >>>
+    Sink = Callable[ ..., None]
+    <<<
+    ...
+# end
+# patch
+    Sink = Callable[ ..., bool]
+# end

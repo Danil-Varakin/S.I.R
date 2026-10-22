@@ -1,0 +1,8 @@
+[EOL] CRLF-база
+IDR_MAINFRAME ACCELERATORS
+BEGIN
+    VK_F5,          IDC_RELOAD,                 VIRTKEY
+    VK_F6,          IDC_FOCUS_LOCATION,         VIRTKEY
+    VK_F7,          IDC_BRAVE_SHIELDS,          VIRTKEY
+END
+STRINGTABLE { IDS_APP_NAME "Chromium" }

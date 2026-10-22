@@ -1,0 +1,17 @@
+Sir: 2
+Target: test/golden/python/generate/test44.new.py
+Grammar: tree-sitter-python@0.25.0
+
+# match python
+    ...
+    def banner() -> str:
+    ...
+    >>>
+        return "a" + "b"
+    <<<
+    ...
+# end
+# patch
+    pad = "   "   
+        return "a" + pad + "b"
+# end

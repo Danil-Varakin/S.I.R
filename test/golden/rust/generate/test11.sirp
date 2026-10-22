@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/rust/generate/test11.new.rs
+Grammar: tree-sitter-rust@0.24.0
+
+# match rust
+    ...
+        let Ok(value) = raw.parse::<
+    ...
+    >() else {
+    ...
+    >>>
+            return 0;
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    return u32::MAX;
+# end

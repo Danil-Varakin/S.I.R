@@ -1,4 +1,4 @@
-import { extname } from 'node:path';
+import { basename, extname } from 'node:path';
 import type { LanguageAdapter } from './source-map.ts';
 import { LanguageError } from '../core/errors.ts';
 import { cppAdapter } from './cpp/index.ts';
@@ -12,6 +12,18 @@ import { rustAdapter } from './rust/index.ts';
 import { javaAdapter } from './java/index.ts';
 import { kotlinAdapter } from './kotlin/index.ts';
 import { goAdapter } from './go/index.ts';
+import { htmlAdapter } from './html/index.ts';
+import { xmlAdapter } from './xml/index.ts';
+import { json5Adapter } from './json5/index.ts';
+import { idlAdapter } from './idl/index.ts';
+import { mojomAdapter } from './mojom/index.ts';
+import { protoAdapter } from './proto/index.ts';
+import { shellAdapter } from './shell/index.ts';
+import { yamlAdapter } from './yaml/index.ts';
+import { tomlAdapter } from './toml/index.ts';
+import { textAdapter } from './text/index.ts';
+import { cssAdapter } from './css/index.ts';
+import { jsonAdapter } from './json/index.ts';
 
 // Names a person writes: `# match c++`, `--language golang`.
 const NAMES: ReadonlyMap<string, LanguageAdapter> = new Map([
@@ -44,12 +56,26 @@ const NAMES: ReadonlyMap<string, LanguageAdapter> = new Map([
   ['kt', kotlinAdapter],
   ['go', goAdapter],
   ['golang', goAdapter],
+  ['html', htmlAdapter],
+  ['xml', xmlAdapter],
+  ['css', cssAdapter],
+  ['json', jsonAdapter],
+  ['json5', json5Adapter],
+  // read as text — no grammar (make-text-adapter.ts)
+  ['idl', idlAdapter],
+  ['mojom', mojomAdapter],
+  ['proto', protoAdapter],
+  ['protobuf', protoAdapter],
+  ['shell', shellAdapter],
+  ['yaml', yamlAdapter],
+  ['toml', tomlAdapter],
+  ['text', textAdapter],
 ]);
 
 const REGISTRY: readonly LanguageAdapter[] = [...new Set(NAMES.values())];
 
 // ...and every extension a language claims in its own folder, spelled without the dot:
-// hatch 0.2.0 and earlier wrote that word into `# match` (`in.mm` → `# match mm`), and
+// sir 0.2.0 and earlier wrote that word into `# match` (`in.mm` → `# match mm`), and
 // every such patch has to apply the same forever, so `apply` reads each one back as the
 // same language. Derived, not listed: a language that claims an extension gets its name
 // with it, and the two cannot drift apart. The map stays static — built from the
@@ -93,6 +119,10 @@ export function adapterForLanguage(name: string | undefined): LanguageAdapter {
 }
 
 export function adapterForFile(path: string): LanguageAdapter {
+  const name = basename(path);
+  for (const adapter of REGISTRY) {
+    if (adapter.fileNames?.includes(name) === true) return adapter;
+  }
   const ext = extensionOf(path);
   for (const adapter of REGISTRY) {
     if (adapter.extensions.includes(ext)) return adapter;
@@ -116,6 +146,25 @@ export function pickAdapter(from: {
   if (named !== undefined) return adapterForLanguage(named);
   if (from.path !== undefined) return adapterForFile(from.path);
   return adapterForLanguage(undefined); // throws, listing what is supported
+}
+
+/** The name of the adapter `pickAdapter` would pick for the job — the word `generate`
+ *  writes in `# match` — or null when it picks none: an extension no adapter carries, a
+ *  name no adapter answers to. No grammar is loaded. */
+export function pickedLanguage(from: Parameters<typeof pickAdapter>[0]): string | null {
+  return pickedAdapter(from)?.name ?? null;
+}
+
+/** The adapter `pickAdapter` would pick, or null when it picks none. No grammar is
+ *  loaded: what `config` says of a file — its `# match` word, its `Grammar` — is read off
+ *  the adapter as it stands. */
+export function pickedAdapter(from: Parameters<typeof pickAdapter>[0]): LanguageAdapter | null {
+  try {
+    return pickAdapter(from);
+  } catch (e) {
+    if (e instanceof LanguageError) return null;
+    throw e;
+  }
 }
 
 /** A language name as given, or undefined when it is empty — the same as not given. */

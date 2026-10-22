@@ -1,0 +1,13 @@
+Sir: 2
+Target: test/golden/toml/apply/test2.toml
+
+# match toml
+    ...
+    name = "brave_rust"
+    >>>
+    ...
+# end
+# patch
+
+    publish = false
+# end

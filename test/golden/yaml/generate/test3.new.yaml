@@ -1,0 +1,5 @@
+# [YAMLVALUE] значение ключа в кавычках — пробел внутри кавычек данные
+owners:
+- file://components/policy/OWNERS
+default: false
+tags: []

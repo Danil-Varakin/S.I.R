@@ -1,0 +1,22 @@
+Sir: 2
+Target: test/golden/objc/apply/test10.m
+Grammar: tree-sitter-objc@3.0.2
+
+# match objc
+    ...
+    - (
+    ...
+    )start:(
+    ...
+    )request {
+    ...
+      _inFlight += 1;
+    >>>
+    ...
+    }
+    ...
+# end
+# patch
+
+      NSLog(@"start %@", request);
+# end

@@ -1,0 +1,15 @@
+<!-- [GONE] MUST-REFUSE: upstream убрал intent-filter — вставке негде лечь -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="org.chromium.chrome">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application android:name="org.chromium.chrome.browser.ChromeApplication"
+        android:icon="@drawable/ic_launcher">
+        <activity android:name="org.chromium.chrome.browser.ChromeTabbedActivity"
+            android:exported="true">
+        </activity>
+        <service android:name="org.chromium.chrome.browser.DownloadService"
+            android:exported="false" />
+        <meta-data android:name="channel" android:value="stable" />
+    </application>
+</manifest>

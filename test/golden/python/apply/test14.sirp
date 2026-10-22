@@ -1,0 +1,23 @@
+Sir: 2
+Target: test/golden/python/apply/test14.py
+
+В docstring живёт doctest, и его приглашение `>>>` совпадает с оператором точки
+вставки — в блоке match оно экранируется как `\>>>`. В теле патча экранировать
+не нужно: patch не разбирается на операторы.
+
+# match python
+    ...
+    def add(a, b):
+    ...
+        \>>> add(1, 2)
+    ...
+    >>>
+        \>>> add(-1, 1)
+    <<<
+    ...
+        return a + b
+    ...
+# end
+# patch
+    >>> add(-2, 2)
+# end

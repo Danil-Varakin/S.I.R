@@ -1,30 +1,22 @@
-import { readFileSync } from 'node:fs';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { ConfigError } from '../core/errors.ts';
 import { formatSide, isContainedPath, readHeader } from '../core/header.ts';
-import { findRepoRoot, isFile, pathWithin, toPosixPath } from './fs.ts';
+import { isFile, pathWithin, readIfReadable, repoRootAround, toPosixPath } from './fs.ts';
 import { PATCH_EXTENSION, resolveOutPath } from './out-path.ts';
 import { patchTreeRoot, upstreamCode, upstreamTarget, withUpstream } from './project.ts';
 import type { Project, UpstreamProject } from './project.ts';
 
 // A file of code and its patch, both ways. Forward is `resolveOutPath` — the very
 // function `generate` names `outPath` with — and backward undoes exactly what it does;
-// the `Target` in the header of a .hatch comes first, since it names the file outright.
+// the `Target` in the header of a .sirp comes first, since it names the file outright.
 // With an upstream (`infra/project.ts`) `Target` is measured from the upstream root;
 // without one, from the repository around the patch.
-
-/** The root `Target` is measured from without an upstream: the repository around the
- *  patch, outside one the patch's own directory. The writer and the reader both ask here. */
-export function targetRoot(patchPath: string): string {
-  const dir = dirname(resolve(patchPath));
-  return findRepoRoot(dir) ?? dir;
-}
 
 /** What `generate` writes into `Target` of a patch at `patchPath` for `codePath` without
  *  an upstream, or undefined when the file is not under the root — a path out of it
  *  would be one no reader accepts. */
 export function targetFor(patchPath: string, codePath: string): string | undefined {
-  const inside = pathWithin(targetRoot(patchPath), resolve(codePath));
+  const inside = pathWithin(repoRootAround(patchPath), resolve(codePath));
   if (inside === undefined || inside === '') return undefined;
   return toPosixPath(inside);
 }
@@ -53,12 +45,12 @@ export type PairReason =
   | 'not-a-patch-name'
   | 'unsafe-target'
   | 'two-patches'
-  /** the patch is of a format newer than this hatch reads: update hatch (H3) */
+  /** the patch is of a format newer than this sir reads: update sir (H3) */
   | 'newer-format'
-  /** older than this hatch still reads: regenerate the patch (H3) */
+  /** older than this sir still reads: regenerate the patch (H3) */
   | 'older-format'
   /** the header does not read: a line that is not `Name: value`, a field twice or out
-   *  of its place, `Hatch` not a number */
+   *  of its place, `Sir` not a number */
   | 'bad-header';
 
 export type CodeLayout = 'upstream' | 'beside' | 'out';
@@ -81,7 +73,7 @@ export type Pair =
       readonly reason?: PairReason;
     };
 
-/** A path ending in `.hatch` is a patch; anything else is code. */
+/** A path ending in `.sirp` is a patch; anything else is code. */
 export function isPatchPath(path: string): boolean {
   return extname(path).toLowerCase() === PATCH_EXTENSION;
 }
@@ -131,7 +123,7 @@ function codeOf(patchPath: string, settings: PairSettings, patch: string | undef
   if ('refused' in header) return refused(header.refused);
   const target = header.target;
   if (target !== undefined) {
-    const code = upstream !== undefined ? upstreamCode(upstream, target) : join(targetRoot(patchPath), ...target.split(/[\\/]/));
+    const code = upstream !== undefined ? upstreamCode(upstream, target) : join(repoRootAround(patchPath), ...target.split(/[\\/]/));
     if (code === undefined) return refused('unsafe-target');
     return { kind: 'patch', code, exists: isFile(code), how: 'target' };
   }
@@ -164,8 +156,8 @@ function codeOf(patchPath: string, settings: PairSettings, patch: string | undef
 }
 
 /** `Target` from the header (undefined without one), or why the header names no file:
- *  each way it can fail is its own reason, the format first — a patch from a newer hatch
- *  says "update hatch", not "unsafe". */
+ *  each way it can fail is its own reason, the format first — a patch from a newer sir
+ *  says "update sir", not "unsafe". */
 function targetOf(text: string): { readonly target: string | undefined } | { readonly refused: PairReason } {
   let header;
   try {
@@ -188,10 +180,8 @@ export function patchAt(path: string): { readonly exists: boolean; readonly targ
   return { exists: true, target: 'target' in header ? header.target ?? null : null };
 }
 
+/** No file, or one that cannot be read, has no header: `readHeader('')` is a header with
+ *  no fields, which `targetOf` reads as "names no Target". */
 function readOrEmpty(path: string): string {
-  try {
-    return readFileSync(path, 'utf8');
-  } catch {
-    return '';
-  }
+  return readIfReadable(path) ?? '';
 }

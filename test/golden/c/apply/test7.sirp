@@ -1,0 +1,16 @@
+Sir: 2
+Target: test/golden/c/apply/test7.c
+
+# match c
+    ...
+    int ring_len( ... ) {
+    ...
+      int n = 0;
+    >>>
+    ...
+# end
+# patch
+
+      if (r == 0) return -1;
+      n = r[0];
+# end

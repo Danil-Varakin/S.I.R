@@ -1,0 +1,16 @@
+Sir: 2
+Target: test/golden/c/apply/test4.c
+
+# match c
+    ...
+    fail:
+    ...
+    >>>
+      free(r->data);
+    <<<
+    ...
+# end
+# patch
+    log_error("ring_init failed");
+      free(r->data);
+# end

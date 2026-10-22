@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/typescript/generate/test1.new.ts
+Grammar: tree-sitter-typescript@0.23.2
+
+# match typescript
+    ...
+    >>>
+    export function pick<T extends Record<string, unknown>>(src: T, key: keyof T): T[keyof T] {
+    <<<
+    ...
+# end
+# patch
+    export function pick<T extends Record<string, never>>(src: T, key: keyof T): T[keyof T] {
+# end

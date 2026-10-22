@@ -1,0 +1,17 @@
+Sir: 2
+Target: test/golden/proto/generate/test4.new.proto
+
+# match proto
+    ...
+    message B {
+    ...
+    >>>
+      optional int32 retries = 1 [default = 3];
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    optional int32 retries = 1 [default = 5];
+# end

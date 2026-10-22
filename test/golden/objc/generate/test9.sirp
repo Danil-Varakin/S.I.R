@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/objc/generate/test9.new.m
+Grammar: tree-sitter-objc@3.0.2
+
+# match objc
+    ...
+    >>>
+    - (NSString *)sir_squeezed;
+    <<<
+    ...
+# end
+# patch
+    - (NSString *)sir_collapsed;
+# end

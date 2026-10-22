@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/tsx/generate/test11.new.tsx
+Grammar: tree-sitter-typescript@0.23.2
+
+# match tsx
+    ...
+    loading ? (
+    ...
+    >>>
+            <Spinner size="small" />
+    <<<
+    ...
+    )
+    ...
+# end
+# patch
+    <Spinner size="large" />
+# end

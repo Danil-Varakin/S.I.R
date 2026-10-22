@@ -1,0 +1,17 @@
+Sir: 2
+Target: test/golden/kotlin/apply/test6.kt
+
+# match kotlin
+    ...
+    data class Setting(
+        val key: String,
+    ...
+    >>>
+        val secret: Boolean = false,
+    <<<
+    ...
+# end
+# patch
+    val secret: Boolean = false,
+        val ttl: Int = DEFAULT_TTL,
+# end

@@ -1,0 +1,14 @@
+// [PROTOFIELD] новое поле в message — у соседнего message поле с тем же именем
+syntax = "proto2";
+
+package sync_pb;
+
+message DeviceInfoSpecifics {
+  optional string cache_guid = 1;
+  optional string client_name = 2;
+  optional string sync_user_agent = 4;
+}
+
+message FeatureSpecificFields {
+  optional string client_name = 1;
+}

@@ -26,6 +26,32 @@ cleanly — both branches of an `#if/#else` land in the tree with correct nestin
 so there is no "undefined-depth zone" for brace imbalance. The residual risk is
 `ERROR` nodes on macro-heavy code.
 
+## Where each rule lives
+
+One rule, one home. The map of the repository is in
+[README.md](./README.md#project-layout); this is the shorter question — *if I need to
+change X, which file owns it?*
+
+| the rule | its home |
+|---|---|
+| what a `.sirp` looks like: headings in column 0, the four-space gutter | `core/sir-parser.ts` — the headings are exported from there, the printer imports them |
+| the header's fields and their order | `core/header.ts`, the `FIELDS` table: the reader, the writer and the type are all made of it |
+| the format range `FORMAT_MIN..FORMAT_VERSION` | `core/header.ts` |
+| how a pattern is walked, and what counts as ambiguous | `core/matcher.ts` |
+| where an edit cuts, and which line ending it takes | `core/patcher.ts` + `core/eol.ts` |
+| which error gets which exit code | `core/errors.ts` — the code travels with the error |
+| what "insignificant whitespace" means | `normalize` in `lang/<language>/index.ts`, never the core |
+| what counts as a block | `blockOf` in `lang/<language>/index.ts`, read off the tree-sitter tree |
+| canonical ↔ original coordinates | `lang/canon.ts`, pointwise, no standing index arrays |
+| which grammar, pinned to which sha256 | `lang/<language>/index.ts`; finding the bytes is `infra/grammar-store.ts` |
+| which name or extension means which language | `lang/adapter.ts`, a closed whitelist |
+| how a change becomes a hunk | `generate/synth.ts`; what counts as one change is `generate/diff.ts` |
+| whose a file is — which config speaks for it, where the upstream root is | `infra/project.ts`; nobody else computes a project root |
+| code ↔ patch, both ways | `infra/pair.ts` forward through `infra/out-path.ts` |
+| the file-system rules: atomic write, the walk up, path containment | `infra/fs.ts` |
+| facts → text, and the exit code of a failed run | `infra/log.ts` |
+| the wire: every field of every method | `service/protocol.ts`, borrowing nothing from the core |
+
 ## The file format has no delimiter code can contain
 
 A patch file is `# match <lang>` … `# end` / `# patch` … `# end`, and **every
@@ -33,16 +59,13 @@ payload line carries a four-space gutter** that is stripped on read. The heading
 are recognized in column 0 only, so a payload line can never reach column 0: a
 ` ``` ` fence, a `# patch` heading or a `# end` inside a raw string is text.
 
-This is a correction, not an original design. Until 2026-08-04 blocks were
-delimited by Markdown fences — and chromium raw strings contain fences (embedded
-documentation, markdown in test data). A bare fence inside a patch body closed the
-block early, the file parsed and applied without complaint, and one line silently
-vanished from the output. Lengthening the fence when the payload contains one was
-rejected: it repairs only what *our* printer emits, while a hand-written `.hatch` —
-the primary input — keeps the trap.
+Why not Markdown fences: Chromium raw strings contain fences (embedded documentation,
+markdown in test data), and a bare fence inside a patch body would close the block
+early — the file parses, applies, and one line silently vanishes from the output.
+Lengthening the fence when the payload holds one repairs only what sir's own printer
+emits; a hand-written `.sirp` keeps the trap.
 
-The rule that replaced it is checkable in one sentence, which is the point. Its
-consequences are load-bearing elsewhere: a payload line that forgets the gutter is
+The gutter rule is checkable in one sentence. Its consequences are load-bearing elsewhere: a payload line that forgets the gutter is
 a parse error rather than a silent loss; `# end` bounds the block, so blank lines
 inside it (trailing ones included) are payload and the patch body round-trips byte
 for byte; and the gutter is stripped by exactly four characters, so relative
@@ -57,7 +80,7 @@ such a line.
 
 Complexity is split along two physical axes that meet at one narrow contract:
 
-- `src/core/` — **Hatch semantics**, with zero knowledge of brackets, indents, or
+- `src/core/` — **S.I.R semantics**, with zero knowledge of brackets, indents, or
   tree-sitter.
 - `src/lang/` — **everything language-dependent**: nesting (`buildMap`, via
   tree-sitter) and text canonicalization (`normalize`).
@@ -67,21 +90,20 @@ Complexity is split along two physical axes that meet at one narrow contract:
 The test for a correct boundary: *if adding a language forces a change in
 `core/`, the boundary is wrong.* A new language is one new folder under `lang/`,
 plus two lines in the adapter registry (`lang/adapter.ts`, a closed whitelist —
-never a dynamic `import()` of a name taken from an untrusted `.hatch`).
+never a dynamic `import()` of a name taken from an untrusted `.sirp`).
 
 ```ts
 interface BlockSpan {          // canonical coordinates
-  open: number;                // opening token (Python: start of the body)
-  close: number;               // its pair    (Python: end of the body)
+  open: number;                // opening token (Python block: its `:`)
+  close: number;               // its pair    (Python block: end of the body)
   headerStart?: number;        // start of the construct's header — synth only
   closeEnd?: number;           // end of the closing token       — synth only
 }
 
 interface SourceMap {                          // ALL positions are CANONICAL
   matchesAt(norm, pos): boolean;               // match here? (respects token boundaries)
-  occurrences(norm, from, to): number[];       // purely textual anchor occurrences
-  enclosingEnd(pos): number;                   // end of the block containing pos
-  depthAt(pos): number;                        // nesting depth (diagnostics)
+  occurrences(norm, from, to): Iterable<number>; // purely textual anchor occurrences, lazily
+  countOccurrences(norm, from, to): number;    // how many, without listing them
   enclosing(pos): BlockSpan[];                 // enclosing blocks, innermost first
   blocksWithin(from, to): BlockSpan[];         // blocks fully inside a range — synth only
   readonly eof: number;                        // canonical length
@@ -93,15 +115,17 @@ interface LanguageAdapter {
   init(): Promise<void>;                       // load tree-sitter grammar (WASM), once
   buildMap(source): SourceMap;                 // synchronous after init
   normalize(raw): string;                      // how to canonicalize literal text
+  readonly name: string;                       // the language's own name: `# match cpp`
   extensions: readonly string[];
+  readonly grammar: GrammarSource;             // file, package, version, sha256 pin
 }
 ```
 
-|                | C++ implements as                          | Python would implement as              |
+|                | C++ implements as                          | Python implements as                   |
 |----------------|--------------------------------------------|----------------------------------------|
-| `BlockSpan`    | `{ }` pair from the tree-sitter tree       | block by indentation                   |
-| `headerStart`  | start of the owning node (`void foo(…)`)   | start of the `def`/`class` line        |
-| `closeEnd`     | just past `}`                              | absent — there is no closing token     |
+| `BlockSpan`    | `{ }` pair from the tree-sitter tree       | an indented block: from its `:` to the end of the body; brackets as in C++ |
+| `headerStart`  | start of the owning node (`void foo(…)`)   | start of the `def`/`class`/`if` line   |
+| `closeEnd`     | just past `}`                              | absent for an indented block — there is no closing token |
 | `occurrences`  | textual search over the canonical string   | same                                   |
 | `normalize`    | indentation dropped                        | leading indentation **preserved**      |
 
@@ -145,11 +169,13 @@ interface Gap { mode: GapMode; insert?: PlacedMark; replaceEnd?: PlacedMark; }
 type Anchor = { target: 'literal'; literal: Literal } | { target: 'eof' };
 interface Step { gap: Gap; anchor: Anchor; }
 interface MatchPattern { steps: Step[]; }
-interface Hunk { match: MatchPattern; patch: string; mdSpan?: [number, number]; }
+interface Note { text: string; mdSpan: [number, number]; }    // `# note` … `# end`
+interface Hunk { match: MatchPattern; patch: string; mdSpan?: [number, number]; note?: Note; }
 ```
 
-`mdSpan` is where the literal came from in the `.hatch`, used for error messages. It
-is optional on `Hunk` because a synthesized hunk has no `.hatch` origin.
+`mdSpan` is where the literal came from in the `.sirp`, used for error messages. It
+is optional on `Hunk` because a synthesized hunk has no `.sirp` origin. `note` is the
+author's comment on the hunk; the matcher never reads it.
 
 **Marks anchor to "symbol + side."** A mark sits between characters, with a side
 that binds it to one non-whitespace character:
@@ -162,7 +188,7 @@ that binds it to one non-whitespace character:
   `source.length` = **EOF**.
 
 So `A >>> ... B` inserts right after A (left); `A ... >>> B` inserts before B
-(right). In the `.hatch` the side is readable from the position of the marker
+(right). In the `.sirp` the side is readable from the position of the marker
 relative to `...`. **BOF/EOF are not a separate flag** — they are the degenerate
 boundaries of this rule. Replace ranges follow the same rule: `>>>` gives the
 start, `<<<` the end.
@@ -243,7 +269,7 @@ matcher computes the canon lazily once the adapter is known, caching it per run
   `features {` ≡ `features{`. Whitespace **inside a string literal is data** and is
   kept verbatim, so `Log("a  b")` and `Log("a b")` are different anchors. The
   exception is a literal that spans lines (`R"(…)"`, a docstring, a template
-  literal): a `.hatch` anchor is a fragment cut on line boundaries and can begin inside
+  literal): a `.sirp` anchor is a fragment cut on line boundaries and can begin inside
   one without knowing it, so those stay transparent. Where a language's string
   literals start and end is declared per language; the scanner is shared
   (`lang/zones.ts`).
@@ -256,16 +282,16 @@ Structure (`buildMap`) comes from tree-sitter for both; only `normalize` differs
 ## The two pipelines share one source of truth
 
 ```
-apply:    .hatch ─parse→ MatchPattern ┐
+apply:    .sirp ─parse→ MatchPattern ┐
           source ─buildMap→ SourceMap ┘─matcher→ marks ─patcher→ (per hunk) → atomic write
 
-generate: (old,new) ─diff→ segments ─synth→ Hunk[] ─printer→ .hatch
+generate: (old,new) ─diff→ segments ─synth→ Hunk[] ─printer→ .sirp
 ```
 
 `generate` queries the *same* `SourceMap` that `apply` uses. One source of truth
 about file structure feeds both pipelines, so they cannot drift apart.
 
-The header of a `.hatch` (`Hatch`, `Target`, `Generated-From`, `Generated-By`,
+The header of a `.sirp` (`Sir`, `Target`, `Base-Blob`, `Sir-Version`,
 `Grammar`) lives in `src/core/header.ts`: one table of the fields in their order — the
 reader, the writer and the `HeaderFields` type are all made of it, so a field is added
 in one line, at the end (VERSIONING.md H4) — `readHeader` (the lines as written),
@@ -275,11 +301,11 @@ exactly as before; the matcher never sees the header. `infra/pair.ts` reads `Tar
 back to name a patch's file, and tells a newer or older format and a header that does
 not read from an unsafe `Target`.
 
-Whose a file is — which `hatch.config.json` speaks for it, and where the code a project
+Whose a file is — which `sir.config.json` speaks for it, and where the code a project
 patches lives — is decided in one place, `src/infra/project.ts`. A config may name an
 `upstream`: the root of code the project does not own (the upstream a fork patches), measured
 from the config file. `configFileFor`/`loadProject` find the config (up from the file;
-else one whose upstream claims it; else `$HATCH_CONFIG`, the current directory),
+else one whose upstream claims it; else `$SIR_CONFIG`, the current directory),
 `upstreamTarget` turns a file into its `Target`, `upstreamCode` a `Target` back into
 the file. `out-path.ts` (where a patch goes), `pair.ts` (both ways), the CLI and the
 service all ask it; none of them computes a project root of its own. Git is not part of
@@ -289,7 +315,7 @@ it: the base of a file is read from the repository nearest that file.
 
 `generate/diff.ts` is the only place that touches the `diff` package. Above the
 raw unified-diff hunks it produces **atomic change segments**: one insertion, one
-deletion or one replacement each — that is, exactly one Hatch hunk, honouring the
+deletion or one replacement each — that is, exactly one S.I.R hunk, honouring the
 core rule of one `>>>` per hunk. Runs of unchanged lines split segments, so the
 default is maximally fine-grained; a bridging budget can pull adjacent edits back
 together when a coincidentally-identical line splits one logical change (blank
@@ -344,14 +370,21 @@ land on the old version in order, or it goes back with the reason on top. Becaus
 next step starts from what the hunks produce, a hunk written by hand — pattern and patch
 body alike — is simply the new state. Text a hunk wrote counts as settled and is not
 offered again, so a body edited on purpose stays edited, and the run ends warning that
-the `.hatch` does not give the new version. A `# note` written in the editor stays with
+the `.sirp` does not give the new version. A `# note` written in the editor stays with
 its hunk: the printer writes it before the `# match` it is about. The person comes in
 from outside (`Steering`: review, offer the editor, edit), which keeps the loop testable
 without a terminal.
 
+The service runs the same loop with no one at it (`unattended`), because the state is
+only text: a change synthesis cannot anchor ends the run with a `SynthesisError` whose
+draft is what the editor would get — every hunk so far and a hunk to start from
+(`generate/draft.ts`, which the batch synthesis uses too) — and the client sends it back,
+finished, as `keep`. `keep` is checked as an edit is, replayed as the first state, and
+printed byte for byte ahead of the hunks made after it. Nothing is held between requests.
+
 ### Line endings belong to the file
 
-A `.hatch` carries no line endings of its own: the parser reads `\r\n` and `\n` alike, and
+A `.sirp` carries no line endings of its own: the parser reads `\r\n` and `\n` alike, and
 git or an editor may turn them either way. So the patcher lands a patch with the ending
 of the line the edit starts on — CRLF in a CRLF region, the bytes as they are in LF.
 The line, not the file: a file of mixed endings keeps what each place has.
@@ -361,7 +394,7 @@ The line, not the file: a file of mixed endings keeps what each place has.
 - **Parser round-trip:** `parse(print(ast))` ≡ `ast` structurally, escaping
   included (the printer adds exactly the backslash the parser strips).
 - **Payload round-trip:** `parse(print(hunk)).patch` == `hunk.patch` byte for
-  byte — fences, Hatch headings and blank lines included — up to line endings,
+  byte — fences, S.I.R headings and blank lines included — up to line endings,
   which belong to the target file. The patch body is verbatim output, so
   corrupting it is invisible to every test further up.
 - **System round-trip:** `apply(generate(old,new), old) == new`, verified inside
@@ -375,13 +408,14 @@ The line, not the file: a file of mixed endings keeps what each place has.
 
 Errors carry their CI exit code (`src/core/errors.ts`): `ParseError`→2,
 `MatchError`→3, `AmbiguityError`→4, `ConfigError`→5, `GrammarError`→6, `NoChanges`→7,
-`SynthesisError`→8 — `generate` could not anchor a change, told apart from a `.hatch` that
-does not apply; the base `HatchError` is abstract, and anything else exits 1.
+`SynthesisError`→8 — `generate` could not anchor a change, told apart from a `.sirp` that
+does not apply; `GitError`, `LanguageError`, `PathError`→1. The base `SirError` is
+abstract, and anything else exits 1.
 
 ## tree-sitter is the default structure provider
 
 `buildMap` parses the source with tree-sitter and reads block spans straight from
-the syntax tree, giving `enclosing`/`blocksWithin`/`depthAt`. This replaces a
+the syntax tree, giving `enclosing`/`blocksWithin`. This replaces a
 hand-written character scanner and bracket matcher — precisely the parts that are
 buggiest to hand-roll (raw strings, the C++14 digit separator `'`, string
 prefixes, preprocessor imbalance), all of which tree-sitter handles. We keep our
@@ -400,27 +434,27 @@ async server — reintroducing the build-coupling this port exists to remove.
 
 The grammars are part of the package (`grammars/`, filled at build time by
 `scripts/fetch-grammars.ts` from the pins in `src/lang/*/index.ts`).
-`infra/grammar-store.ts` only finds them — `$HATCH_GRAMMAR_DIR`, then `grammars/` — and
+`infra/grammar-store.ts` only finds them — `$SIR_GRAMMAR_DIR`, then `grammars/` — and
 holds the bytes to the sha256 pin wherever they come from. There is no download and no
-cache at run time, so a run is the same offline, in CI and in `hatch-apply`.
+cache at run time, so a run is the same offline, in CI and in `sir-apply`.
 
 ## One engine, three entries
 
-`src/bin/` holds the only files that run anything: `hatch.ts` (the CLI), `service.ts`
-(the JSON-lines service) and `hatch-apply.ts` (the build's tool). Each only calls a
+`src/bin/` holds the only files that run anything: `sir.ts` (the CLI), `service.ts`
+(the JSON-lines service) and `sir-apply.ts` (the build's tool). Each only calls a
 `main`; no module of the CLI or the service does anything when imported, so the same
 code is a library, a command and — bundled by `scripts/build-apply-bin.mjs` with esbuild
 into one CommonJS file and injected into a copy of Node as a single executable —
-`hatch-apply`. Inside that executable there is no package directory:
+`sir-apply`. Inside that executable there is no package directory:
 `infra/runtime.ts` is the one place that knows, and hands out its assets (the
 tree-sitter runtime's `.wasm`, the grammars, still held to their pins); the version is a
-constant the build defines. `hatch-apply` runs `cli/apply.ts` in its own mode — no
+constant the build defines. `sir-apply` runs `cli/apply.ts` in its own mode — no
 questions, a clean base only, a file it patches in place written over rather than kept,
 and not written at all when it already holds the result — and the apply goldens run
 through every binary a release builds (`test/golden/run-binary.mjs`), so the build and
 the editor cannot disagree. Its options are not a list of their own: `binSpec` picks
-them out of `hatch apply`'s (`cli/args.ts` `pickOptions`), so a flag of `hatch-apply` has
-the meaning it has in `hatch apply` by construction (VERSIONING.md F2).
+them out of `sir apply`'s (`cli/args.ts` `pickOptions`), so a flag of `sir-apply` has
+the meaning it has in `sir apply` by construction (VERSIONING.md F2).
 
 ## The service: decoded requests, a wire of its own
 

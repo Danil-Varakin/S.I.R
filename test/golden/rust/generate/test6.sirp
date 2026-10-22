@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/rust/generate/test6.new.rs
+Grammar: tree-sitter-rust@0.24.0
+
+# match rust
+    ...
+    >>>
+        T: fmt::Debug + Clone,
+    <<<
+    ...
+# end
+# patch
+    T: fmt::Debug + Clone + Send,
+# end

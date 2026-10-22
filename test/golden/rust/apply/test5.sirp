@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/rust/apply/test5.rs
+
+# match rust
+    ...
+    #[derive(Debug, Clone, PartialEq)]
+    >>>
+    pub struct Entry<'a> {
+    <<<
+    ...
+# end
+# patch
+    pub struct Entry<'a, T = ()> {
+# end

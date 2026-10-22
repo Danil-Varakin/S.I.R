@@ -4,23 +4,23 @@ import { findRepoRoot } from '../fs.ts';
 import { CONFIG_FILE_NAME, readSettings, resolveConfig } from './load.ts';
 import { CONFIG_VERSION, FIELD_BY_PATH, GROUP_PATHS, checkKeysOf, checkSchemaVersion, fieldsOf } from './schema.ts';
 
-// The text of a new hatch.config.json, for `hatch init` and the service's
+// The text of a new sir.config.json, for `sir init` and the service's
 // `configTemplate` alike: the schema belongs to the core, so nobody else keeps a copy.
 // Only what was asked for is written — a default spelt out in the file would pin it,
 // and a later change of that default would quietly not reach the project.
 
-const REPO = 'https://raw.githubusercontent.com/Danil-Varakin/hatchTs';
+const REPO = 'https://raw.githubusercontent.com/Danil-Varakin/S.I.R';
 
 /** The release each config schema's own file first shipped in. A pushed tag never moves
  *  (P7), so the file read from it is frozen by git itself: a v1 config is checked
  *  against v1 as released, whatever `main` holds later. A row is added in the release
  *  that ships the version (VERSIONING.md §5). */
-export const SCHEMA_RELEASED_IN: Readonly<Record<number, string>> = { 2: 'v0.4.1' };
+export const SCHEMA_RELEASED_IN: Readonly<Record<number, string>> = { 3: 'v0.5.0' };
 
 /** The JSON Schema of config schema `version`: from its release tag, or from `main`
  *  while the version is not released yet. */
 export function schemaUrl(version: number): string {
-  return `${REPO}/${SCHEMA_RELEASED_IN[version] ?? 'main'}/schemas/hatch.config.v${version}.schema.json`;
+  return `${REPO}/${SCHEMA_RELEASED_IN[version] ?? 'main'}/schemas/sir.config.v${version}.schema.json`;
 }
 
 /** Where the core itself would look for a config from `startDir`: the repository root,

@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/go/generate/test8.new.go
+Grammar: tree-sitter-go@0.25.0
+
+# match go
+    ...
+    >>>
+    	Put(key string, value []byte) error
+    <<<
+    ...
+# end
+# patch
+    Put(key string, value []byte, ttl time.Duration) error
+# end

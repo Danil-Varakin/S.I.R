@@ -1,0 +1,11 @@
+// [MOJOMENUM] новое значение enum с атрибутом [MinVersion]
+module content_settings.mojom;
+
+enum ContentSetting {
+  DEFAULT = 0,
+  ALLOW,
+  BLOCK,
+  ASK,
+  [MinVersion=1] SESSION_ONLY,
+  [MinVersion=2] DETECT_IMPORTANT_CONTENT,
+};

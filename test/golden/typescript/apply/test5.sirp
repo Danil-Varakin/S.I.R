@@ -1,0 +1,17 @@
+Sir: 2
+Target: test/golden/typescript/apply/test5.ts
+
+# match ts
+    ...
+    export namespace metrics {
+    ...
+      export function empty(): Snapshot {
+    ...
+    >>>
+        return { pending: 0, done: 0 };
+    <<<
+    ...
+# end
+# patch
+    return { pending: 0, done: 0, failed: 0 };
+# end

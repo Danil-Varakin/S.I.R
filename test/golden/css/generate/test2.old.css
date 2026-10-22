@@ -1,0 +1,10 @@
+/* [MEDIA] правка внутри @media — то же правило вне @media стоит выше */
+.panel {
+  color: var(--cr-primary-text-color);
+}
+
+@media (prefers-color-scheme: dark) {
+  .panel {
+    color: var(--cr-primary-text-color);
+  }
+}

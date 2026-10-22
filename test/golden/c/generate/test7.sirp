@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/c/generate/test7.new.c
+Grammar: tree-sitter-c@0.24.1
+
+# match c
+    ...
+      union {
+    ...
+    >>>
+        double d;
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    double d[2];
+# end

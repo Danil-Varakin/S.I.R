@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/javascript/apply/test2.js
+
+# match js
+    ...
+      get size() {
+    ...
+    >>>
+        return this.#handlers.size;
+    <<<
+    ...
+# end
+# patch
+    return this.#handlers.size | 0;
+# end

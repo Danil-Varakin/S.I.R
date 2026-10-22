@@ -1,17 +1,21 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { steerSynthesis } from '../../src/generate/steer.ts';
+import { steerSynthesis, unattended } from '../../src/generate/steer.ts';
+import type { SteerRequest } from '../../src/generate/steer.ts';
+import type { SynthEvent } from '../../src/generate/synth.ts';
+import { InputClosed } from '../../src/infra/ask.ts';
+import { MatchError } from '../../src/core/errors.ts';
 import type { Steering, Verdict } from '../../src/generate/steer.ts';
 import { synthesize } from '../../src/generate/synth.ts';
-import { printHatchFile } from '../../src/generate/printer.ts';
-import { parseHatchFile } from '../../src/core/hatch-parser.ts';
+import { printSirFile } from '../../src/generate/printer.ts';
+import { parseSirFile } from '../../src/core/sir-parser.ts';
 import { resolveHunks } from '../../src/core/resolve.ts';
 import { SynthesisError } from '../../src/core/errors.ts';
 import { cppAdapter } from '../../src/lang/cpp/index.ts';
 
 // The person is played by the test: what they answer, and what they type into the
-// editor, scripted; what hatch asked and showed them, recorded.
+// editor, scripted; what sir asked and showed them, recorded.
 
 interface Script {
   readonly verdicts?: Verdict[];
@@ -45,7 +49,7 @@ async function steer(oldText: string, newText: string, script: Script) {
 }
 
 function applied(oldText: string, hunks: readonly unknown[]): string {
-  const file = parseHatchFile(printHatchFile(hunks as never, 'cpp'));
+  const file = parseSirFile(printSirFile(hunks as never, 'cpp'));
   const { links, applied: text } = resolveHunks(oldText, file, cppAdapter);
   assert.ok(links.every((l) => l.status === 'ok'), JSON.stringify(links.map((l) => l.status)));
   return text;
@@ -97,9 +101,9 @@ test('steer: a # note written in the editor stays with its hunk — in the hunks
   });
   const result = await run;
   assert.equal(result.hunks[0]!.note?.text, 'why a2: the old name is gone upstream');
-  const printed = printHatchFile(result.hunks, 'cpp');
+  const printed = printSirFile(result.hunks, 'cpp');
   assert.match(printed, /^# note\nwhy a2: the old name is gone upstream\n# end\n# match cpp$/m);
-  assert.equal(parseHatchFile(printed).hunks[0]!.note?.text, 'why a2: the old name is gone upstream');
+  assert.equal(parseSirFile(printed).hunks[0]!.note?.text, 'why a2: the old name is gone upstream');
   assert.equal(applied(OLD, result.hunks), NEW);
 });
 
@@ -183,4 +187,153 @@ test('steer: the editor shows EVERY hunk so far, not only the one that failed', 
 test('steer: a change that cannot be anchored, and no editor wanted — the synthesis error itself', async () => {
   const { run } = await steer(TWIN_OLD, TWIN_NEW, { offers: [false] });
   await assert.rejects(run, (e) => e instanceof SynthesisError);
+});
+
+// ── what steering passes on, asks and shows ───────────────────────────────────────
+
+async function steerWith(request: Partial<SteerRequest> & { oldText: string; newText: string }, steering: Steering) {
+  await cppAdapter.init();
+  return steerSynthesis({ adapter: cppAdapter, label: 'cpp', bridgeGap: 0, exact: false, ...request }, steering);
+}
+
+test('steer: review is asked about each hunk with its number and the count so far plus what is left', async () => {
+  const asked: [number, number][] = [];
+  const steering: Steering = {
+    review: (_hunk, number, total) => (asked.push([number, total]), Promise.resolve('keep')),
+    offerEdit: () => Promise.resolve(false),
+    edit: (t) => Promise.resolve(t),
+  };
+  await steerWith({ oldText: OLD, newText: NEW }, steering);
+  assert.deepEqual(asked, [[1, 2], [2, 2]]);
+});
+
+test('steer: a skipped change does not count — the next hunk is number 1 of 1', async () => {
+  const asked: [number, number][] = [];
+  const verdicts: Verdict[] = ['skip', 'keep'];
+  const steering: Steering = {
+    review: (_hunk, number, total) => (asked.push([number, total]), Promise.resolve(verdicts.shift()!)),
+    offerEdit: () => Promise.resolve(false),
+    edit: (t) => Promise.resolve(t),
+  };
+  await steerWith({ oldText: OLD, newText: NEW }, steering);
+  assert.deepEqual(asked, [[1, 2], [1, 1]]);
+});
+
+test('steer: the tracer hears every change as a segment, numbered from the hunks so far', async () => {
+  const events: SynthEvent[] = [];
+  await steerWith({ oldText: OLD, newText: NEW, trace: (e) => events.push(e) }, unattended);
+  const segments = events.flatMap((e) => (e.kind === 'segment' ? [[e.index, e.total]] : []));
+  assert.deepEqual(segments, [[0, 2], [1, 2]]);
+  assert.ok(events.some((e) => e.kind === 'hunk'), 'synthesis is traced through as well');
+});
+
+test('steer: the limits are passed on to synthesis', async () => {
+  const plain = await steerWith({ oldText: OLD, newText: NEW }, unattended);
+  const bare = await steerWith({ oldText: OLD, newText: NEW, limits: { maxParents: 0, minParents: 0 } }, unattended);
+  assert.match(printSirFile(plain.hunks, 'cpp'), /void f\(\)/);
+  assert.doesNotMatch(printSirFile(bare.hunks, 'cpp'), /void f\(\)/);
+  assert.equal(
+    printSirFile(bare.hunks, 'cpp'),
+    printSirFile(synthesize(OLD, NEW, cppAdapter, { limits: { maxParents: 0, minParents: 0 } }), 'cpp'),
+  );
+});
+
+test('steer: reproducesNew is held to the comparison asked for — byte for byte with exact', async () => {
+  const oldText = 'void f() {\r\n  a();\r\n}\r\n';
+  const newText = 'void f() {\r\n  a2();\n}\r\n';
+  assert.equal((await steerWith({ oldText, newText }, unattended)).reproducesNew, true);
+  assert.equal((await steerWith({ oldText, newText, exact: true }, unattended)).reproducesNew, false);
+  assert.equal((await steerWith({ oldText: OLD, newText: NEW, exact: true }, unattended)).reproducesNew, true, 'and true when it is met');
+});
+
+test('steer: unattended has no editor to open', () => {
+  assert.throws(() => unattended.edit('x'), /unattended synthesis has no editor/);
+});
+
+test('steer: the input closing before a hunk is answered stops the run and says how to answer', async () => {
+  const steering: Steering = {
+    review: () => Promise.reject(new InputClosed()),
+    offerEdit: () => Promise.resolve(false),
+    edit: (t) => Promise.resolve(t),
+  };
+  await assert.rejects(
+    steerWith({ oldText: OLD, newText: NEW }, steering),
+    (e) =>
+      e instanceof Error &&
+      e.message ===
+        '-a: the input closed at hunk 1 of 2, before it was answered — nothing was written\n' +
+          '  answer every hunk (one line each, Enter keeps it), or drop -a',
+  );
+});
+
+test('steer: another error from review is passed through as it is', async () => {
+  const boom = new Error('review broke');
+  const steering: Steering = { review: () => Promise.reject(boom), offerEdit: () => Promise.resolve(false), edit: (t) => Promise.resolve(t) };
+  await assert.rejects(steerWith({ oldText: OLD, newText: NEW }, steering), (e) => e === boom);
+});
+
+test('steer: the editor opens on a note — what to do, the reason, the change quoted — then a rule and the hunks', async () => {
+  const { run, shown } = await steer(OLD, NEW, { verdicts: ['decline', 'keep'], offers: [true] });
+  await run;
+  const [note, hunks] = shown[0]!.split(`${'-'.repeat(80)}\n`);
+  assert.equal(
+    note,
+    'Sir — edit the hunks below, then save and close the editor. The hunks are applied\n' +
+      'in order to the OLD version, and everything above the first "# match" is ignored.\n' +
+      '\n' +
+      '  hunk 1: declined\n' +
+      '\n' +
+      'The change this is about (line 2 of the text so far):\n' +
+      '  -   a();\n' +
+      '  +   a2();\n' +
+      '\n',
+  );
+  assert.ok(hunks!.startsWith('# match cpp\n'), hunks!);
+});
+
+// ── keep: the hunk that does not land, named ───────────────────────────────────────
+
+const KEEP_A = '# match cpp\n    ...\n    void f() {\n    ...\n    >>>\n      a();\n    <<<\n    ...\n# end\n# patch\n    a2();\n# end\n';
+
+test('steer: a keep whose hunk does not land throws its kind, with the hunk and its line on it', async () => {
+  const keep = `${KEEP_A}\n${KEEP_A.replace('void f()', 'void nope()')}`;
+  const line = keep.split('\n').indexOf('    void nope() {') + 1;
+  await assert.rejects(steerWith({ oldText: OLD, newText: NEW, keep }, unattended), (e) => {
+    assert.ok(e instanceof MatchError, String(e));
+    assert.deepEqual(e.hunkAt, { hunk: 2, mdLine: line });
+    assert.ok(e.message.startsWith(`hunk 2 (line ${line}) does not land: no match`), e.message);
+    return true;
+  });
+});
+
+test('steer: a keep hunk that lands only on the old version, not after the hunks before it, says so', async () => {
+  // the second hunk anchors on a(); — which the first one has just rewritten
+  const keep = `${KEEP_A}\n${KEEP_A.replace('a2();', 'a3();')}`;
+  await assert.rejects(steerWith({ oldText: OLD, newText: NEW, keep }, unattended), (e) => {
+    assert.ok(e instanceof MatchError, String(e));
+    assert.equal(e.hunkAt?.hunk, 2);
+    assert.match(e.message, /^hunk 2 \(line \d+\) does not land: it lands on the old version by itself, but hunk 1 rewrote the text it anchors on/);
+    return true;
+  });
+});
+
+test('steer: of the hunks before it, the one that rewrote the anchor is named — not the last', async () => {
+  // hunk 1 rewrites a(); hunk 2 touches g() only; hunk 3 anchors on a()
+  const keepG = KEEP_A.replace('void f()', 'void g()').replace('  a();', '  b();').replace('a2();', 'b2();');
+  const keep = `${KEEP_A}\n${keepG}\n${KEEP_A.replace('a2();', 'a3();')}`;
+  await assert.rejects(steerWith({ oldText: OLD, newText: NEW, keep }, unattended), (e) => {
+    assert.ok(e instanceof MatchError, String(e));
+    assert.equal(e.hunkAt?.hunk, 3);
+    assert.match(e.message, /does not land: it lands on the old version by itself, but hunk 1 rewrote the text it anchors on/);
+    return true;
+  });
+});
+
+test('steer: what a kept hunk wrote stays settled when a hunk made later shifts it', async () => {
+  // keep writes g()'s body unlike newText; synthesis then changes f() above it
+  const keepG = KEEP_A.replace('void f()', 'void g()').replace('  a();', '  b();').replace('a2();', 'b9();');
+  const result = await steerWith({ oldText: OLD, newText: NEW, keep: keepG }, unattended);
+  assert.equal(result.hunks.length, 2, 'the kept hunk and the one for f(); g() is not offered again');
+  assert.equal(result.reproducesNew, false);
+  assert.equal(applied(OLD, result.hunks), NEW.replace('b2();', 'b9();'));
 });

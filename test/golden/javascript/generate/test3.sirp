@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/javascript/generate/test3.new.js
+Grammar: tree-sitter-javascript@0.25.0
+
+# match javascript
+    ...
+    function strip(
+    ...
+    ) {
+    ...
+    >>>
+      return text.replace(OPEN, '');
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    return text.replace(OPEN, ' ');
+# end

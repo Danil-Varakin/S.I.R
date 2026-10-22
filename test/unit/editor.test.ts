@@ -36,3 +36,17 @@ test('runEditor: an editor that fails stops the run and says how to pick another
   }
   assert.throws(() => runEditor('false', '/dev/null'), /the editor \(false\) exited with 1[\s\S]*set VISUAL or EDITOR/);
 });
+
+test('runEditor: on Windows the command line goes through the shell, the file quoted after it', () => {
+  // the shell is the system's own here too, so the branch runs on any platform
+  assert.doesNotThrow(() => runEditor('true', '/dev/null', 'win32'));
+  assert.throws(() => runEditor('false', '/dev/null', 'win32'), /the editor \(false\) exited with 1 — nothing was written/);
+});
+
+test('runEditor: an editor killed by a signal is named by the signal', (t) => {
+  if (process.platform === 'win32') {
+    t.skip('POSIX shell');
+    return;
+  }
+  assert.throws(() => runEditor('kill -TERM $$ #', '/dev/null', 'linux'), /the editor \(kill -TERM \$\$ #\) exited with SIGTERM — nothing was written/);
+});

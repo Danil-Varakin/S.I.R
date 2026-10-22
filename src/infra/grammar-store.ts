@@ -8,26 +8,26 @@ import { embeddedAsset, isSingleExecutable } from './runtime.ts';
 
 export type { GrammarSource } from '../lang/source-map.ts';
 
-// Grammars ship inside hatch: `grammars/` of the package, filled at build time by
+// Grammars ship inside sir: `grammars/` of the package, filled at build time by
 // scripts/fetch-grammars.ts from the pins in src/lang/*/index.ts. Nothing is downloaded
 // at run time and there is no user cache. A grammar is executable code and shapes where
 // a hunk lands (F3), so the bytes must be exactly the pinned ones — a file that is not
 // is refused, wherever it was found.
 //
 // Looked for in:
-//   0. inside `hatch-apply`: the assets of the executable, and nowhere else;
-//   1. $HATCH_GRAMMAR_DIR — for work on the core and builds of one's own;
+//   0. inside `sir-apply`: the assets of the executable, and nowhere else;
+//   1. $SIR_GRAMMAR_DIR — for work on the core and builds of one's own;
 //   2. grammars/ of the package.
 
-export const GRAMMAR_DIR_ENV = 'HATCH_GRAMMAR_DIR';
+const GRAMMAR_DIR_ENV = 'SIR_GRAMMAR_DIR';
 
 /** The pinned bytes of `source`, from the first place that has its file. */
 export async function resolveGrammar(source: GrammarSource, language?: string): Promise<Uint8Array> {
   validate(source);
   if (source.path === undefined && isSingleExecutable()) {
     const bytes = embeddedAsset(source.file);
-    if (bytes === null) throw new GrammarError(`grammar ${describe(source)} is missing from this build of hatch-apply`, describe(source));
-    checkPin(source, bytes, `hatch-apply:${source.file}`);
+    if (bytes === null) throw new GrammarError(`grammar ${describe(source)} is missing from this build of sir-apply`, describe(source));
+    checkPin(source, bytes, `sir-apply:${source.file}`);
     return bytes;
   }
   const candidates = source.path !== undefined ? [source.path] : grammarDirs().map((dir) => join(dir, source.file));
@@ -39,13 +39,13 @@ export async function resolveGrammar(source: GrammarSource, language?: string): 
   }
   const what = language !== undefined ? `the ${language} grammar (${describe(source)})` : `grammar ${describe(source)}`;
   throw new GrammarError(
-    `${what} is missing from this build of hatch — a fault of the build, not of your setup\n` +
+    `${what} is missing from this build of sir — a fault of the build, not of your setup\n` +
       `  looked in:\n${candidates.map((c) => `    ${c}`).join('\n')}`,
     describe(source),
   );
 }
 
-/** `$HATCH_GRAMMAR_DIR`, then `grammars/` of the package. */
+/** `$SIR_GRAMMAR_DIR`, then `grammars/` of the package. */
 export function grammarDirs(): string[] {
   const dirs: string[] = [];
   const override = process.env[GRAMMAR_DIR_ENV];

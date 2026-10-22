@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/xml/generate/test10.new.xml
+Grammar: @tree-sitter-grammars/tree-sitter-xml@0.7.0
+
+# match xml
+    ...
+        <PreferenceCategory android:key="advanced" android:title="@string/prefs_section_advanced">
+    ...
+            <PreferenceCategory android:key="search">
+    ...
+    >>>
+    </PreferenceCategory>
+    ...
+    </PreferenceCategory>
+    ...
+# end
+# patch
+        <Preference android:key="search_suggestions" />
+            
+# end

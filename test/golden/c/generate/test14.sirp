@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/c/generate/test14.new.c
+Grammar: tree-sitter-c@0.24.1
+
+# match c
+    ...
+    >>>
+        if (a > b) <% return a; %>
+    <<<
+    ...
+# end
+# patch
+    if (a > b) <% return a + 1; %>
+# end

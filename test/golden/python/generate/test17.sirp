@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/python/generate/test17.new.py
+Grammar: tree-sitter-python@0.25.0
+
+# match python
+    ...
+    >>>
+        finish()
+    <<<
+    ...
+# end
+# patch
+    finish(force=True)
+# end

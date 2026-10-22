@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/python/generate/test30.new.py
+Grammar: tree-sitter-python@0.25.0
+
+# match python
+    ...
+    def a(
+    ...
+    ):
+    ...
+    >>>
+        return 0
+    <<<
+    ...
+# end
+# patch
+        return 1
+# end

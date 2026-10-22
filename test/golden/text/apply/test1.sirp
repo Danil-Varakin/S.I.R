@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/text/apply/test1.txt
+
+# match text
+    ...
+    +chrome/browser/
+    -third_party/
+    >>>
+    ...
+# end
+# patch
+
+    -brave/third_party/
+# end

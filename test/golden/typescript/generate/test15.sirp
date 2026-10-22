@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/typescript/generate/test15.new.ts
+Grammar: tree-sitter-typescript@0.23.2
+
+# match typescript
+    ...
+    >>>
+      timeout: 1000,
+    <<<
+    ...
+# end
+# patch
+    timeout: 2500,
+# end

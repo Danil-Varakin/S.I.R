@@ -1,11 +1,11 @@
-import { printPattern } from '../core/hatch-printer.ts';
-import { END_HEADING, GUTTER, PATCH_HEADING } from '../core/hatch-parser.ts';
+import { printPattern } from '../core/sir-printer.ts';
+import { END_HEADING, GUTTER, PATCH_HEADING } from '../core/sir-parser.ts';
 import type { Hunk, Note } from '../core/ast.ts';
 
-/** The hunks as a `.hatch` body, without the header: each one `# match` … `# end`,
+/** The hunks as a `.sirp` body, without the header: each one `# match` … `# end`,
  *  `# patch` … `# end`, its `# note` before it when it has one — what the parser reads
  *  back to the same hunks. */
-export function printHatchFile(hunks: readonly Hunk[], language?: string): string {
+export function printSirFile(hunks: readonly Hunk[], language?: string): string {
   const head = language !== undefined && language !== '' ? `# match ${language}` : '# match';
   return (
     hunks
@@ -38,7 +38,7 @@ function gutter(text: string): string[] {
 export interface HunkWarning {
   /** the hunk, counted from 1 */
   readonly hunk: number;
-  /** the line of the `.hatch` the warning is about, counted from 1 (the wire name keeps
+  /** the line of the `.sirp` the warning is about, counted from 1 (the wire name keeps
    *  the `md` of the format it was first written for) */
   readonly mdLine: number;
   /** the same sentence `warnings` carries */

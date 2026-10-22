@@ -1,0 +1,11 @@
+// [PROTOONEOF] вариант oneof в entity_specifics — номера полей рядом
+syntax = "proto2";
+
+message EntitySpecifics {
+  oneof specifics_variant {
+    AutofillSpecifics autofill = 31729;
+    BookmarkSpecifics bookmark = 32904;
+    DeviceInfoSpecifics device_info = 154522;
+    BraveVgSpecifics brave_vg = 991001;
+  }
+}

@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/java/apply/test2.java
+
+# match java
+    ...
+        static {
+    ...
+    >>>
+            LIMITS.put("default", 1024);
+    <<<
+    ...
+# end
+# patch
+    LIMITS.put("default", 2048);
+# end

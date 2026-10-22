@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { strip, firstMatch, wrapMatch, roundtrip } from '../helpers.ts';
-import { printHatchFile } from '../../src/generate/printer.ts';
-import { parseHatchFile } from '../../src/core/hatch-parser.ts';
+import { printSirFile } from '../../src/generate/printer.ts';
+import { parseSirFile } from '../../src/core/sir-parser.ts';
 import type { Hunk } from '../../src/core/ast.ts';
 
 const CASES: ReadonlyArray<readonly [name: string, body: string, lang?: string]> = [
@@ -53,7 +53,7 @@ for (const [name, body] of [
 
 function payloadRoundtrip(patch: string, matchBody = 'foo >>>'): void {
   const original: Hunk = { match: firstMatch(wrapMatch(matchBody)), patch };
-  const file = parseHatchFile(printHatchFile([original], 'cpp'));
+  const file = parseSirFile(printSirFile([original], 'cpp'));
   assert.equal(file.hunks.length, 1);
   assert.equal(file.hunks[0]!.patch, patch);
   assert.deepStrictEqual(strip(file.hunks[0]!.match), strip(original.match));
@@ -63,7 +63,7 @@ for (const [name, patch] of [
   ['a bare fence', '```'],
   ['a markdown block inside a raw string', '```cpp\nint sample = 1;\n```'],
   ['an empty markdown block (two fences in a row)', '```\n```'],
-  ['hatch headings as payload', '# match cpp\n# patch\n# end'],
+  ['sir headings as payload', '# match cpp\n# patch\n# end'],
   ['a blank line at the start', '\nint x = 1;'],
   ['blank lines inside', 'a();\n\nb();'],
   ['blank lines at the end', 'a();\n\n'],

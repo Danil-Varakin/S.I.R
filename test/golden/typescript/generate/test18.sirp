@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/typescript/generate/test18.new.ts
+Grammar: tree-sitter-typescript@0.23.2
+
+# match typescript
+    ...
+    module 'legacy' {
+    ...
+    >>>
+      export const flag: boolean;
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    export const flag: 0 | 1;
+# end

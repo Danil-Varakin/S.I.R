@@ -1,0 +1,8 @@
+# [DRIFT] upstream добавил строку в массив до правки — новая встаёт за vendor
+edition = "2024"
+ignore = [
+  "third_party/**",
+  "!third_party/blink/**",
+  "third_party/rust/chromium_crates_io/vendor/**",
+  "brave/third_party/",
+]

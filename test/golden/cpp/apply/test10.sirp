@@ -1,0 +1,13 @@
+# match cpp
+    ...
+    namespace content {
+    ...
+    >>>
+    void RegisterFeatures( ... ) {
+    <<<
+    ...
+# end
+# patch
+    // Registers every content feature.
+    void RegisterFeatures(FeatureList* list, bool strict, bool trace) {
+# end

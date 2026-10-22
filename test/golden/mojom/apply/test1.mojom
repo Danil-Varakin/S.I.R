@@ -1,0 +1,18 @@
+// [DRIFT] upstream добавил метод в PageHandler и интерфейс — метод встаёт за ShowContextMenu
+module side_panel.mojom;
+
+import "url/mojom/url.mojom";
+
+interface PageHandler {
+  OpenBookmark(int64 node_id, int32 parent_folder_depth);
+  RemoveBookmark(int64 node_id);
+  ShowContextMenu(string id, gfx.mojom.Point point);
+};
+
+interface PageObserver {
+  OnChanged();
+};
+
+interface Page {
+  OpenBookmark(int64 node_id, int32 parent_folder_depth);
+};

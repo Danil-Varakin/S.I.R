@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/kotlin/apply/test5.kt
+
+# match kotlin
+    ...
+        init {
+    ...
+    >>>
+            require(source.isNotEmpty()) { "source must not be empty" }
+    <<<
+    ...
+# end
+# patch
+    require(source.isNotEmpty()) { "settings source must not be empty" }
+# end

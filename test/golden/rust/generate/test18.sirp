@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/rust/generate/test18.new.rs
+Grammar: tree-sitter-rust@0.24.0
+
+# match rust
+    ...
+    || {
+    ...
+    >>>
+                                run(|| 1)
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    run(|| 7)
+# end

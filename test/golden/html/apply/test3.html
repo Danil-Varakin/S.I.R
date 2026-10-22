@@ -1,0 +1,26 @@
+<!-- [RENAMED] upstream переименовал dom-module и settings-section — замена строки держится за ближайший блок -->
+<link rel="import" href="chrome://resources/html/polymer.html">
+<dom-module id="settings-privacy-page-v2">
+  <template>
+    <style include="settings-shared">
+      .row { padding: 0 16px; }
+    </style>
+    <settings-section page-title="$i18n{privacyPageTitle}" section="privacyV2">
+      <div class="settings-box first">
+        <cr-link-row id="cookies" label="$i18n{cookiesLabel}"
+            on-click="onCookiesClick_"></cr-link-row>
+        <cr-link-row id="siteSettings" label="$i18n{siteSettings}"
+            on-click="onSiteSettingsClick_"></cr-link-row>
+      </div>
+      <div class="settings-box">
+        <settings-toggle-button id="safeBrowsing"
+            pref="{{prefs.safebrowsing.enabled}}"
+            label="$i18n{safeBrowsingLabel}">
+        </settings-toggle-button>
+      </div>
+    </settings-section>
+    <script>
+      Polymer({ is: 'settings-privacy-page' });
+    </script>
+  </template>
+</dom-module>

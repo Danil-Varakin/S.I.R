@@ -1,0 +1,8 @@
+# [DEEPER] upstream переотступил features глубже — якорь прощает более мелкий отступ, удаление ложится (вставка — Н2)
+caption: DNS-over-HTTPS mode
+supported_on:
+- chrome.*:80-
+features:
+    dynamic_refresh: true
+    per_profile: false
+    can_be_recommended: true

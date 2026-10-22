@@ -1,0 +1,17 @@
+Sir: 2
+Target: test/golden/idl/generate/test5.new.idl
+
+# match idl
+    ...
+    enum CanvasFontStretch {
+    ...
+        "normal",
+    >>>
+    ...
+    }
+    ...
+# end
+# patch
+
+        "semi-expanded",
+# end

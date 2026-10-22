@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/json5/generate/test6.new.json5
+Grammar: tree-sitter-javascript@0.25.0
+
+# match json5
+    ...
+        status: {
+    ...
+    >>>
+          valid_values: ["stable", "experimental", "test"],
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    valid_values: ["stable", "experimental", "test", "disabled"],
+# end

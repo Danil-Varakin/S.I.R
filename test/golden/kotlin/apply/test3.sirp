@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/kotlin/apply/test3.kt
+
+# match kotlin
+    ...
+        companion object {
+    ...
+    >>>
+            const val DEFAULT_TTL = 300
+    <<<
+    ...
+# end
+# patch
+    const val DEFAULT_TTL = 600
+# end

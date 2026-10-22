@@ -1,0 +1,5 @@
+<!-- [CDATA] правка рядом с CDATA: < > и & внутри — данные -->
+<resources>
+    <string name="about_text"><![CDATA[Version <b>%1$s</b> & more]]></string>
+    <string name="about_title">About</string>
+</resources>

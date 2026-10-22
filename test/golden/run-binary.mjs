@@ -1,8 +1,8 @@
-// Every apply golden through a `hatch-apply` binary: the result must be the expected
+// Every apply golden through a `sir-apply` binary: the result must be the expected
 // file, byte for byte — the same engine as the package, in one executable (VERSIONING.md
 // F3). Run by CI and by the release on every platform it builds for.
 //
-//   node test/golden/run-binary.mjs build/hatch-apply-<version>-<os>-<arch>
+//   node test/golden/run-binary.mjs build/sir-apply-<version>-<os>-<arch>
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 const binary = process.argv[2];
 if (binary === undefined) {
-  process.stderr.write('usage: node test/golden/run-binary.mjs <hatch-apply>\n');
+  process.stderr.write('usage: node test/golden/run-binary.mjs <sir-apply>\n');
   process.exit(1);
 }
 const HERE = fileURLToPath(new URL('.', import.meta.url));
@@ -22,15 +22,17 @@ for (const language of readdirSync(HERE).sort()) {
   const dir = join(HERE, language, 'apply');
   if (!existsSync(dir) || !statSync(dir).isDirectory()) continue;
   const files = readdirSync(dir);
-  for (const patch of files.filter((f) => /^test\d+\.hatch$/.test(f))) {
-    const n = patch.slice(0, -'.hatch'.length);
-    const source = files.find((f) => f.startsWith(`${n}.`) && !f.endsWith('.hatch') && !f.startsWith(`${n}.expected.`));
+  for (const patch of files.filter((f) => /^test\d+\.sirp$/.test(f))) {
+    const n = patch.slice(0, -'.sirp'.length);
+    const source = files.find((f) => f.startsWith(`${n}.`) && !f.endsWith('.sirp') && !f.startsWith(`${n}.expected.`));
     if (source === undefined) {
       failures.push(`${language}/apply/${n}: no source beside ${patch}`);
       continue;
     }
     const text = readFileSync(join(dir, source), 'utf8');
-    const mustRefuse = (text.split('\n', 1)[0] ?? '').includes('MUST-REFUSE');
+    // the line a golden describes itself in: the first, the second after a `#!` line
+    const [first = '', second = ''] = text.split('\n', 2);
+    const mustRefuse = (first.startsWith('#!') ? second : first).includes('MUST-REFUSE');
     const r = spawnSync(
       resolve(binary),
       ['apply', '--match', patch, '--in', source, '--out', '-', '--base-from-disk', '--no-config'],
@@ -50,6 +52,6 @@ for (const language of readdirSync(HERE).sort()) {
     else passed++;
   }
 }
-process.stdout.write(`hatch-apply goldens: ${passed} passed, ${failures.length} failed\n`);
+process.stdout.write(`sir-apply goldens: ${passed} passed, ${failures.length} failed\n`);
 for (const f of failures) process.stderr.write(`  ${f}\n`);
 process.exitCode = failures.length === 0 && passed > 0 ? 0 : 1;

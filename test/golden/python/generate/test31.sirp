@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/python/generate/test31.new.py
+Grammar: tree-sitter-python@0.25.0
+
+# match python
+    ...
+    def helper(
+    ...
+    ):
+    ...
+    >>>
+        """Возвращает удвоенное значение."""
+    <<<
+    ...
+# end
+# patch
+    """Возвращает значение, умноженное на два."""
+# end

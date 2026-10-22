@@ -1,0 +1,22 @@
+Sir: 2
+Target: test/golden/cpp/generate/test18.new.cc
+Grammar: tree-sitter-cpp@0.23.4
+
+# match cpp
+    ...
+    class Beta {
+    ...
+      void Reset() {
+    ...
+    >>>
+        value_ = 0;
+    <<<
+    ...
+    }
+    ...
+    }
+    ...
+# end
+# patch
+    value_ = -1;
+# end

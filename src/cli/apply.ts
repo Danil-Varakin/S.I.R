@@ -1,11 +1,10 @@
-import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { parseHatchFile } from '../core/hatch-parser.ts';
+import { parseSirFile } from '../core/sir-parser.ts';
 import { ConfigError } from '../core/errors.ts';
 import { applyAll } from '../core/apply.ts';
 import type { AppliedEdit } from '../core/apply.ts';
-import type { HatchFile } from '../core/ast.ts';
-import { ensureParent, isFile, readInputFile, replacesFile, writeFileAtomic } from '../infra/fs.ts';
+import type { SirFile } from '../core/ast.ts';
+import { ensureParent, isFile, readIfReadable, readInputFile, replacesFile, writeFileAtomic } from '../infra/fs.ts';
 import { resolveOutPath } from '../infra/out-path.ts';
 import { isPatchPath, pairOf } from '../infra/pair.ts';
 import { loadProject } from '../infra/project.ts';
@@ -13,7 +12,6 @@ import type { Project } from '../infra/project.ts';
 import { basesOnGit, gitSourceOf } from '../infra/config/index.ts';
 import type { ResolvedConfig } from '../infra/config/index.ts';
 import { fileFromGit } from '../infra/git.ts';
-import { GRAMMARS_SHIP_INSIDE } from './deprecated.ts';
 import { pickAdapter } from '../lang/adapter.ts';
 import type { LanguageAdapter } from '../lang/source-map.ts';
 import type { ErrorContext, Logger } from '../infra/log.ts';
@@ -26,9 +24,9 @@ import type { ConfirmOptions } from './confirm.ts';
 import type { Ask } from '../infra/ask.ts';
 import { answersFrom } from './prompt.ts';
 
-/** Who runs the apply: `hatch apply`, a person's tool — or `hatch-apply`, a build's,
+/** Who runs the apply: `sir apply`, a person's tool — or `sir-apply`, a build's,
  *  which asks nothing and patches only a base out of git (or one it is told is clean). */
-export type ApplyMode = 'hatch' | 'hatch-apply';
+export type ApplyMode = 'sir' | 'sir-apply';
 
 export interface Options extends GitOptions, ConfirmOptions {
   match?: string;
@@ -41,16 +39,15 @@ export interface Options extends GitOptions, ConfirmOptions {
   baseFromDisk: boolean;
   dryRun: boolean;
   verify: boolean;
-  downloadGrammars: boolean;
   help: boolean;
 }
 
-const USAGE = `hatch apply — apply a .hatch patch to a source file
+const USAGE = `sir apply — apply a .sirp patch to a source file
 
-  --match, -m <file>      the patch, a .hatch file (match/patch hunks) [required]
+  --match, -m <file>      the patch, a .sirp file (match/patch hunks) [required]
   --in,    -i <file>      the file to patch. Left out, it is the file the patch names
                           in its Target — from the upstream root of the project
-                          (hatch.config.json up from the patch), else from the
+                          (sir.config.json up from the patch), else from the
                           repository around the patch.
                           Read from disk — unless a git coordinate below is named:
                           then only its PATH is used (the repository, the default
@@ -82,16 +79,14 @@ ${CONFIRM_USAGE}
                           asking: they are the clean base
   --config <file>         the config to use instead of the one up from the patch
   --no-config             read no config: --in is then required
-  --download-grammars     does nothing since 0.4 (grammars ship inside hatch) and
-                          warns; removed in 0.5
   --log [place]           also write a full log. A place that is a directory (or ends
                           in /) receives a generated name, so every run gets its own
                           file; any other place IS the name and is overwritten.
-                          Omitted → ./hatch-logs/. A log that cannot be opened is a
+                          Omitted → ./sir-logs/. A log that cannot be opened is a
                           warning, not a failure: the run goes on without it
   --help,  -h             this help`;
 
-/** Exported for `hatch-apply`, whose options are picked out of these (F2). */
+/** Exported for `sir-apply`, whose options are picked out of these (F2). */
 export const SPEC: ArgSpec<Options> = {
   flags: {
     ...GIT_ARGS.flags,
@@ -99,7 +94,6 @@ export const SPEC: ArgSpec<Options> = {
     '--dry-run': 'dryRun',
     '--verify': 'verify',
     '--base-from-disk': 'baseFromDisk',
-    '--download-grammars': 'downloadGrammars',
     '--help': 'help',
     '-h': 'help',
   },
@@ -122,7 +116,6 @@ export const INITIAL: Options = {
   baseFromDisk: false,
   dryRun: false,
   verify: false,
-  downloadGrammars: false,
   help: false,
 };
 
@@ -140,7 +133,7 @@ interface ApplyRun {
   readonly mode: ApplyMode;
   /** the file of code: `--in`, or the one the patch names */
   readonly inPath: string;
-  readonly file: HatchFile;
+  readonly file: SirFile;
   readonly adapter: LanguageAdapter;
   readonly config: ResolvedConfig;
   readonly log: Logger;
@@ -155,10 +148,10 @@ async function sourceOf(run: ApplyRun): Promise<FileVersion> {
   return asksGit(opts) ? readFromGit(opts, inPath, ask) : { text: readInputFile(inPath, '--in'), spec: inPath };
 }
 
-/** What `--verify` checks against — and everything `hatch-apply` patches: a clean base.
+/** What `--verify` checks against — and everything `sir-apply` patches: a clean base.
  *  Out of git when the flags or the config's generate.base name it; the files on disk
  *  only when the person says they are that base — `--base-from-disk`, or yes to the
- *  question `hatch` asks and `hatch-apply` never does. */
+ *  question `sir` asks and `sir-apply` never does. */
 async function verifiedBase(run: ApplyRun): Promise<FileVersion> {
   const { opts, inPath, ask, config, mode, log } = run;
   if (asksGit(opts)) return readFromGit(opts, inPath, ask);
@@ -170,7 +163,7 @@ async function verifiedBase(run: ApplyRun): Promise<FileVersion> {
     log.note(`warning: --base-from-disk: ${inPath} is taken as the clean base, as it is on disk`);
     return fromDisk();
   }
-  if (mode === 'hatch-apply') {
+  if (mode === 'sir-apply') {
     throw new ConfigError(
       `no base — name it (${GIT_FLAG_NAMES} or generate.base), ` +
         'or confirm the files on disk are the clean base: --base-from-disk',
@@ -188,7 +181,7 @@ async function verifiedBase(run: ApplyRun): Promise<FileVersion> {
 /** Writing the result over the file of code while its content came out of git puts the
  *  patched git version where the working file is. Nothing is lost when the working file
  *  held the git text to begin with, or already holds the result. Anything else throws
- *  away what the file holds now: `hatch` asks first; `hatch-apply` writes over it and
+ *  away what the file holds now: `sir` asks first; `sir-apply` writes over it and
  *  says so — the files of the code a build patches are not the project's to keep, and
  *  a patch that changed is laid on the clean base again (docs: prebuild §2). */
 async function mustKeepLocalEdits(run: ApplyRun, target: string, source: FileVersion, result: string): Promise<void> {
@@ -196,7 +189,7 @@ async function mustKeepLocalEdits(run: ApplyRun, target: string, source: FileVer
   if (!isFile(file) || !replacesFile(target, file)) return;
   const onDisk = readInputFile(file, '--in');
   if (onDisk === source.text || onDisk === result) return;
-  if (run.mode === 'hatch-apply') {
+  if (run.mode === 'sir-apply') {
     run.log.note(`note: ${run.inPath} held changes ${source.spec} does not — written over with the patched ${source.spec}`);
     return;
   }
@@ -212,21 +205,21 @@ async function mustKeepLocalEdits(run: ApplyRun, target: string, source: FileVer
 }
 
 async function run(opts: Options, log: Logger, seen: Seen): Promise<void> {
-  return runApply(opts, log, seen, 'hatch');
+  return runApply(opts, log, seen, 'sir');
 }
 
 export async function runApply(opts: Options, log: Logger, seen: Seen, mode: ApplyMode): Promise<void> {
-  if (opts.match === undefined) throw new Error('missing --match <file.hatch>');
+  if (opts.match === undefined) throw new Error('missing --match <file.sirp>');
   if (!isPatchPath(opts.match)) {
-    throw new Error(`--match ${opts.match}: a patch is a .hatch file (a .md of hatch 0.3 and older: rename it, git mv x.md x.hatch)`);
+    throw new Error(`--match ${opts.match}: a patch is a .sirp file (a .md of sir 0.3 and older: rename it, git mv x.md x.sirp)`);
   }
-  const cleanBase = opts.verify || mode === 'hatch-apply';
+  const cleanBase = opts.verify || mode === 'sir-apply';
   if (opts.baseFromDisk && (!cleanBase || asksGit(opts))) {
     throw new Error('--base-from-disk names the base of --verify, and only when no git coordinate does');
   }
   const willWrite = !opts.dryRun && !opts.verify;
-  // hatch-apply without --out patches the file in place
-  if (willWrite && opts.out === undefined && mode === 'hatch') {
+  // sir-apply without --out patches the file in place
+  if (willWrite && opts.out === undefined && mode === 'sir') {
     throw new Error('missing --out <file> (or use --dry-run / --verify)');
   }
   gitEol(opts.eol);
@@ -235,7 +228,7 @@ export async function runApply(opts: Options, log: Logger, seen: Seen, mode: App
   }
 
   const text = readInputFile(opts.match, '--match');
-  const file = parseHatchFile(text);
+  const file = parseSirFile(text);
   const { config, project } = loadProject({
     path: opts.match,
     search: { explicitPath: opts.config, cwd: process.cwd(), isPatch: true },
@@ -243,14 +236,13 @@ export async function runApply(opts: Options, log: Logger, seen: Seen, mode: App
   });
   const inPath = opts.in ?? codeOfPatch(opts.match, text, config, project);
   const adapter = pickAdapter({ language: opts.language, heading: file.language, path: inPath });
-  if (opts.downloadGrammars) log.note(`warning: ${GRAMMARS_SHIP_INSIDE}`);
   await adapter.init();
 
   const base = { opts, mode, inPath, file, adapter, config, log, seen };
-  if (mode === 'hatch-apply') {
+  if (mode === 'sir-apply') {
     // nobody to answer in a build: every question is a refusal, said out loud
     const ask: Ask = (question) => {
-      log.note(`warning: ${question}\n  hatch-apply asks nothing: stopping`);
+      log.note(`warning: ${question}\n  sir-apply asks nothing: stopping`);
       return Promise.resolve(false);
     };
     await applyWith({ ...base, ask });
@@ -279,7 +271,7 @@ function codeOfPatch(match: string, text: string, config: ResolvedConfig, projec
 
 async function applyWith(run: ApplyRun): Promise<void> {
   const { opts, inPath, file, adapter, log, seen } = run;
-  const source = opts.verify || run.mode === 'hatch-apply' ? await verifiedBase(run) : await sourceOf(run);
+  const source = opts.verify || run.mode === 'sir-apply' ? await verifiedBase(run) : await sourceOf(run);
   seen.source = source;
   log.trace(`source: ${source.spec} (${source.text.length} bytes), ${file.hunks.length} hunk(s)`);
   const { source: result, edits } = applyAll(source.text, file, adapter);
@@ -303,7 +295,7 @@ async function applyWith(run: ApplyRun): Promise<void> {
   }
   // a file that already holds the result is left as it is: no new mtime for a build to
   // recompile it over
-  if (contentOf(target) === result) {
+  if (readIfReadable(target) === result) {
     log.info(`applied ${edits.length} hunk(s) → ${target} (already so: not written)`);
     return;
   }
@@ -311,15 +303,6 @@ async function applyWith(run: ApplyRun): Promise<void> {
   ensureParent(target);
   writeFileAtomic(target, result);
   log.info(`applied ${edits.length} hunk(s) → ${target}`);
-}
-
-function contentOf(path: string): string | undefined {
-  if (!isFile(path)) return undefined;
-  try {
-    return readFileSync(path, 'utf8');
-  } catch {
-    return undefined;
-  }
 }
 
 export interface Seen {

@@ -1,0 +1,70 @@
+name: nightly
+
+# The property tests (test/unit/property.test.ts) on a seed of their own every night, 25
+# times the cases `npm test` runs: the corpus edits `npm test` draws are the same every
+# run, these are new each night. A failure names its seed; the summary says how to run it
+# again — the same seed draws the same cases on every machine.
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: 'seed to run (empty: a new one)'
+        required: false
+      runs:
+        description: 'times the cases of npm test'
+        required: false
+        default: '25'
+
+jobs:
+  property:
+    name: property tests · seed ${{ github.event.inputs.seed || 'new' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: install
+        run: npm ci
+
+      - name: grammar cache
+        uses: actions/cache@v4
+        with:
+          path: grammars
+          key: grammars-${{ hashFiles('src/lang/*/index.ts') }}
+
+      - name: grammars
+        run: npm run grammars
+
+      - name: seed
+        shell: bash
+        env:
+          SEED_IN: ${{ github.event.inputs.seed }}
+          RUNS_IN: ${{ github.event.inputs.runs }}
+        run: |
+          seed="${SEED_IN:-$(node -e 'console.log(require("node:crypto").randomInt(2 ** 31))')}"
+          runs="${RUNS_IN:-25}"
+          echo "SIR_PROP_SEED=$seed" >> "$GITHUB_ENV"
+          echo "SIR_PROP_RUNS=$runs" >> "$GITHUB_ENV"
+          echo "seed $seed, runs $runs"
+
+      - name: property tests
+        run: node --test --experimental-strip-types test/unit/property.test.ts
+
+      - name: how to run it again
+        if: failure()
+        shell: bash
+        run: |
+          {
+            echo "### property tests failed — seed $SIR_PROP_SEED"
+            echo
+            echo '```bash'
+            echo "SIR_PROP_SEED=$SIR_PROP_SEED SIR_PROP_RUNS=$SIR_PROP_RUNS node --test --experimental-strip-types test/unit/property.test.ts"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

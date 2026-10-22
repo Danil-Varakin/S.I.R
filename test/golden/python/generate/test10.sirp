@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/python/generate/test10.new.py
+Grammar: tree-sitter-python@0.25.0
+
+# match python
+    ...
+    def show(
+    ...
+    ):
+    ...
+    >>>
+        return f"{head}: {len(user.items)} шт."
+    <<<
+    ...
+# end
+# patch
+    return f"{head}: {len(user.items) - 1} шт."
+# end

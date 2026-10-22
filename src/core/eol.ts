@@ -1,6 +1,6 @@
 // ── line endings ─────────────────────────────────────────────────────────────────
 //
-// A patch body has no line ending of its own: the .hatch is text, and git (autocrlf,
+// A patch body has no line ending of its own: the .sirp is text, and git (autocrlf,
 // `text=auto`) or an editor may turn its line ends either way on the road — the parser
 // reads `\r\n` and `\n` alike. So the ending is the TARGET's: a bare LF of the patch
 // takes the ending of the line the edit starts on. Only a CRLF line changes anything —

@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/objc/apply/test2.m
+
+# match objc
+    ...
+    @implementation Downloader {
+      NSInteger _inFlight;
+    >>>
+      NSString *_token;
+    ...
+# end
+# patch
+
+      NSDate *_startedAt;
+# end

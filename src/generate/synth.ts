@@ -4,8 +4,11 @@ import type { LanguageAdapter, SourceMap, BlockSpan, MapCache } from '../lang/so
 import { mapFor } from '../lang/source-map.ts';
 import { matchPattern } from '../core/matcher.ts';
 import { cutOf, patchHunk } from '../core/patcher.ts';
-import { printPattern } from '../core/hatch-printer.ts';
+import { printPattern } from '../core/sir-printer.ts';
+import { literalAsRead } from '../core/sir-parser.ts';
 import { AmbiguityError, MatchError, SynthesisError, firstLineOf } from '../core/errors.ts';
+import { withDraft } from './draft.ts';
+import { firstLineEnd } from '../core/eol.ts';
 import { changeSegments } from './diff.ts';
 import type { ChangeSegment } from './diff.ts';
 import { resolveLimits } from './limits.ts';
@@ -111,7 +114,13 @@ function* synthesisSteps(
     const segment: ChangeSegment = { ...originalSegment, oldStart: originalSegment.oldStart + rowShift };
 
     const context = makeHunkContext(segment, currentSource, setup);
-    const resolved = resolveHunk(context);
+    let resolved;
+    try {
+      resolved = resolveHunk(context);
+    } catch (e) {
+      // the draft a person would write it from: what `steer.ts` hands the editor
+      throw e instanceof SynthesisError ? withDraft(e, hunks, segment, currentSource) : e;
+    }
 
     hunks.push({ match: resolved.pattern, patch: resolved.patch });
     currentSource = resolved.appliedSource;
@@ -121,10 +130,28 @@ function* synthesisSteps(
 
   const reproduced = exact ? currentSource === newSource : sameIgnoringSpace(currentSource, newSource, adapter);
   if (!reproduced) {
+    // a patch writes the line endings of its base: in a CRLF base a line the new version
+    // ends in a bare LF cannot be written byte for byte — a limit of the format, not a
+    // fault of synthesis
+    const lf = exact && firstLineEnd(oldSource) === '\r\n' ? bareLfLine(newSource) : 0;
+    if (lf > 0 && sameIgnoringSpace(currentSource, newSource, adapter)) {
+      const because = `the new version mixes line endings (line ${lf} ends with LF)`;
+      throw new SynthesisError(
+        `${because}; a patch writes the endings of the base — turn exact off or make the endings one`,
+        'unreproduced',
+        because,
+      );
+    }
     const because = `${hunks.length} hunk(s) applied give another text (${exact ? 'verbatim' : 'normalized'} check)`;
     throw new SynthesisError(`the hunks do not give the new version: ${because} — a fault of synthesis`, 'unreproduced', because);
   }
   return hunks;
+}
+
+/** The first line that ends in a bare LF, counted from 1; 0 when none does. */
+function bareLfLine(text: string): number {
+  const lines = text.split('\n');
+  return lines.findIndex((l, k) => k < lines.length - 1 && !l.endsWith('\r')) + 1;
 }
 
 /** One change against the text as it stands — the step `synthesize` repeats, for a
@@ -249,7 +276,7 @@ function resolveHunk(context: HunkContext): ResolvedHunk {
 }
 
 /** No candidate stood: the most informative of their failures, told as what it is — a
- *  change `generate` could not anchor, not a `.hatch` that failed to apply. No candidate
+ *  change `generate` could not anchor, not a `.sirp` that failed to apply. No candidate
  *  at all is `no-match`: no pattern lands there, and none fitted twice. Exported for its
  *  test. */
 export function anchorFailure(segment: ChangeSegment, failure: unknown): SynthesisError {
@@ -262,7 +289,10 @@ export function anchorFailure(segment: ChangeSegment, failure: unknown): Synthes
   );
 }
 
-function moreInformative(current: unknown, next: unknown): unknown {
+/** Of two failures of candidates, the one a refusal names: an ambiguity over a no-match,
+ *  between no-matches the one that got further; a tie keeps the first. Exported for its
+ *  test. */
+export function moreInformative(current: unknown, next: unknown): unknown {
   if (current === undefined) return next;
   const a = rankFailure(current);
   const b = rankFailure(next);
@@ -346,6 +376,8 @@ interface Policies {
   readonly parent: DetailPolicy;
   readonly sibling: DetailPolicy;
   readonly widened: ReadonlySet<number>;
+  /** the lower neighbour right after the change, with no `...` between */
+  readonly pressed: boolean;
 }
 
 type PolicyOwner = 'parent' | 'sibling';
@@ -431,10 +463,15 @@ function selectivity(context: HunkContext, g: Generalized, policy: DetailPolicy)
 // ── candidate ladder ─────────────────────────────────────────────────────────────
 
 function* candidatePatterns(context: HunkContext): Ladder {
-  for (const cut of cutForms(context)) yield* contextLadder(context, cut);
+  for (const cut of cutForms(context)) yield* contextLadder(context, cut, false);
+  // A lower neighbour after `...` fits any copy of it further down. When nothing above
+  // stood, the rungs with neighbours below are tried once more with the first of them
+  // pressed against the change: it fits only the copy right there, and breaks when a line
+  // comes between — so it is the last resort, never preferred to a pattern that stands.
+  for (const cut of cutForms(context)) yield* contextLadder(context, cut, true);
 }
 
-function* contextLadder(context: HunkContext, cut: Cut): Ladder {
+function* contextLadder(context: HunkContext, cut: Cut, pressed: boolean): Ladder {
   const { minParents, maxParents, minSiblings, maxSiblings, parentsRequired } = context.limits;
 
   const available = context.parents.length;
@@ -442,18 +479,19 @@ function* contextLadder(context: HunkContext, cut: Cut): Ladder {
   const baseParents = Math.min(minParents, topParents);
   const baseAbove = Math.min(minSiblings, maxSiblings);
 
-  for (let parents = baseParents; parents <= topParents; parents++) {
-    yield* rung(context, cut, parents, baseAbove, 0);
+  // with no neighbour below there is nothing to press
+  for (let parents = baseParents; parents <= topParents && !pressed; parents++) {
+    yield* rung(context, cut, parents, baseAbove, 0, false);
   }
   for (let distance = 1; distance <= 2 * maxSiblings - baseAbove; distance++) {
     for (let extraAbove = 0; extraAbove <= Math.min(distance, maxSiblings - baseAbove); extraAbove++) {
       const below = distance - extraAbove;
       if (below > maxSiblings) continue;
-      yield* rung(context, cut, topParents, baseAbove + extraAbove, below);
+      if (below > 0 || !pressed) yield* rung(context, cut, topParents, baseAbove + extraAbove, below, pressed);
     }
   }
-  if (baseParents > 0 && !parentsRequired) {
-    yield* rung(context, cut, 0, baseAbove, 0);
+  if (baseParents > 0 && !parentsRequired && !pressed) {
+    yield* rung(context, cut, 0, baseAbove, 0, false);
   }
 }
 
@@ -463,11 +501,13 @@ function* rung(
   parentCount: number,
   aboveRows: number,
   belowRows: number,
+  pressed: boolean,
 ): Ladder {
   let policies: Policies = {
     parent: { base: context.limits.parentDetailBase, spelled: new Set() },
     sibling: { base: context.limits.siblingDetailBase, spelled: new Set() },
     widened: new Set(),
+    pressed,
   };
 
   for (;;) {
@@ -521,7 +561,7 @@ function flushGapCanClose(context: HunkContext, leadRanges: readonly Generalized
 // ── cut forms ────────────────────────────────────────────────────────────────────
 type Cut =
   | { kind: 'insert'; side: 'left' | 'right'; needsAbove: boolean; pinsRight: boolean; allowEdge: boolean; looseLeft?: false }
-  | { kind: 'exact'; needsAbove: false; pinsRight: false; allowEdge: boolean; looseLeft?: false }
+  | { kind: 'exact'; needsAbove: false; pinsRight: false; looseLeft?: false }
   | { kind: 'context'; needsAbove: true; pinsRight: true; allowEdge: boolean; looseLeft?: boolean }
   | { kind: 'contextBelow'; needsAbove: false; pinsRight: true; allowEdge: boolean; looseLeft?: false }
   | { kind: 'contextAbove'; needsAbove: true; pinsRight: false; allowEdge: boolean; looseLeft?: boolean }
@@ -545,7 +585,7 @@ function* cutForms(context: HunkContext): Generator<Cut> {
     yield { kind: 'span', needsAbove: true, pinsRight: true, allowEdge: true };
   }
   if (segment.added.length > 0 && preservesBoundaryWhitespace(segment.removed, segment.added)) {
-    yield { kind: 'exact', needsAbove: false, pinsRight: false, allowEdge: false };
+    yield { kind: 'exact', needsAbove: false, pinsRight: false };
   }
   yield { kind: 'context', needsAbove: true, pinsRight: true, allowEdge: false };
   yield { kind: 'contextBelow', needsAbove: false, pinsRight: true, allowEdge: false };
@@ -561,11 +601,11 @@ function assemblePattern(context: HunkContext, lead: Step[], cut: Cut, tail: Tai
   const [first, ...rest] = tail.steps;
   const head = first!;
 
-  const hasLeft = lead.length > 0 || (cut.allowEdge && context.canonStart === 0);
-  const hasRight =
-    tail.startCanon === context.canonEnd && (cut.allowEdge || head.anchor.target === 'literal');
-  if (cut.needsAbove && !hasLeft) return null;
-  if (cut.pinsRight && !hasRight) return null;
+  // what is left of the change, and right of it — asked only of a cut that needs it
+  if (cut.needsAbove && !(lead.length > 0 || (cut.allowEdge && context.canonStart === 0))) return null;
+  if (cut.pinsRight && !(tail.startCanon === context.canonEnd && (cut.allowEdge || head.anchor.target === 'literal'))) {
+    return null;
+  }
 
   const removedAnchor = (): Anchor | null =>
     literalAnchor(context, context.segment.removed.join('\n'));
@@ -577,44 +617,47 @@ function assemblePattern(context: HunkContext, lead: Step[], cut: Cut, tail: Tai
 
   switch (cut.kind) {
     case 'insert':
-      return pattern(context, lead, [withMarks(head, ['insert', cut.side]), ...rest]);
+      return pattern(lead, [withMarks(head, ['insert', cut.side]), ...rest]);
 
     case 'exact': {
       const removed = removedAnchor();
       if (removed === null) return null;
-      return pattern(context, lead, [fromRemoved(removed), withMarks(head, ['replaceEnd', 'left']), ...rest]);
+      return pattern(lead, [fromRemoved(removed), withMarks(head, ['replaceEnd', 'left']), ...rest]);
     }
     case 'context': {
       const removed = removedAnchor();
       if (removed === null) return null;
-      return pattern(context, lead, [afterLead(removed), withMarks(head, ['replaceEnd', 'right']), ...rest]);
+      return pattern(lead, [afterLead(removed), withMarks(head, ['replaceEnd', 'right']), ...rest]);
     }
     case 'contextBelow': {
       const removed = removedAnchor();
       if (removed === null) return null;
-      return pattern(context, lead, [fromRemoved(removed), withMarks(head, ['replaceEnd', 'right']), ...rest]);
+      return pattern(lead, [fromRemoved(removed), withMarks(head, ['replaceEnd', 'right']), ...rest]);
     }
     case 'contextAbove': {
       const removed = removedAnchor();
       if (removed === null) return null;
-      return pattern(context, lead, [afterLead(removed), withMarks(head, ['replaceEnd', 'left']), ...rest]);
+      return pattern(lead, [afterLead(removed), withMarks(head, ['replaceEnd', 'left']), ...rest]);
     }
-    case 'span':
-      return pattern(context, lead, [withMarks(head, ['insert', 'left'], ['replaceEnd', 'right']), ...rest]);
+    case 'span': {
+      const spanned = pattern(lead, [withMarks(head, ['insert', 'left'], ['replaceEnd', 'right']), ...rest]);
+      // A replacement that names nothing — no literal at all — fits every file, and would
+      // write over whatever stands there: a one-line file whose line changed gave
+      // `>>> ... <<<`, and applied over upstream's version erased what upstream added
+      // (07-findings Н5). Such a span spells what it replaces, as the other cuts do: it
+      // then fits only a file that still holds that text.
+      if (context.segment.removed.length > 0 && !spanned.steps.some((s) => s.anchor.target === 'literal')) {
+        // a text of blank lines alone has nothing to spell: the span stays as it is
+        const removed = removedAnchor();
+        if (removed !== null) return pattern(lead, [fromRemoved(removed), withMarks(head, ['replaceEnd', 'left']), ...rest]);
+      }
+      return spanned;
+    }
   }
 }
 
-function pattern(context: HunkContext, lead: Step[], rest: Step[]): MatchPattern {
-  const steps = [...lead, ...rest];
-  const head = steps[0]!;
-  const tightenable =
-    lead.length === 0 &&
-    context.canonStart === 0 &&
-    head.anchor.target === 'literal' &&
-    head.gap.mode.op === 'skipAny' &&
-    !hasRightMark(head.gap);
-  if (tightenable) steps[0] = { gap: { ...head.gap, mode: { op: 'tight' } }, anchor: head.anchor };
-  return { steps };
+function pattern(lead: Step[], rest: Step[]): MatchPattern {
+  return { steps: [...lead, ...rest] };
 }
 
 // ── lead and tail ────────────────────────────────────────────────────────────────
@@ -651,12 +694,18 @@ function buildTail(
   if (belowRows > 0) {
     const below = neighbourStepsBelow(context, belowRows, policies.sibling, generalized);
     if (below.length > 0) {
+      if (policies.pressed) below[0] = { gap: tightGap(), anchor: below[0]!.anchor };
       steps.push(...below);
       startCanon = context.canonEnd;
     }
   }
   for (let i = 0; i < parentCount; i++) {
-    const closer = closerStep(context, context.parents[i]!);
+    const span = context.parents[i]!;
+    // Blocks with no closing token that end where the block inside them ends (an `if` and
+    // its `def` closed by one line in Python) share that closer: it is written once, by
+    // the inner one — a second copy would have to be another line.
+    if (span.closeEnd === undefined && i > 0 && context.parents[i - 1]!.close === span.close) continue;
+    const closer = closerStep(context, span);
     if (closer === null) break;
     steps.push(closer);
     startCanon ??= context.parents[i]!.close;
@@ -817,7 +866,10 @@ function appendLiteralSegment(context: HunkContext, steps: Step[], canonFrom: nu
   if (anchor !== null) steps.push(skipStep(anchor));
 }
 
-function literalAnchor(context: HunkContext, raw: string): Anchor | null {
+function literalAnchor(context: HunkContext, written: string): Anchor | null {
+  // the anchor as `apply` will read it, so that it is verified as read: a blank line
+  // inside it is no part of a literal, and the Python canon would miss it
+  const raw = literalAsRead(written);
   if (context.adapter.normalize(raw) === '') return null;
   return { target: 'literal', literal: { raw, mdSpan: [0, 0] } };
 }
@@ -875,12 +927,13 @@ function markedGap(gap: Gap, ...marks: Mark[]): Gap {
   for (const [mark, side] of marks) gap[mark] = { side, mdLine: 0 };
   return gap;
 }
-function hasRightMark(gap: Gap): boolean {
-  return gap.insert?.side === 'right' || gap.replaceEnd?.side === 'right';
-}
 function skipStep(anchor: Anchor): Step {
   return { gap: skipGap(), anchor };
 }
+/** In a tight gap a mark stands on its left side, as the parser reads it back: the gap
+ *  has no width to put a right side across. */
 function withMarks(step: Step, ...marks: Mark[]): Step {
-  return { gap: markedGap({ mode: step.gap.mode }, ...marks), anchor: step.anchor };
+  const tight = step.gap.mode.op === 'tight';
+  const sided = marks.map(([mark, side]): Mark => [mark, tight ? 'left' : side]);
+  return { gap: markedGap({ mode: step.gap.mode }, ...sided), anchor: step.anchor };
 }

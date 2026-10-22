@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/typescript/apply/test9.ts
+Grammar: tree-sitter-typescript@0.23.2
+
+# match typescript
+    ...
+          if (
+    ...
+    ) {
+    >>>
+    ...
+    }
+    ...
+# end
+# patch
+
+            this.log.info('queue drained');
+# end

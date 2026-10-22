@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/javascript/apply/test7.js
+Grammar: tree-sitter-javascript@0.25.0
+
+# match javascript
+    ...
+    >>>
+    export function connect({ host = 'localhost', port = 8080, ...rest }) {
+    <<<
+    ...
+# end
+# patch
+    export function connect({ host = 'localhost', port = 9090, ...rest }) {
+# end

@@ -1,0 +1,17 @@
+Sir: 2
+Target: test/golden/cpp/generate/test91.new.h
+Grammar: tree-sitter-cpp@0.23.4
+
+# match cpp
+    ...
+    @interface NSWindow (
+    ...
+    )
+    - (void)brave_layout;
+    >>>
+    ...
+# end
+# patch
+
+    - (void)brave_layoutTitlebar;
+# end

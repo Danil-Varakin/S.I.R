@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/objc/generate/test16.new.mm
+Grammar: tree-sitter-objc@3.0.2
+
+# match objc
+    ...
+    void SetWindowTitle(
+    ...
+    ) {
+    ...
+    >>>
+    }
+    ...
+# end
+# patch
+      [window setSubtitle:@"Brave"];
+
+# end

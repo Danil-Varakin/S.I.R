@@ -13,7 +13,7 @@ import { buildRepo, version, OTHER, SIDE_ONLY } from '../git-repo.ts';
 
 // The repository and what each coordinate points at: see test/git-repo.ts.
 
-const R = buildRepo('hatch-git-source-');
+const R = buildRepo('sir-git-source-');
 after(() => rmSync(R.dir, { recursive: true, force: true }));
 
 interface Case {
@@ -216,7 +216,7 @@ test('git source: the spec says exactly what was read', async () => {
 });
 
 test('git source: outside a repository, before any coordinate is looked at', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'hatch-git-norepo-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sir-git-norepo-'));
   try {
     writeFileSync(join(dir, 'f.cc'), version(4));
     await assert.rejects(() => fileFromGit({ branch: 'main' }, join(dir, 'f.cc')), (e: unknown) => {
@@ -230,7 +230,7 @@ test('git source: outside a repository, before any coordinate is looked at', asy
 });
 
 test('git source: a .git that git itself cannot read is named as that, not as a missing branch', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'hatch-git-broken-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sir-git-broken-'));
   try {
     writeFileSync(join(dir, '.git'), 'gitdir: nowhere-at-all\n');
     writeFileSync(join(dir, 'f.cc'), version(4));
@@ -245,7 +245,7 @@ test('git source: a .git that git itself cannot read is named as that, not as a 
 });
 
 test('git source: a repository with no commits yet says so, and does not blame the path', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'hatch-git-empty-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sir-git-empty-'));
   try {
     execFileSync('git', ['init', '-q'], { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] });
     writeFileSync(join(dir, 'f.cc'), version(4));
@@ -262,7 +262,7 @@ test('git source: a repository with no commits yet says so, and does not blame t
 test('git source: a branch that shares its name with a tag is read as the BRANCH, unasked', async () => {
   // Its own repository: a tag `side` on B (version 2), beside the branch `side` on S
   // (version 3). Git calls the short name ambiguous and, left to itself, reads the tag.
-  const repo = buildRepo('hatch-git-same-name-');
+  const repo = buildRepo('sir-git-same-name-');
   try {
     execFileSync('git', ['tag', 'side', repo.b], { cwd: repo.dir, stdio: 'ignore' });
     const { ask, asked } = answering(false);

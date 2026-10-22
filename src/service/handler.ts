@@ -28,12 +28,13 @@ import type {
   VersionResult,
 } from './protocol.ts';
 import { PROTOCOL_MIN, PROTOCOL_VERSION } from './protocol.ts';
-import { parseHatchFile } from '../core/hatch-parser.ts';
+import { parseSirFile } from '../core/sir-parser.ts';
+import { FORMAT_MIN } from '../core/header.ts';
 import { resolveHunks } from '../core/resolve.ts';
-import { GitError, HatchError, NoChanges } from '../core/errors.ts';
-import { generatePatch } from '../generate/pipeline.ts';
+import { GitError, SirError, NoChanges } from '../core/errors.ts';
+import { generatePatch, patchHeader } from '../generate/pipeline.ts';
 import { trailingSpaceWarningsAt } from '../generate/printer.ts';
-import { pickAdapter, supportedLanguages } from '../lang/adapter.ts';
+import { pickAdapter, pickedAdapter, supportedLanguages } from '../lang/adapter.ts';
 import { checkParent, findRepoRoot, isDirectory, isFile } from '../infra/fs.ts';
 import { fileFromGit, gitBaseOf, headRefFiles } from '../infra/git.ts';
 import { resolveOutPath } from '../infra/out-path.ts';
@@ -141,7 +142,7 @@ const OVERRIDES: ParamSpec = { ...SETTINGS, baseGit: 'object', base: 'string' };
 // order the "known:" list names them in.
 const METHODS: ReadonlyMap<string, Method> = new Map([
   ['version', method(null, () => version())],
-  ['generate', method<GenerateParams>({ ...LANGUAGE, ...BASE, ...SETTINGS, newText: 'string' }, (p, call) => generate(p, call))],
+  ['generate', method<GenerateParams>({ ...LANGUAGE, ...BASE, ...SETTINGS, newText: 'string', keep: 'string' }, (p, call) => generate(p, call))],
   ['resolve', method<ResolveParams>({ ...LANGUAGE, ...BASE, patch: 'string', configPath: 'string' }, (p) => resolve(p))],
   ['apply', method<ApplyParams>({ ...LANGUAGE, ...BASE, patch: 'string', configPath: 'string' }, (p) => apply(p))],
   ['configTemplate', method<ConfigTemplateParams>({ path: 'string', version: 'number', settings: 'object' }, (p) => configTemplateOf(p))],
@@ -165,7 +166,7 @@ function cancel(p: CancelParams, session: Session): CancelResult {
 
 function version(): VersionResult {
   return {
-    hatch: packageIdentity().version,
+    sir: packageIdentity().version,
     protocol: PROTOCOL_VERSION,
     protocolMin: PROTOCOL_MIN,
     configSchema: CONFIG_VERSION,
@@ -203,8 +204,9 @@ async function generate(p: GenerateParams, call: Call): Promise<GenerateResult> 
       limits: settings,
       provenance: true,
       target,
-      generatedFrom: base.blob,
+      baseBlob: base.blob,
       signal: call.signal,
+      keep: p.keep,
       ...(emit !== undefined
         ? { onProgress: (done: number, total: number) => emit({ method: 'progress', params: { id, done, total } }) }
         : {}),
@@ -232,7 +234,7 @@ async function generate(p: GenerateParams, call: Call): Promise<GenerateResult> 
 /** `generate`'s params as `config` takes them in `overrides`: `baseText` becomes
  *  `base: "text"` — the only thing about it the settings depend on. */
 function generateOverrides(p: GenerateParams): OverridesParams {
-  const { newText, baseText, path, allowDownload, ...settings } = p;
+  const { newText, baseText, path, allowDownload, keep, ...settings } = p;
   return { ...settings, ...(baseText !== undefined ? { base: 'text' as const } : {}) };
 }
 
@@ -311,13 +313,13 @@ async function resolveRequest(
   } else {
     patchText = readPatch(p.path!);
   }
-  const file = parseHatchFile(patchText);
+  const file = parseSirFile(patchText);
   const code = byPatch ? codeNamedBy(p.path!, patchText, p.configPath) : p.path;
   const at: ResolveParams = code === undefined ? p : { ...p, path: code };
   const base = await baseOf(patchedBase(at, byPatch ? p.path : code), at);
   const adapter = await ready(at, file.language);
   const facts = {
-    header: file.header ?? { format: 1 },
+    header: file.header ?? { format: FORMAT_MIN },
     code: code ?? null,
     warningsAt: trailingSpaceWarningsAt(file.hunks, patchText),
   };
@@ -378,7 +380,7 @@ function configTemplateOf(p: ConfigTemplateParams): ConfigTemplateResult {
 }
 
 async function configOf(p: ConfigParams): Promise<ConfigResult> {
-  requiredPath(p.path, 'the file (code or .hatch) the settings are for');
+  requiredPath(p.path, 'the file (code or .sirp) the settings are for');
   const o = withConfigPath(overridesOf(p.overrides), p.configPath);
   const { config, project } = settingsFor(p.path, o);
   const choice = baseChoice(config.generate, o);
@@ -387,6 +389,7 @@ async function configOf(p: ConfigParams): Promise<ConfigResult> {
   const basePath = paired === undefined ? p.path : paired.kind === 'patch' ? paired.code : null;
 
   let base: BaseInfo | null = null;
+  let baseBlob: string | undefined;
   const watch = configCandidates(dirname(p.path));
   // a config found by its claim lies off the way up: it is watched by name
   if (config.file !== undefined && !watch.includes(config.file)) watch.push(config.file);
@@ -395,6 +398,7 @@ async function configOf(p: ConfigParams): Promise<ConfigResult> {
     try {
       const git = await gitBaseOf(choice.source, basePath);
       base = { kind: 'git', spec: git.spec, sha: git.sha, eol: choice.source.eol ?? 'repository' };
+      baseBlob = git.blob;
       watch.push(...git.watch);
     } catch (e) {
       // A file not committed yet is still a file with settings: they are answered, and
@@ -405,13 +409,20 @@ async function configOf(p: ConfigParams): Promise<ConfigResult> {
     }
   }
 
+  // the adapter `generate` would pick for this file — picked by the same code, no grammar loaded
+  const adapter = basePath === null ? null : pickedAdapter({ language: config.generate.language ?? undefined, path: basePath });
+  const target = targetOfPair(p.path, config, project);
   return {
     ...applied(config),
     schemaVersion: config.schemaVersion,
     repoRoot: findRepoRoot(dirname(p.path)) ?? null,
     projectRoot: project.projectRoot ?? null,
     upstreamRoot: project.upstreamRoot,
-    target: targetOfPair(p.path, config, project),
+    target,
+    // the word `generate` writes in `# match` for this file
+    language: adapter?.name ?? null,
+    // the header `generate` would write for this file now — by the same code
+    header: basePath === null ? null : patchHeader({ adapter: adapter ?? undefined, target: target ?? undefined, baseBlob }),
     base,
     watch,
   };
@@ -431,7 +442,7 @@ function targetOfPair(path: string, config: ResolvedConfig, project: Project): s
 }
 
 function pairFor(p: PairParams): PairResult {
-  requiredPath(p.path, 'the file of code or the .hatch to pair');
+  requiredPath(p.path, 'the file of code or the .sirp to pair');
   const { config, project } = settingsFor(p.path, withConfigPath(overridesOf(p.overrides), p.configPath));
   return pairOf(p.path, { out: config.generate.out, project }, p.patch);
 }
@@ -470,8 +481,8 @@ function toServiceError(e: unknown): ServiceError {
   if (e instanceof Cancelled) {
     return { kind: 'Cancelled', message: e.message, exitCode: 1 };
   }
-  if (e instanceof HatchError) {
-    const detail = e.detail();
+  if (e instanceof SirError) {
+    const detail = e.hunkAt === undefined ? e.detail() : { ...e.detail(), ...e.hunkAt };
     return {
       kind: e.name,
       message: e.message,

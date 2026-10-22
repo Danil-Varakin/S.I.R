@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/json/apply/test3.json
+Grammar: tree-sitter-json@0.24.8
+
+# match json
+    ...
+      "content_scripts": [
+    ...
+    >>>
+          "run_at": "document_start"
+    <<<
+    ...
+    ]
+    ...
+# end
+# patch
+    "run_at": "document_idle"
+# end

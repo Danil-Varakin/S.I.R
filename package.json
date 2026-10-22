@@ -1,6 +1,6 @@
 {
-  "name": "hatch",
-  "version": "0.4.1",
+  "name": "sir",
+  "version": "0.5.0",
   "type": "module",
   "files": [
     "dist",
@@ -8,28 +8,33 @@
     "README.ru.md",
     "PROTOCOL.md",
     "LICENSE",
-    "hatch.config.schema.json",
+    "sir.config.schema.json",
     "schemas",
     "grammars"
   ],
   "scripts": {
     "test": "node --test --experimental-strip-types \"test/**/*.test.ts\"",
-    "typecheck": "tsc -p tsconfig.json && tsc -p test/tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p test/tsconfig.json && tsc -p bench/tsconfig.json",
     "check": "npm run typecheck && npm test",
-    "apply": "node --experimental-strip-types src/bin/hatch.ts apply",
-    "generate": "node --experimental-strip-types src/bin/hatch.ts generate",
+    "apply": "node --experimental-strip-types src/bin/sir.ts apply",
+    "generate": "node --experimental-strip-types src/bin/sir.ts generate",
     "grammars": "node --experimental-strip-types scripts/fetch-grammars.ts",
     "pretest": "node --experimental-strip-types scripts/fetch-grammars.ts",
-    "hatch": "node --experimental-strip-types src/bin/hatch.ts",
+    "sir": "node --experimental-strip-types src/bin/sir.ts",
     "build": "tsc -p tsconfig.build.json",
     "prepack": "node --experimental-strip-types scripts/fetch-grammars.ts && npm run build",
     "prepare": "npm run build",
     "pack": "npm run check && npm pack",
     "service": "node --experimental-strip-types src/bin/service.ts",
     "build:apply-bin": "node scripts/build-apply-bin.mjs",
-    "smoke:apply-bin": "node test/golden/run-binary.mjs"
+    "smoke:apply-bin": "node test/golden/run-binary.mjs",
+    "smoke:install": "node test/install-smoke.mjs",
+    "bench": "node --experimental-strip-types --no-warnings bench/main.ts",
+    "mutation": "stryker run"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "10.0.0",
+    "@stryker-mutator/tap-runner": "10.0.0",
     "@types/node": "^26.0.0",
     "esbuild": "^0.28.2",
     "postject": "^1.0.0-alpha.6",
@@ -37,11 +42,11 @@
   },
   "dependencies": {
     "diff": "^8.0.4",
-    "simple-git": "^3.36.0",
+    "simple-git": "^4.0.2",
     "web-tree-sitter": "^0.26.10"
   },
   "bin": {
-    "hatch": "dist/bin/hatch.js"
+    "sir": "dist/bin/sir.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

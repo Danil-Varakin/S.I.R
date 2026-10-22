@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/rust/generate/test15.new.rs
+Grammar: tree-sitter-rust@0.24.0
+
+# match rust
+    ...
+    >>>
+    pub fn grid() -> Vec<Vec<Vec<u8>>> {
+    <<<
+    ...
+# end
+# patch
+    pub fn grid() -> Vec<Vec<Vec<u16>>> {
+# end

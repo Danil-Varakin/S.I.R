@@ -5,6 +5,301 @@ from 0.4, patch format range —
 then what changed, breaking changes first. The rules for all three are in
 [VERSIONING.md](./VERSIONING.md); an entry is written before its tag (P6).
 
+## 0.5.0 — 2026-10-22
+
+**Protocol 5–5 · config schema 3–3 · patch format 2–2**
+
+### Breaking
+
+- **hatch is sir now — search, insert, replace.** Everything that carried the name is
+  named anew, and nothing of hatch is read — no number keeps the old one readable
+  (VERSIONING.md F1, H1, H4, decided by the author):
+  - the commands `hatch` and `hatch-apply` are `sir` and `sir-apply`; the release files
+    are `sir-apply-0.5.0-<os>-<arch>` and `sir-0.5.0.tgz`; the repository is
+    `Danil-Varakin/S.I.R` (GitHub forwards the old address);
+  - a patch is a `.sirp`. A `.hatch` is not a patch anywhere: `apply`, `sir-apply` and
+    `pair` take it for code, and `--out x.hatch` is refused as a name;
+  - the patch format is 2–2: line 1 of the header is `Sir: 2`, field 4 is `Sir-Version`.
+    A patch that opens with `Hatch: 1` is refused as older (exit 2, "regenerate the
+    patch"). `Generated-From`, `Generated-By` and `Hatch-Version` are fields sir does not
+    know. A file with no header is hunks alone and still reads, as format 2;
+  - the config is `sir.config.json`, schema 3–3, with the keys of schema 2. A
+    `hatch.config.json` is not looked for, and a config of schema 1 or 2 is refused
+    ("move the file to v3"). `$HATCH_CONFIG` is `$SIR_CONFIG`, `$HATCH_GRAMMAR_DIR` is
+    `$SIR_GRAMMAR_DIR`;
+  - the protocol is 5–5: `version` answers `sir` in place of `hatch`; `header` answers
+    `sirVersion` and no longer `generatedFrom`, `generatedBy`. A client of protocol 4 —
+    the VS Code extension 0.0.1 — is refused; the S.I.R extension 0.1.0 speaks 5 and
+    ships with this release (S3);
+  - the exports of the package: `SirError`, `parseSirFile`, `printSirFile`, `SirFile`
+    (were `HatchError`, `parseHatchFile`, `printHatchFile`, `HatchFile`).
+  Breaking for the package (P3) on every point; `PROTOCOL_MIN`, `CONFIG_MIN` and
+  `FORMAT_MIN` rise together.
+  → in scripts and CI: `hatch` → `sir`, `hatch-apply` → `sir-apply`, and the file names
+  of the release.
+  → every patch: rename `x.hatch` to `x.sirp` and its first line `Hatch: 1` to `Sir: 2` —
+  the hunks are the same — or regenerate it with `sir generate`.
+  → the config: rename `hatch.config.json` to `sir.config.json`, set `"version": 3` and
+  `"$schema"` to `https://raw.githubusercontent.com/Danil-Varakin/S.I.R/v0.5.0/schemas/sir.config.v3.schema.json`
+  (`sir init` writes one); `$HATCH_CONFIG`, `$HATCH_GRAMMAR_DIR` → `$SIR_CONFIG`,
+  `$SIR_GRAMMAR_DIR`.
+  → the editor: install the S.I.R VS Code extension 0.1.0 in place of the hatch one.
+  → code over the package: `Hatch*` names → `Sir*`; a client of the service reads
+  `version.sir` and `header.sirVersion`.
+- **The command `sir grammars` is gone.** It shipped in 0.2, fetched the grammars into
+  a user cache, and since 0.4 did nothing but warn — one minor release with the old
+  spelling still working, as F2 asks. `sir grammars` now exits 1 as an unknown command,
+  and `sir` no longer lists it. Breaking for the package (P3), so the release carrying
+  it is at least a minor one (P2).
+  → drop `sir grammars` from scripts and CI; nothing replaces it, because nothing is
+  downloaded — the grammars ship inside sir. In the repository the grammars are put in
+  place by `npm run grammars` (`scripts/fetch-grammars.ts`), which `npm test` and
+  `npm pack` already run.
+- **The flag `--download-grammars` is gone**, from `apply`, `generate` and — since its
+  options are picked out of `apply`'s (F2) — from `sir-apply`. It shipped in 0.3, and
+  since 0.4 was accepted, did nothing and warned: the one minor release F2 asks for. It is
+  now an unknown argument (exit 1), and out of `--help`. Breaking for the package (P3).
+  The protocol param `allowDownload` is **unchanged**: still accepted, still ignored.
+  → remove the flag from scripts and CI; there is nothing to allow, because nothing is
+  downloaded. A client over the service may keep sending `allowDownload`.
+- **`LanguageAdapter.init()` takes no argument, and `InitOptions` is gone** from the
+  package's exports, together with `GenerateRequest.init`. Nothing had read that object
+  since 0.4: its one field, `log`, was there to report a grammar being downloaded, and
+  grammars ship inside sir. An export of `src/index.ts` changed, so breaking (P3).
+  → a caller that wrote `adapter.init({})` writes `adapter.init()`, and one that passed
+  `init` to `generatePatch` drops it; neither did anything.
+- **git no longer sees the `GIT_*` variables of the environment sir runs in.** sir
+  reads the old version through `simple-git`, now 4.0.2 (was 3.36.0): it closes the
+  critical advisory GHSA-v5rq-49vh-5v5c in `@simple-git/argv-parser` (now 2.0.1) and
+  GHSA-x6jw-m9v5-85vh, GHSA-g4wm-2vf7-vfgr, GHSA-858h-whjf-mvg5 in `simple-git` up to
+  4.0.1 — `simple-git` is a runtime dependency, so it shipped inside every client that
+  carries sir. `simple-git` 4 strips every `GIT_`-prefixed variable, and `EDITOR`,
+  `PAGER`, `VISUAL`, from the environment of the git it runs. sir finds the repository
+  itself, by its `.git`, so a `GIT_DIR` or `GIT_WORK_TREE` in the environment could only
+  point git at another repository than the one sir named — now both read the same one.
+  What changes is configuration passed through the environment: `GIT_CONFIG_COUNT` /
+  `GIT_CONFIG_KEY_n` / `GIT_CONFIG_VALUE_n`, `GIT_CONFIG_GLOBAL`, `GIT_CEILING_DIRECTORIES`
+  and the like no longer reach the git that reads a base, so a run that relied on one —
+  `safe.directory` for a checkout owned by another user, say — is refused where it
+  succeeded. Every option sir passes to git was already spelled in full, and no value
+  of a coordinate starting with `-` ever reached git, so the stricter argument checks of
+  `simple-git` 4 refuse nothing sir sends. Breaking for the package (P3) on that one
+  point; no protocol, config or format number moves.
+  → set what git needs in its config files instead of the environment — `git config
+  --global --add safe.directory <path>` rather than `GIT_CONFIG_*`; nothing to change
+  otherwise.
+
+### Added
+
+- **`npm run bench`** — the speed and performance cases, as a suite of their own
+  (`bench/`): `parse`, `apply`, `generate`, `probes`, `depth`, on a synthetic C++ stand
+  that is the same on every machine. `--case`, `--reps`, `--budget`, `--big`; a per-cell
+  budget so one heavy case cannot eat the run. The suite holds the stand and the cases;
+  the numbers it produces are recorded outside the package, with the stand each was taken
+  on. It is **not** part of `npm run check`: the heavy cases take minutes.
+  `npm run typecheck` covers it.
+- **`config` answers `language`** — the word `generate` writes in `# match` for the same
+  `path` and `overrides`: the language's own name (`cpp` for `.cc`, `objc` for `.mm`),
+  after `generate.language`; for a `.sirp`, that of the file `pair` names for it. `null`
+  when none is picked, never an error. No grammar is loaded. A client laying out a patch
+  by hand takes the name from here instead of a table of its own. Protocol 5.
+- **`config` answers `header`** — the header `generate` would write for the same `path`
+  and `overrides` now, its blank line after it, by the same code: `Sir`, `Target`,
+  `Base-Blob`, `Sir-Version`, `Grammar`, each left out when it has no value — no
+  `Base-Blob` for a text base, no base or one that cannot be read (`unavailable`), no
+  `Grammar` when no language is picked, no `Target` outside the upstream. For a `.sirp`,
+  the header of the file `pair` names for it; `null` with no pair. The blob is named by
+  git, not read, and no grammar is loaded. A patch written by hand opens with the same
+  header as a generated one, and a client keeps no copy of the field list. Protocol 5.
+- **A hunk written by hand, through the service** — what the CLI does in the editor
+  when synthesis cannot anchor a change, with no session. `SynthesisError` (`no-match`,
+  `ambiguous`) answers `detail.draft`: the `.sirp` the editor would get, without the
+  comment lines on top — the header, every hunk so far, and last a hunk to start the change from;
+  `draftHunk` (that hunk, from 1), `draftLine` (its `# match` in `draft`), `change`
+  (`line` in the text so far, `removed`, `added`). `generate` takes `keep`: a `.sirp`
+  whose hunks are settled, checked as the CLI checks an edit — it parses, its heading is
+  the language's, every hunk lands on the base in order (one that does not: its own
+  error kind, with `detail.hunk` and `detail.mdLine` in `keep`). Synthesis goes on from
+  them; the next change it cannot anchor answers a new `draft` that holds them. The kept
+  hunks open `patch` byte for byte, `# note` included. CLI and service share the code
+  (`generate/draft.ts`, `generate/steer.ts`); the CLI behaves as before. Protocol 5. In the package, `SynthesisError` gains `draft` and
+  `GenerateRequest` gains `keep`.
+
+- **HTML and XML.** `.html`, `.htm` are read as HTML (`tree-sitter-html` 0.23.2),
+  `.xml`, `.plist` as XML (`@tree-sitter-grammars/tree-sitter-xml` 0.7.0); the names
+  `html`, `htm`, `xml`, `plist` are accepted in `# match`, `--language` and `language`.
+  A block is an element with both tags: the start tag is its header, the end tag closes
+  it; an element with no end tag (`<img>`, `<p>` left open) and `<br/>`, `<tag/>` are no
+  block. `<script>` and `<style>` are blocks whose content is text. Whitespace is free
+  outside attribute values, comments and CDATA; inside a quoted attribute value it is
+  data, as in a string literal. Both grammars ship inside the package and every
+  `sir-apply`. Protocol 5.
+- **CSS and JSON.** `.css` is read as CSS (`tree-sitter-css` 0.25.0), `.json` as JSON
+  (`tree-sitter-json` 0.24.8); the names `css` and `json` are accepted in `# match`,
+  `--language` and `language`. CSS: a block is `{` … `}` of a rule or an at-rule
+  (`@media`, `@supports`, `@keyframes`, nested rules), its header the selector or the
+  at-rule; a space between selectors is the descendant combinator and is kept, so
+  `.a .b` and `.a.b` are different anchors. JSON: a block is an object or an array, its
+  header the key it is the value of; an object inside an array has none. Comments, which
+  some JSON files carry, are read. Protocol 5.
+- **JSON5, `DEPS` and Starlark.** `.json5` is read as JSON5 — by the JavaScript grammar,
+  for a JSON5 file is an object literal of JavaScript (keys without quotes, single
+  quotes, comments, trailing commas), and no new grammar ships. A block is an object or an
+  array with the key as its header, as in JSON; an object that is an element of an array
+  has its first pair for its header (`{ name: "AIPromptAPI",`), so entries of the same body
+  are told apart by their names. A file named `DEPS` and `.star` files are read as Python,
+  whose syntax they share; a language is picked by a file's whole name before its
+  extension. The names `json5` and `star` are accepted in `# match`, `--language` and
+  `language`. Protocol 5.
+- **Formats read as text, with no grammar** — IDL (`.idl`, `.webidl`), Mojom (`.mojom`),
+  Protocol Buffers (`.proto`), shell (`.sh`, `.bash`, Debian's `postinst`, `postrm`,
+  `preinst`, `prerm`), YAML (`.yaml`, `.yml`), TOML (`.toml`) and plain text (`.txt`).
+  A block is a pair of `()`, `[]`, `{}` that balances outside the format's strings and
+  comments; its header is what stands before the opener on its line (`interface X {`,
+  `f() {`). Each format keeps its own strings, comments and reading of whitespace: in
+  shell, YAML and text the indentation of a line is kept and a space inside a line is
+  never dropped. No grammar ships for them, and the header of their `.sirp` has no
+  `Grammar`. Other files are picked by name: `--language shell` for a script without an
+  extension, `--language text` for a template. The names `idl`, `webidl`, `mojom`,
+  `proto`, `protobuf`, `shell`, `sh`, `bash`, `yaml`, `yml`, `toml`, `text`, `txt` are
+  accepted in `# match`, `--language` and `language`. A `.txt` file, refused before,
+  is now read as text. Protocol 5. In the package,
+  `LanguageAdapter.grammar` is optional.
+
+### Changed
+
+- Internal, no behavior: the rule "the root a relative path is measured from — the
+  repository around the file, else its own directory" is one function, `repoRootAround`
+  in `infra/fs.ts`, which both the writer of a patch (`out-path.ts`) and its reader
+  (`pair.ts`) call; "read the file if it can be read" is `readIfReadable` there, beside
+  `readInputFile`, which keeps the opposite contract (absence is an error naming the
+  flag); and the pair "render the error, take its exit code" is `reportFatal` in
+  `infra/log.ts`, which the entry points call instead of each spelling it out. Seven
+  values that no other module used are no longer exported. `infra/fs.ts` gained `kindOf`,
+  which answers "a file, a directory, something else, or nothing there" in one `stat`, so
+  `out-path.ts` — the last module outside `fs.ts` to reach for `statSync` — no longer
+  does; `statSync` is now called in `fs.ts` alone.
+- Internal, no behavior: checks that could never decide anything are gone, so that a
+  mutation test measures the code and not its dead ends — the matcher's `stop` check
+  at the start of a walk (every caller returns once it is set), its guards for an empty
+  stack and for a position at the end of the file, and the stand-in for a no-match that
+  recorded no position; the tightening of a first step at the top of a file in
+  synthesis, which 28 560 edits at the start of the corpus files never reached; an
+  `allowEdge` the exact cut never read; the optional `failure` of a hunk that did not
+  land, which is always there; two repeated checks in the parser.
+- **`generate` for Python: blocks closed by one line write that line once.** Where an
+  `if` and the `def` around it both end at the next line of the `def`'s level, synthesis
+  wrote that line once per block — `... def size(self): ... def size(self): ...` — and
+  the second copy had to be another line, so every pattern with the parents fit nowhere,
+  and with no parent the change was refused as ambiguous when the same headers stood in
+  several classes. The line is now written once, by the inner block. Where `generate`
+  refused it now writes a patch with the parents (golden `python/generate/45`); where it
+  wrote a patch from a later rung, it may now keep the rung with the parents (no golden
+  changed). Brace languages are untouched: every block there
+  has its own `}`. No patch applies differently (F1).
+- **Python: one outdent closes every block nested inside.** `class Archive:` at column 0
+  ends the method and the class before it at once; the matcher took it for a way out of
+  the method and refused it as the closer of the class. A pattern may now name a class
+  and its closer with a method of it left open: `... class Queue: ... >>> def
+  __init__(self, limit=100): <<< ... class Archive: ...` lands. `generate` for Python
+  writes the parent and its closer where it wrote a pattern with no parent, and a patch
+  where it refused (`... def push( ... ): ... >>> def check(x): <<< ... def size(self):
+  ...` when `check` stood in two classes). A Python patch written so is refused by hatch
+  0.4.1 (`no-match`), not applied wrongly: the hunk syntax is unchanged (H2). Every apply golden
+  applies as before (F1). Brace languages are untouched: a bracket knows its own closing
+  token, in Python too (`{}`, `()`, `[]`). Protocol 5, a change of it.
+- **Messages, reworded where they pointed the wrong way.** A hunk of a hand-written patch
+  (the editor, `keep`) that lands on the old version by itself but not after the hunks
+  before it now says which one moved its anchor: `hunk 3 (line 21) does not land: it
+  lands on the old version by itself, but hunk 1 rewrote the text it anchors on — …`
+  (before, only the error of the text it met). With `exact`, a new version whose CRLF
+  file has a line ending in a bare LF is refused as `the new version mixes line endings
+  (line N ends with LF); a patch writes the endings of the base — turn exact off or make
+  the endings one`, not as "a fault of synthesis": no patch can write that byte for byte;
+  `reason` stays `unreproduced`. In a match or patch block, a heading with something
+  after it — `# end x`, `# patch now`, `# match cpp now` — is named as such: `'# end x'
+  is not a heading: '# end' takes nothing after it` (before: "must start with four
+  spaces", and the hint to indent it). Typos: `there is no insertion point >>> in the
+  match block`, `(the first one is on line 3)`, no full stop after two messages. Only
+  text changes; every kind, `reason` and exit code stays.
+- **`generate`: a change told apart only by the line right below it.** The neighbour
+  below stood after `...` — `a(); >>> go(); ... <<< b();` — and so fitted any `b();`
+  further down; with few neighbours allowed (`--siblings 1`) such a change was refused as
+  ambiguous. When no pattern stands, synthesis now tries once more with the first
+  neighbour below pressed against the change: `a(); >>> go(); <<< b();`. It is the last
+  resort — a line written between the change and that neighbour breaks it — so wherever a
+  pattern stood before, `generate` writes the same one (no golden changed). In a tight gap
+  a mark stands on its left side, as `apply` reads it back.
+
+### Fixed
+
+- `A >>> B` with no `...`, where `A` ends in a word and `B` starts with one (`int foo
+  >>> bar;`, `return >>> value`), fit nowhere: the one space the canon keeps between two
+  words belonged to neither literal, so `B` could never start right after `A`. A tight
+  gap now steps over that one space, and the mark stays where §3.4 puts it — right after
+  `A`. No patch that applied before applies differently: such a pattern fit nowhere, so
+  only refusals turn into matches (F1). Inside a string literal the same one space is
+  stepped over (`"hello >>> world"` fits `"hello world"`, not `"hello  world"`).
+  `generate` sees it too: where it had to write `A >>> ... B` across such a space it now
+  writes `A >>> B` (golden `cpp/generate/73`).
+- `generate` could write a Python patch that `apply` refused on the very file it was made
+  from — exit 0, then exit 3. An anchor spanning a blank line (`tick()⏎⏎tick()`) was
+  verified as built, but a blank line in a match block is no part of a literal: the
+  `.sirp` read back as `tick()⏎tick()`, which the Python canon, keeping blank lines,
+  does not find. Anchors are now built as `apply` reads them back — no blank lines, no
+  trailing whitespace, no CR at a line end — and verified so; where only the blank line
+  told two places apart, `generate` now says it cannot anchor the change (exit 8; at a
+  terminal the editor is offered) instead of writing a patch that does not apply. Brace
+  languages read the same either way, but the form `generate` prints changes there too:
+  a match block no longer carries a blank line, trailing spaces or a stray CR inside an
+  anchor (goldens `cpp/generate/22`, `26`, `35`, `46`, `74`, `83`, `objc/generate/13`).
+  No existing patch applies differently (F1): only what `generate` writes changes.
+- The link table of the service — `hunks` in `resolve`, `apply` and `generate` — could
+  hand one hunk's text to another. `final` is what a hunk writes, PROTOCOL.md says — but
+  a later hunk that inserted right at the start of that text, or replaced from inside it
+  onward, landed inside `final` and
+  `finalText`, so a client highlighted it as the earlier hunk's; a hunk that a later one
+  overwrote whole kept the later one's text as its own. Likewise `base` is what a hunk
+  replaces — but a hunk right after text an earlier one deleted had that deleted text in
+  its `base`. Now the start of a span moves past what another hunk wrote or deleted at
+  that point, the end stays before it, and a span overwritten whole is left empty where
+  it stood. Only these edge cases change; nothing applies differently. `generate` steering
+  (`-a`, `keep`) projects what each hunk wrote the same way, so it no longer counts a
+  later hunk's text as written by an earlier one. Protocol 5, a fix.
+- The hunk to start a change from — the last hunk of `detail.draft` and of the draft the
+  CLI hands the editor — dropped the blank lines between its context and the change. The
+  mark sits right after the context, so those lines fell inside what the hunk replaces,
+  and the body did not write them back: a draft laid as it is gave `one();⏎TWO();` where
+  the new version has `one();⏎⏎TWO();`, and a draft finished by adding context and sent
+  back as `keep` no longer matched `newText`. The body now writes the blank lines back; an
+  insertion under blank lines, having no place of its own to mark, replaces the next line
+  that is not blank and writes it back after the inserted lines. Where no blank line
+  stands between, the draft is as before. Protocol 5, a fix of a part not yet released.
+- A Python pattern could land in a class it does not name. In
+  `class A: def g … def h … class B: def g … class B: pass`, the pattern
+  `... class A: ... >>> def g(self): <<< ... class B: ...` changed `g` of the first
+  `class B`: the way through `A.g` was refused as an escape from `g`, and the way
+  through `B.g` took the next `class B:` as its closer. With one outdent closing every
+  nested block, both ways stand, and the pattern is refused as ambiguous (exit 4) instead
+  of changing the wrong class. The old result was the bug (P3).
+- A `.sirp` that ends after a match block with no `# patch` was refused on a line past
+  the end of the file — the empty one after the last line break. The refusal now names
+  the match block's `# end`. `mdLine` of that `ParseError` changes, as a client sees it.
+- `generate` could write a patch that fits every file and writes over it. When a change
+  covered the whole file — a file of one line, a minified one, whose line changed —
+  synthesis wrote `>>> ... <<<`: no literal at all, so the pattern fit any file, and
+  applied over the version upstream had made it replaced all of it, what upstream added
+  included. Such a span now spells the text it replaces (`... >>> <old text> <<< ...`), as
+  every other replacement does: it fits only a file that still holds that text, and is
+  refused (exit 3) where upstream changed it. A file of blank lines alone, with nothing to
+  spell, keeps the bare span. Only what `generate` writes changes; no patch applies
+  differently (F1). Golden `cpp/generate/70` (the whole file deleted) changes form. The
+  old result was the bug (P3).
+- A Python file that opens with a BOM refused a pattern pinned to its first line (no
+  `...` before it): the Python canon keeps the whitespace at the start of the file, and
+  took the BOM for it. The BOM is no indentation and is now left out. Only refusals turn
+  into matches (F1).
+
 ## 0.4.1 — 2026-10-06
 
 **Protocol 4–4 · config schema 2–2 · patch format 1–1**

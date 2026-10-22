@@ -1,4 +1,4 @@
-import { printPattern } from '../core/hatch-printer.ts';
+import { printPattern } from '../core/sir-printer.ts';
 import type { Hunk } from '../core/ast.ts';
 
 /** A hunk as `generate -a` shows it before asking about it. */

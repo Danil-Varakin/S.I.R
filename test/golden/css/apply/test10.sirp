@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/css/apply/test10.css
+Grammar: tree-sitter-css@0.25.0
+
+# match css
+    ...
+    :host {
+    ...
+    >>>
+      --cr-font: "Roboto Mono";
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    --cr-font: "Inter";
+# end

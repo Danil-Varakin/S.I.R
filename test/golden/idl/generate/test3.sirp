@@ -1,0 +1,17 @@
+Sir: 2
+Target: test/golden/idl/generate/test3.new.idl
+
+# match idl
+    ...
+    dictionary CanvasRenderingContext2DSettings {
+    ...
+        boolean desynchronized = false;
+    >>>
+    ...
+    }
+    ...
+# end
+# patch
+
+        boolean braveFarbling = true;
+# end

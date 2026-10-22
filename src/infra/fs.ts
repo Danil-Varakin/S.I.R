@@ -16,6 +16,18 @@ import { PathError } from '../core/errors.ts';
 
 const REPO_MARKER = '.git';
 
+/** The contents of a file, or undefined when there is none or it cannot be read: for the
+ *  question "what lies here?", where absence is an ANSWER. A path a person named is read
+ *  with `readInputFile`, which calls absence an error and names the flag it came from. */
+export function readIfReadable(path: string): string | undefined {
+  if (!isFile(path)) return undefined;
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return undefined;
+  }
+}
+
 export function readInputFile(path: string, argument: string): string {
   let stats;
   try {
@@ -35,7 +47,7 @@ export function readInputFile(path: string, argument: string): string {
 export function writeFileAtomic(path: string, data: string): void {
   const target = throughLinks(path);
   const mode = modeOf(target);
-  const tmp = join(dirname(target), `.${basename(target)}.hatch-${process.pid}-${Date.now()}.tmp`);
+  const tmp = join(dirname(target), `.${basename(target)}.sirp-${process.pid}-${Date.now()}.tmp`);
   try {
     writeFileSync(tmp, data, 'utf8');
     if (mode !== undefined) chmodSync(tmp, mode);
@@ -136,6 +148,14 @@ export function isRepoRoot(dir: string): boolean {
   return existsSync(join(dir, REPO_MARKER));
 }
 
+/** The root a relative path beside `file` is measured from: the repository around it,
+ *  else its own directory. The writer of a patch (`out-path`) and its reader (`pair`)
+ *  both ask here, so `--out` and `Target` cannot come to mean two different roots. */
+export function repoRootAround(file: string): string {
+  const dir = dirname(resolve(file));
+  return findRepoRoot(dir) ?? dir;
+}
+
 /** Whether writing to `target` replaces the file `file` is: the same file by identity
  *  (device + inode), not by spelling — `Foo.c` and `foo.c` are one file on a
  *  case-insensitive disk. Followed through symlinks, as `writeFileAtomic` writes through
@@ -148,6 +168,22 @@ export function replacesFile(target: string, file: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** What lies at `path`, in one `stat`: a file, a directory, something else, or nothing
+ *  there at all. `isFile`/`isDirectory` answer the common question and fold "not there"
+ *  into `false`; a caller that has to tell "a file is in the way" from "nothing is yet"
+ *  — and so cannot use them — asks here instead of reaching for `node:fs` of its own. */
+export function kindOf(path: string): 'file' | 'directory' | 'other' | undefined {
+  let stats;
+  try {
+    stats = statSync(path);
+  } catch {
+    return undefined;
+  }
+  if (stats.isFile()) return 'file';
+  if (stats.isDirectory()) return 'directory';
+  return 'other';
 }
 
 export function isFile(path: string): boolean {

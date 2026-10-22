@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/python/apply/test27.py
+Grammar: tree-sitter-python@0.25.0
+
+# match python
+    ...
+    >>>
+                if ticket.tries < 3:
+    <<<
+    ...
+# end
+# patch
+    if ticket.tries < 5:
+# end

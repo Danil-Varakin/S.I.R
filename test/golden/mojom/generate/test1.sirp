@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/mojom/generate/test1.new.mojom
+
+# match mojom
+    ...
+    interface PageHandler {
+    ...
+    >>>
+    }
+    ...
+# end
+# patch
+      OpenBookmarkInNewTab(int64 node_id);
+
+# end

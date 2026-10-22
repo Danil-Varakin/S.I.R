@@ -1,0 +1,16 @@
+Sir: 2
+Target: test/golden/python/generate/test42.new.py
+Grammar: tree-sitter-python@0.25.0
+
+# match python
+    ...
+    class Store:
+    ...
+    >>>
+        LIMIT = 10
+    <<<
+    ...
+# end
+# patch
+    LIMIT = 20
+# end

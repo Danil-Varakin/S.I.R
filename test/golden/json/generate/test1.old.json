@@ -1,0 +1,13 @@
+// [MANIFEST] manifest.json: строка в массив permissions; host_permissions с тем же содержимым
+{
+  "manifest_version": 3,
+  "name": "__MSG_extName__",
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "storage",
+    "tabs"
+  ]
+}

@@ -13,7 +13,7 @@ import {
 } from '../../src/infra/log.ts';
 import { MatchError, AmbiguityError, ParseError } from '../../src/core/errors.ts';
 
-const tmp = (): string => mkdtempSync(join(tmpdir(), 'hatch-log-'));
+const tmp = (): string => mkdtempSync(join(tmpdir(), 'sir-log-'));
 
 // ── where the file goes ──────────────────────────────────────────────────────────
 
@@ -31,8 +31,8 @@ test('a place that is not a directory IS the file name', () => {
 
 test('no place → the default directory, under the current one', () => {
   const path = resolveLogPath(undefined, 'generate', new Date('2026-08-24T10:20:30Z'), 7);
-  // README: "omitted means ./hatch-logs/"
-  assert.equal(resolve(path), join(process.cwd(), 'hatch-logs', '2026-08-24T10-20-30-generate-7.log'));
+  // README: "omitted means ./sir-logs/"
+  assert.equal(resolve(path), join(process.cwd(), 'sir-logs', '2026-08-24T10-20-30-generate-7.log'));
 });
 
 test('every run gets its own file: same second, different pid', () => {
@@ -49,7 +49,7 @@ test('the log holds every channel, and the header says what was run', () => {
   log.close();
 
   const text = readFileSync(path, 'utf8');
-  assert.ok(text.includes('# hatch apply'), text);
+  assert.ok(text.includes('# sir apply'), text);
   assert.ok(text.includes('# argv: -i a.cc'), text);
   assert.ok(text.includes('dbg a probe'), text);
 });

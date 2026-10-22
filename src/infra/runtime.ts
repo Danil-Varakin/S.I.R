@@ -1,6 +1,6 @@
 import { getAsset, isSea } from 'node:sea';
 
-// The one place that knows whether this is `hatch-apply` — a single executable with its
+// The one place that knows whether this is `sir-apply` — a single executable with its
 // files inside — or the package, which has them on disk. Inside the binary there is no
 // package directory: the tree-sitter runtime and the grammars are assets of the
 // executable (scripts/build-apply-bin.mjs).
@@ -16,7 +16,7 @@ export function embeddedAsset(name: string): Uint8Array | null {
   }
 }
 
-/** Whether this process is `hatch-apply`. */
+/** Whether this process is `sir-apply`. */
 export function isSingleExecutable(): boolean {
   return isSea();
 }

@@ -23,21 +23,21 @@ import { checkKeysOf } from '../../src/infra/config/schema.ts';
 import { olderSchemaNote } from '../../src/cli/init.ts';
 import { ConfigError } from '../../src/core/errors.ts';
 
-const CLI = fileURLToPath(new URL('../../src/bin/hatch.ts', import.meta.url));
+const CLI = fileURLToPath(new URL('../../src/bin/sir.ts', import.meta.url));
 
-/** What `hatch init` writes by default: "$schema" naming that version's own schema file and
+/** What `sir init` writes by default: "$schema" naming that version's own schema file and
  *  "version", nothing else, as 2-space JSON with a final newline (README "Configuration"). */
 function assertMinimal(text: string): void {
   const parsed = JSON.parse(text) as Record<string, unknown>;
   assert.deepEqual(Object.keys(parsed), ['$schema', 'version']);
   assert.equal(parsed['version'], CONFIG_VERSION);
-  assert.match(String(parsed['$schema']), new RegExp(`^https://.*/schemas/hatch\\.config\\.v${CONFIG_VERSION}\\.schema\\.json$`));
+  assert.match(String(parsed['$schema']), new RegExp(`^https://.*/schemas/sir\\.config\\.v${CONFIG_VERSION}\\.schema\\.json$`));
   assert.equal(text, `${JSON.stringify(parsed, null, 2)}\n`);
 }
 
 function withTempDir(body: (dir: string) => void): () => void {
   return () => {
-    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'hatch-init-')));
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'sir-init-')));
     try {
       body(dir);
     } finally {
@@ -74,7 +74,7 @@ function nested(specs: readonly FieldSpec[]): Record<string, unknown> {
 }
 
 function readBack(text: string): Record<string, unknown> {
-  const dir = mkdtempSync(join(tmpdir(), 'hatch-tpl-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sir-tpl-'));
   try {
     const file = join(dir, CONFIG_FILE_NAME);
     writeFileSync(file, text);
@@ -141,7 +141,7 @@ test('values are checked as the loader checks them, pairs included', () => {
     () => configTemplate({ settings: { generate: { mirror: true } } }),
     (e: unknown) => {
       assert.ok(e instanceof ConfigError);
-      assert.deepEqual(e.detail(), { version: 2, keys: [{ path: 'generate.mirror', since: 1, until: 1 }] });
+      assert.deepEqual(e.detail(), { version: 3, keys: [{ path: 'generate.mirror', since: 1, until: 1 }] });
       assert.match(e.message, /generate\.mirror \(v1–v1; "upstream": "\." keeps the patches/);
       return true;
     },
@@ -150,7 +150,7 @@ test('values are checked as the loader checks them, pairs included', () => {
 });
 
 test('C5: a version outside the range names the side to update', () => {
-  assert.throws(() => configTemplate({ version: CONFIG_VERSION + 1 }), /does not know yet .*update hatch/);
+  assert.throws(() => configTemplate({ version: CONFIG_VERSION + 1 }), /does not know yet .*update sir/);
   assert.throws(() => configTemplate({ version: CONFIG_MIN - 1 }), /no longer reads .*move the file to v/);
   assert.throws(() => configTemplate({ version: '1' }), /must be a whole number/);
 });
@@ -168,7 +168,7 @@ test('every version has a one-line summary naming each of its keys', () => {
     assert.ok(!summary.includes('\n'));
     for (const f of fieldsOf(version)) assert.ok(summary.includes(f.path.split('.').slice(-1)[0]!), f.path);
   }
-  assert.match(schemaVersions()[0]!.summary, /^v2: upstream; generate: out, /);
+  assert.match(schemaVersions()[0]!.summary, /^v3: upstream; generate: out, /);
   assert.ok(FIELDS.every((f) => Number.isInteger(f.since) && f.since >= 1));
 });
 
@@ -180,7 +180,7 @@ test('suggestedConfigPath: the repository root, outside one the directory itself
   assert.equal(suggestedConfigPath(join(dir, 'loose')), join(dir, 'loose', CONFIG_FILE_NAME));
 }));
 
-// ── hatch init ──────────────────────────────────────────────────────────────────
+// ── sir init ──────────────────────────────────────────────────────────────────
 
 function init(args: string[], cwd: string): { status: number; stdout: string; stderr: string } {
   const r = spawnSync('node', ['--experimental-strip-types', CLI, 'init', ...args], {
@@ -191,14 +191,14 @@ function init(args: string[], cwd: string): { status: number; stdout: string; st
   return { status: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }
 
-test('hatch init --dry-run prints the template and writes nothing', withTempDir((dir) => {
+test('sir init --dry-run prints the template and writes nothing', withTempDir((dir) => {
   const r = init(['--dry-run'], dir);
   assert.equal(r.status, 0, r.stderr);
   assertMinimal(r.stdout);
   assert.throws(() => readFileSync(join(dir, CONFIG_FILE_NAME)));
 }));
 
-test('hatch init writes at the git root from a subdirectory', withTempDir((dir) => {
+test('sir init writes at the git root from a subdirectory', withTempDir((dir) => {
   mkdirSync(join(dir, '.git'));
   mkdirSync(join(dir, 'a', 'b'), { recursive: true });
   const r = init([], join(dir, 'a', 'b'));
@@ -206,7 +206,7 @@ test('hatch init writes at the git root from a subdirectory', withTempDir((dir) 
   assertMinimal(readFileSync(join(dir, CONFIG_FILE_NAME), 'utf8'));
 }));
 
-test('hatch init: an existing file is kept without --force (exit 5), replaced with it', withTempDir((dir) => {
+test('sir init: an existing file is kept without --force (exit 5), replaced with it', withTempDir((dir) => {
   const file = join(dir, CONFIG_FILE_NAME);
   writeFileSync(file, 'mine');
   const refused = init(['--dir', dir], dir);
@@ -219,10 +219,10 @@ test('hatch init: an existing file is kept without --force (exit 5), replaced wi
   assertMinimal(readFileSync(file, 'utf8'));
 }));
 
-test('hatch init --config-version outside the range: exit 5, the side to update', withTempDir((dir) => {
+test('sir init --config-version outside the range: exit 5, the side to update', withTempDir((dir) => {
   const r = init(['--config-version', String(CONFIG_VERSION + 1), '--dry-run'], dir);
   assert.equal(r.status, 5);
-  assert.match(r.stderr, /update hatch/);
+  assert.match(r.stderr, /update sir/);
 }));
 
 test('an older schema written gets one line saying so; the newest none', () => {

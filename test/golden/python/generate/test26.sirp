@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/python/generate/test26.new.py
+Grammar: tree-sitter-python@0.25.0
+
+# match python
+    ...
+    def group(
+    ...
+    ) -> dict[
+    ...
+    ]:
+    ...
+    >>>
+        out: dict[str, list[int]] = {}
+    <<<
+    ...
+# end
+# patch
+    out: dict[str, set[int]] = {}
+# end

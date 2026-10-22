@@ -1,0 +1,8 @@
+/* [DESCENDANT] пробел в селекторе значим: `.a .b` и `.a.b` — разные правила */
+.menu .item {
+  color: black;
+}
+
+.menu.item {
+  color: black;
+}

@@ -1,0 +1,17 @@
+Sir: 2
+Target: test/golden/mojom/generate/test4.new.mojom
+
+# match mojom
+    ...
+    interface LocalFrameHost {
+    ...
+    >>>
+      DidChangeOpener(blink.mojom.LocalFrameToken? opener_frame);
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    DidChangeOpener(blink.mojom.LocalFrameToken? opener_frame, bool brave_shields);
+# end

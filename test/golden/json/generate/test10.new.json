@@ -1,0 +1,6 @@
+// [TOPLEVEL] новый ключ верхнего уровня после последнего
+{
+  "name": "brave-core",
+  "version": "1.0.0",
+  "private": true
+}

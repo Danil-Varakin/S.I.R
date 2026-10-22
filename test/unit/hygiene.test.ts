@@ -19,7 +19,7 @@ function sources(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-const FILES = [...sources(join(ROOT, 'src')), ...sources(join(ROOT, 'test'))];
+const FILES = [...sources(join(ROOT, 'src')), ...sources(join(ROOT, 'test')), ...sources(join(ROOT, 'bench'))];
 
 test('sources carry no trailing whitespace', () => {
   const offenders: string[] = [];

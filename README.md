@@ -1,7 +1,7 @@
-# Hatch
+# S.I.R — search, insert, replace
 
 **Structure-aware semantic patches for source code.** Instead of brittle line
-numbers, a Hatch patch describes *where* to change code in terms of the code's
+numbers, an S.I.R patch describes *where* to change code in terms of the code's
 own structure — and the tool finds the spot. A TypeScript port of the original
 Python prototype, with a typed AST and an npm-native pipeline (no Python in the
 build).
@@ -15,17 +15,16 @@ build).
 
 Patching a fast-moving upstream codebase with classic `.patch` files breaks
 constantly: a few inserted lines upstream and every hunk's line numbers drift.
-Hatch describes a change declaratively — "insert this *after that include*,
+S.I.R describes a change declaratively — "insert this *after that include*,
 *inside that function*" — using three operators. The position is resolved against
 the parsed structure of the file, so reformatting and unrelated edits upstream
 don't invalidate the patch.
 
-Four commands:
+Three commands:
 
-- **`apply`** — apply a `.hatch` instruction file to a source file.
-- **`generate`** — diff two versions of a file and emit the `.hatch` instructions.
-- **`grammars`** — put the tree-sitter grammars in place (see Grammars below).
-- **`init`** — write a `hatch.config.json` (see Configuration below).
+- **`apply`** — apply a `.sirp` instruction file to a source file.
+- **`generate`** — diff two versions of a file and emit the `.sirp` instructions.
+- **`init`** — write a `sir.config.json` (see Configuration below).
 
 `generate` then `apply` round-trips: applying a generated patch to the old file
 reproduces the new file. `generate` guarantees this by construction — it applies
@@ -34,13 +33,14 @@ change.
 
 ## The file format
 
-A patch is a `.hatch` file: a header, then `match`/`patch` block pairs:
+A patch is a `.sirp` file: a header (its fields are under "The header" below), then
+`match`/`patch` block pairs:
 
 ```
-Hatch: 1
+Sir: 2
 Target: src/a.cc
-Generated-From: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
-Generated-By: hatch 0.4.0
+Base-Blob: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
+Sir-Version: 0.5.0
 Grammar: tree-sitter-cpp@0.23.4
 
 # match <language>
@@ -51,7 +51,7 @@ Grammar: tree-sitter-cpp@0.23.4
 # end
 ```
 
-Three rules, and they are the whole format:
+The blocks follow three rules:
 
 1. **Column 0 belongs to the structure.** `# match`, `# patch` and `# end` are
    recognized only there.
@@ -60,38 +60,14 @@ Three rules, and they are the whole format:
    heading or a `# end` inside a raw string is just text. There is no delimiter
    in this format that code could collide with.
 3. **`# end` closes a block.** Blank lines inside a block are payload, trailing
-   ones included; blank lines between hunks are not. Anything before the first
-   `# match` is free-form prose.
-
-The header is `Name: value` lines up to the first blank line, as in a Debian patch.
-`Hatch` — the format number — comes first; `Target` is the file the patch is for, from
-the repository root; `Generated-From` the git blob it was made against; `Generated-By`
-and `Grammar` what made it. `generate` writes them; `apply` checks only `Hatch` (a
-patch newer than this hatch is refused with "update hatch") and `Target` (no `..`, not
-absolute). Fields hatch does not know are read past.
-
-The fields have fixed places, in this order:
-
-| # | field | written | |
-|---|---|---|---|
-| 1 | `Hatch` | always | format number, always line 1 |
-| 2 | `Target` | when the patch has a place | the file, from the repository root, with `/` |
-| 3 | `Generated-From` | when the base came out of git | the git blob of the base |
-| 4 | `Generated-By` | always | `hatch <version>` |
-| 5 | `Grammar` | always | `<package>@<version>` |
-
-A field left out keeps the rest in order; a known field out of order, or named twice,
-is a parse error. Fields hatch does not know may stand anywhere after `Hatch`. A new
-field is only ever added at the end of this list (VERSIONING.md H4), so every header
-an older hatch wrote reads the same in a newer one. A file with no header — a patch
-written by hand — is format 1. hatch 0.3 and older wrote `.md`: rename such a patch
-(`git mv x.md x.hatch`) — the hunks are the same.
+   ones included; blank lines between hunks are not. Text between the header and
+   the first `# match` is not significant: sir does not read it.
 
 A hunk may carry a comment: a `# note` … `# end` block right before its `# match`.
-The note is prose, in any column, without a gutter, and only people read it — the
+The note is free text in any column, without a gutter, and only people read it — the
 matcher never does; over the service it comes back as the hunk's `note`. Text between
 hunks outside a note is a parse error. `generate` never writes notes: rerunning it
-over a `.hatch` replaces the notes along with the rest.
+over a `.sirp` replaces the notes along with the rest.
 
 ```
 # note
@@ -111,6 +87,44 @@ git and editors turn them either way — and both read alike. A patch takes the 
 ending of the file it lands in: in a CRLF file every line it writes ends in CRLF, in an
 LF file it lands byte for byte. Where a file mixes the two, the line the edit starts on
 decides.
+
+### The header
+
+The header is the first lines of the file of the form `Name: value`, up to the first blank
+line, as in a Debian patch (DEP-3). It says which file the patch is for and what made it;
+the hunks follow the blank line.
+
+```
+Sir: 2
+Target: chrome/browser/feature_list.cc
+Base-Blob: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
+Sir-Version: 0.5.0
+Grammar: tree-sitter-cpp@0.23.4
+```
+
+| # | field | value | when `generate` writes it | what sir does with it |
+|---|---|---|---|---|
+| 1 | `Sir` | the `.sirp` format number, an integer; now `2` | always | reads the patch only when the number is in the range this sir knows: a newer patch is refused with "update sir", an older one with "regenerate the patch" |
+| 2 | `Target` | the file the patch is for: a relative path with `/`, no `..`. Measured from the `upstream` root when the config sets one, else from the repository root | when the patch has a place; not with `--out -`, nor for a patch outside a repository | `apply` without `--in` and `sir-apply` find the file by it, and the editor extension jumps from the patch to the code. An absolute path or `..` is a parse error |
+| 3 | `Base-Blob` | the id of the git blob of the old version the patch was made against | when the old version came out of git (`--head`, `--branch`, `--commit`, `generate.base`) | not checked — for reference. `git cat-file -p <Base-Blob>` prints the base the patch is known to apply to |
+| 4 | `Sir-Version` | the version of sir that wrote the patch: `0.5.0` | always | not checked — for reference |
+| 5 | `Grammar` | the tree-sitter grammar the file was parsed with: `<package>@<version>` | always | not checked — for reference. Another version of a grammar may parse code differently, and this field shows which one the patch was made with |
+
+Rules:
+
+- `Sir` is always line 1. The other known fields follow in the order of the table, each
+  at most once; a field left out does not move the rest. A known field out of its place,
+  or named twice, is a parse error (exit 2).
+- Field names are read without regard to case; spaces around a value are dropped.
+- Fields sir does not know may stand anywhere after `Sir` and are read past: a header
+  may carry fields of your own, such as `Author:` or a link to a ticket.
+- A header line not of the form `Name: value` is a parse error: only a blank line ends the
+  header.
+- In a patch written by hand only `Sir` is required. The header may be left out
+  entirely: such a file is hunks alone, read as format 2, and `apply` then needs `--in`.
+  A patch that opens with `Hatch: 1` was written by hatch 0.4 and is refused: regenerate it.
+- A new field is only ever added at the end of the table (VERSIONING.md H4), so a header an
+  older sir wrote reads the same in a newer one.
 
 ## The language: three operators
 
@@ -143,6 +157,10 @@ both sides is the only way they can agree.
 Operators are recognized only as standalone *words* (whitespace or line edge on
 both sides), so `template <typename... Args>` stays literal. A genuine standalone
 `...` in code is escaped as `\...`.
+
+An operator between two words with no `...` — `int foo >>> bar;` — stands for the one
+space between them: `bar` must follow `foo` after exactly one space of the canon (one
+space inside a string literal too), and the insertion lands right after `foo`.
 
 ## Examples
 
@@ -193,166 +211,210 @@ its anchors this way by default.
 
 ## Install
 
-Requirements: **Node.js 22 or newer**; **git** only for reading a version out of a
-repository (`--head`, `--branch`, `--commit`, `--repo-path`, the service's `baseGit`).
-Linux, macOS and Windows are all tested in CI.
+sir comes in three forms. Each installs on its own and serves its own task:
 
-Every release on the [Releases page](https://github.com/Danil-Varakin/hatchTs/releases)
-has a `hatch-<version>.tgz` attached; install that archive by its URL:
+| what | for | what the system needs |
+|---|---|---|
+| [VS Code extension](https://github.com/Danil-Varakin/S.I.R-VScodeExtension) | writing patches and seeing where every hunk lands, right in the editor | nothing: sir and the grammars are inside the extension |
+| `sir-apply` | laying patches on the code in a project's build | nothing: Node and the grammars are inside the file; `git` when the base comes out of git |
+| `sir` (CLI) | `generate`, `apply`, `init` in a terminal, scripts and CI; the API for your own tools | Node.js 22 or newer; `git` when versions come out of git |
+
+All three are tested in CI on Linux, macOS and Windows.
+
+**VS Code extension.** The file `sir-vscode-<version>.vsix` from the extension's
+[Releases page](https://github.com/Danil-Varakin/S.I.R-VScodeExtension/releases); in VS Code:
+**Extensions** → **…** → **Install from VSIX…**. Details are in the extension's README.
+
+**`sir-apply`.** One executable per platform (linux-x64, linux-arm64, darwin-arm64,
+win-x64) on [sir's Releases page](https://github.com/Danil-Varakin/S.I.R/releases). How
+to download it, check its checksum and call it is under
+["Applying patches in a build"](#applying-patches-in-a-build-sir-apply).
+
+**`sir` (CLI).** The package is not in the npm registry; every release on the same page
+carries a `sir-<version>.tgz`, and npm installs it by its URL:
 
 ```bash
-npm i -g https://github.com/Danil-Varakin/hatchTs/releases/download/v<version>/hatch-<version>.tgz
+npm i -g https://github.com/Danil-Varakin/S.I.R/releases/download/v<version>/sir-<version>.tgz
 ```
 
-You get a `hatch` command, with the tree-sitter grammars of every language inside it:
-nothing to fetch afterwards, and nothing is ever downloaded.
-
-From a clone it also works without installing: `npm run hatch -- <command>`.
+You get a `sir` command with the grammars of every language inside; nothing is fetched
+afterwards. From a clone it also works without installing: `npm run sir -- <command>`.
 
 ## Usage
 
 ```bash
 # apply
-hatch apply --match changes.hatch --in src/main.cpp --out src/main.cpp
+sir apply --match changes.sirp --in src/main.cpp --out src/main.cpp
 
 # ...or patch the file as git holds it: does the patch still fit master?
-hatch apply --match changes.hatch --in src/main.cpp --branch master --verify
+sir apply --match changes.sirp --in src/main.cpp --branch master --verify
 
 # generate
-hatch generate --in new.cpp --in-old old.cpp --out changes.hatch   # a file: it has an extension
+sir generate --in new.cpp --in-old old.cpp --out changes.sirp   # a file: it has an extension
 
 # ...or take the old version from git: the same file, as of the last commit here
-hatch generate --in src/main.cpp --head --out changes.hatch
+sir generate --in src/main.cpp --head --out changes.sirp
 
 # a branch (its last commit), a single commit, another path inside the repository
-hatch generate --in src/main.cpp --branch master --out changes.hatch
-hatch generate --in src/main.cpp --commit 1f3ac9d --out changes.hatch
-hatch generate --in src/main.cpp --branch master --commit 1f3ac9d \
-               --repo-path src/legacy/main.cpp --out changes.hatch
+sir generate --in src/main.cpp --branch master --out changes.sirp
+sir generate --in src/main.cpp --commit 1f3ac9d --out changes.sirp
+sir generate --in src/main.cpp --branch master --commit 1f3ac9d \
+               --repo-path src/legacy/main.cpp --out changes.sirp
 
-# a hatch.config.json at the root of the repository
-hatch init
+# a sir.config.json at the root of the repository
+sir init
 ```
 
-`hatch` with no arguments lists the commands, `hatch <command> --help` shows its
-options, `hatch --version` reports the tool version and the config schema version.
+`sir` with no arguments lists the commands, `sir <command> --help` shows its
+options, `sir --version` reports the tool version and the config schema version.
 
 Exit codes, for scripts to rely on:
-`0` ok · `1` usage or any other refusal · `2` `.hatch` parse · `3` no match ·
+`0` ok · `1` usage or any other refusal · `2` `.sirp` parse · `3` no match ·
 `4` ambiguous · `5` config · `6` grammar · `7` no changes · `8` cannot anchor (details
 under "Exit codes" below).
 
 ### `apply` options
 ```
---match, -m <file.hatch>   patch instructions (match/patch hunks)   [required]
---in,    -i <file>      the file to patch                        [required]
-                        read from disk, unless a git coordinate is named
---head,   -H            the file as git holds it — the same four flags, with the
---branch, -b <branch>   same defaults, questions and refusals, as `generate` (see "Where
---commit, -c <commit>   the old version comes from" below)
---repo-path  <path>
---out,   -o <path>      where to write the result   [required unless --dry-run/--verify]
-                        same placement rules as `generate --out`, minus
-                        the upstream tree: a directory gets <name of --in> inside it, any
-                        other path is written as is, directories are created,
-                        `-` writes to stdout
---language, -l <lang>   force language (else: '# match <lang>' in the .hatch, else
-                        the file extension)
---dry-run               show planned edits, write nothing
---verify                exit code only (0 = applies cleanly), write nothing. Checked
-                        against a clean base out of git — the flags above, else
-                        generate.base; with neither, a terminal is asked whether
-                        the files on disk are that base, and without one it is
-                        refused
---base-from-disk        --verify against the files on disk, without asking
---config <file>         the config instead of the one up from the patch;
---no-config             none (then --in is required)
---download-grammars     does nothing since 0.4 — grammars ship inside hatch — and
-                        warns; removed in 0.5
---log [place]           also write a full log; every run gets its own file, mode
-                        0600. A place that is a directory (or ends in /) gets a
-                        generated name, otherwise it IS the name; omitted means
-                        ./hatch-logs/
---yes,    -y            answer yes in advance to every question (see "When hatch
-                        asks before going on" below)
---help,  -h             this help
+--match, -m <file.sirp>   the patch                                  [required]
+--in,    -i <file>         the file the patch is applied to. Left out, it is the
+                           file in the patch's Target: from the project's upstream
+                           root (the config is searched up from the patch), with no
+                           upstream from the root of the repository holding the
+                           patch. Read from disk. With --head, --branch, --commit
+                           or --repo-path only its path is used, the content comes
+                           out of git, and the file need not exist on disk
+--head,   -H               the file from git: the last commit of the current
+                           branch, the path of --in
+--branch, -b <branch>      the file from the last commit of this branch, local or
+                           remote-tracking. A tag or a sha here is asked about first
+--commit, -c <revision>    the file from this commit: a sha, a tag, HEAD~3. With
+                           --branch the commit must be on that branch, or you are asked
+--repo-path  <path>        read this path from git instead of the path of --in;
+                           from the repository root. The result is still named after --in
+--eol <repository|worktree>
+                           line endings of the file read from git: as git stores
+                           them (default) or as --in on disk has them (core.autocrlf)
+--out,   -o <path>         where to write the result   [required unless --dry-run or --verify].
+                           An existing directory or a path ending in a slash gets
+                           <name of --in> inside it; any other path is the file
+                           name, and it is overwritten. Missing directories are
+                           created, a relative path is from the repository root,
+                           `-` is stdout. A file that already holds this result is
+                           not written, and its modification time stays. Writing
+                           over --in taken from git asks first when --in holds
+                           changes the git version lacks
+--language, -l <lang>      the language; else `# match <lang>` in the patch, else
+                           the extension of --in
+--dry-run                  print the edits the patch would make; write nothing
+--verify                   check that the patch applies: the answer is the exit code
+                           alone (0 — it applies), nothing is written. The patch is
+                           checked on a version out of git: the flags above, else
+                           generate.base of the config. With neither, sir asks at
+                           a terminal whether the files on disk are the base; with
+                           no terminal it refuses
+--base-from-disk           with --verify: the base is the files on disk, no question
+--config <file>            this config instead of the one found up from the patch
+--no-config                read no config; --in is then required
+--log [place]              write a full log to a file with mode 0600. A place that
+                           is a directory or ends in a slash gets a file with a new
+                           name for every run; any other place is the file name,
+                           overwritten. No value — ./sir-logs/
+--yes,   -y                answer yes to every question in advance. Without --yes
+                           and without a terminal the answer is no, and the run stops
+--help,  -h                this help
 ```
-
-With a git coordinate, `--in` stops being the file's content and becomes its **name**:
-it finds the repository, gives the default path inside it, and names the result — so
-it need not exist on disk at all. The result is named after `--in` even when
-`--repo-path` read another path: patching the version from before a rename and saving
-it under the new name is the case this serves.
-
-One rule is `apply`'s own. Writing the result over `--in` itself while the content
-came out of git puts a patched git version where your working file is. If that would
-lose what the working file holds, you are **asked** first (see "When hatch asks before
-going on"). Nothing is asked when nothing is lost: the working file already had the git
-text, or the result is the working file itself (a patch generated from it, applied
-back). Patching in place from disk is untouched. A file that already holds the result
-is not written at all (`already so: not written`): it keeps its mtime, and a build does
-not recompile it.
-
-The case this is for most is CI: `--verify --branch main` answers "does this patch
-still fit main" without checking anything out.
 
 ### `generate` options
 ```
---in,     -i <file>     new version of the file                    [required]
---in-old     <file>     old version, read from this path
---head,   -H            old version from git, every coordinate defaulted:
-                        current branch, its last commit, the path of --in
---branch, -b <branch>   which branch (default: the one we are on). Alone it
-                        means the last commit of that branch. A BRANCH, local
-                        or remote-tracking: a tag or a raw sha belongs in
-                        --commit, and here it is asked about first
---commit, -c <commit>   which commit (default: the last one of that branch).
-                        Any revision git understands: a sha, a tag, HEAD~3.
-                        Alone it is taken as given; together with --branch it
-                        should be one that branch holds, or you are asked
---repo-path  <path>     which file, named INSIDE THE REPOSITORY (default: the
-                        path of --in). Unlike --in-old, which is a path on
-                        disk, this is a path git knows: a relative one is
-                        measured from the repository root, never from the
-                        current directory
+--in,     -i <file>        the new version of the file                [required]
+--in-old     <file>        the old version: a file on disk
+--head,   -H               the old version from git: the last commit of the current
+                           branch, the path of --in
+--branch, -b <branch>      the old version from the last commit of this branch, local
+                           or remote-tracking. A tag or a sha here is asked about first
+--commit, -c <revision>    the old version from this commit: a sha, a tag, HEAD~3.
+                           With --branch the commit must be on that branch, or you are asked
+--repo-path  <path>        the old version is this path in git instead of the path
+                           of --in; from the repository root, not the current directory
 --eol <repository|worktree>
-                        the line endings of what is read from git: as git stores
-                        it (default), or as the file of --in on disk has them —
-                        for core.autocrlf (generate.base.eol in the config)
---out,    -o <path>     where to write the .hatch. A path with no extension (or one
-                        ending with a slash, or an existing directory) is a
-                        DIRECTORY and gets <name of --in>.hatch inside it; a path with
-                        an extension is the file itself, overwritten. Missing
-                        directories are created. A relative path is measured from the
-                        repository root, not from the current directory. Omitted
-                        means next to --in; `-` writes to stdout
---language,-l <lang>    force language (else: extension of --in)
---agreement,-a          show each hunk as it is made: Enter keeps it; n offers to
-                        write the hunks by hand in the editor (see "Writing a hunk
-                        by hand"), and refusing that stops the run without a .hatch.
-                        Answers may be piped in, one line per hunk; an input that
-                        closes early stops the run without a .hatch
---exact,  -e            reproduce the new file byte for byte; without it every
-                        line only has to match after normalization (indentation
-                        and inner spacing are free, the set of lines is not)
---debug,  -v            trace synthesis to stderr: every segment, each probe
-                        attempt (incl. non-unique) and the chosen hunk
---download-grammars     does nothing since 0.4 — grammars ship inside hatch — and
-                        warns; removed in 0.5
---log [place]           also write a full log: the resolved config with the origin
-                        of every value, and the whole synthesis trace whether or
-                        not -v is on. Every run gets its own file, mode 0600;
-                        omitted means ./hatch-logs/
---yes,    -y            answer yes in advance to every question (see below)
---help,   -h            this help
+                           line endings of the old version read from git: as git
+                           stores them (default) or as --in on disk has them
+                           (core.autocrlf)
+--out,    -o <path>        where to write the .sirp. A path with no extension, one
+                           ending in a slash, or an existing directory gets
+                           <name of --in>.sirp inside it; a path ending in .sirp is
+                           the file itself, overwritten; any other extension is
+                           refused, exit 5. Missing directories are created, a
+                           relative path is from the repository root. Left out —
+                           next to --in. `-` is stdout
+--language, -l <lang>      the language; else by the extension of --in
+--exact,  -e               the patch reproduces the new file byte for byte. Without
+                           it lines are compared after normalization: indentation
+                           and inner spacing do not count, the set of lines does
+--agreement, -a            show each hunk as it is made: Enter keeps it, n opens the
+                           editor to write the hunks by hand. Refusing the editor,
+                           or input that ends, stops the run and no .sirp is
+                           written. Answers may be piped in, one line per hunk
+--parents <n|all>          at most n enclosing blocks in a pattern (all)
+--min-parents <n>          at least n enclosing blocks in every pattern (1)
+--require-parents          when the change cannot be tied to any enclosing block,
+                           refuse rather than write a pattern with no structure
+--parent-detail <n>        bracket levels spelled out in the headers of enclosing
+                           blocks, from the outermost: 0 gives `foo( ... )`,
+                           1 gives `foo(bar( ... ))` (0)
+--min-siblings <n>         at least n neighbouring significant lines on each side
+                           of the change in every pattern (0)
+--siblings <n>             at most n neighbouring significant lines on each side (8);
+                           0 — neighbouring lines are not used
+--sibling-detail <n>       bracket levels spelled out in neighbouring lines, from
+                           the outermost (0)
+--bridge-gap <n>           changes with at most n unchanged non-blank lines between
+                           them become one hunk (0)
+--config <file>            this config instead of searching; the path is not bound
+                           to a repository, so one config can serve several
+--no-config                read no config: built-in defaults and flags only
+--print-config             print the effective settings, the config file, and the
+                           origin of each value (default, config, flag), then exit
+--debug,  -v               trace synthesis to stderr: every segment of the change,
+                           every anchoring probe and the chosen hunk
+--log [place]              write a full log — the settings with their origins and
+                           the whole synthesis trace — to a file with mode 0600. A
+                           place that is a directory or ends in a slash gets a file
+                           with a new name for every run; any other place is the
+                           file name, overwritten. No value — ./sir-logs/
+--yes,    -y               answer yes to every question in advance. Without --yes
+                           and without a terminal the answer is no, and the run stops
+--help,   -h               this help
 ```
 
-#### Where the old version comes from
+In brackets — the default. The anchoring options and `--out`, `--language`, `--exact`,
+`--head`, `--branch`, `--commit`, `--eol` can be pinned in the config (see "Configuration").
 
-Exactly one source, and the choice is not a list of modes — it is one file on disk
-(`--in-old`) or git. From git the version is named by three **independent
-coordinates**, and every one of them may be left out; what is missing takes its
-default:
+### `init` options
+```
+--config-version <n>       the config schema version; default the newest this sir
+                           reads (printed by `sir --version`)
+--dir <dir>                where to write sir.config.json; default the root of the
+                           git repository around the current directory, outside one
+                           the directory itself
+--upstream <path>          write "upstream" — the root of somebody else's code, from
+                           the config's directory — and "generate.out": "patches".
+                           A directory that is not there is refused
+--out <dir>                with --upstream: the value of generate.out instead of "patches"
+--force                    replace an existing sir.config.json; without it —
+                           refused, exit 5
+--dry-run                  print the file to stdout, write nothing
+--help,   -h               this help
+```
+
+`init` writes only `"$schema"` and `"version"` (with `--upstream`, also `"upstream"` and
+`generate.out`): every other value stays the built-in one until you set it.
+
+### A version out of git
+
+`--head`, `--branch`, `--commit` and `--repo-path` work the same in `generate` (the old
+version) and in `apply` (the file the patch is applied to). The version is named by three
+**independent coordinates**; any may be left out and then takes its default:
 
 | coordinate | flag | left out means |
 |---|---|---|
@@ -360,56 +422,111 @@ default:
 | commit | `--commit` | the last commit of that branch |
 | path   | `--repo-path` | the path of `--in` inside the repository |
 
-So all three omitted is "this same file, as of the last commit here" — and since
-that names no coordinate at all, it needs a flag of its own to ask for git:
-`--head`. Every other combination follows from the table: `--branch master` is the
-last commit of `master`, `--commit 1f3ac9d` is that commit of this same file,
-`--repo-path` swaps the file without touching which commit it is read from.
+All three left out is the same file as of the last commit; asking for it takes `--head`.
+`--branch master` is the last commit of `master`, `--commit 1f3ac9d` is the same file in
+that commit, `--repo-path` swaps the file without changing the commit.
 
-A commit names a version on its own, so `--commit 1f3ac9d` is taken as given, wherever
-that commit lives. The branch beside it is a **claim about** it — and a claim is worth
-checking, which makes `--branch` with `--commit` the one combination that can
-contradict itself: a commit the branch never held is asked about before a version out
-of another history is read.
+A commit names a version on its own and is taken as given. `--branch` beside `--commit`
+claims the commit is on that branch; when it is not, sir asks before reading. `--branch`
+takes only a branch: a tag or a sha is asked about, with a pointer to `--commit`.
+`--repo-path` takes only a file: a directory is refused.
 
-Each coordinate is also held to its own kind. `--branch` takes a **branch** (local or
-remote-tracking); a tag or a raw sha is asked about, with a pointer to `--commit`,
-which takes any revision git understands. `--repo-path` takes a **file**: a directory
-is refused rather than handed back as a printed tree listing.
+`--in-old` is a path on disk, completed by your shell; `--repo-path` is a path in the
+repository, looked up by git.
 
-`--in-old` is untouched by all of this — an old version that lives in no repository
-is still a path on disk, and always will be. That is also the difference to keep in
-mind between the two path flags: `--in-old` is a path your shell can complete,
-`--repo-path` is a path git can look up.
+### How much context a hunk carries
 
-#### Writing a hunk by hand
+The anchoring options choose between two kinds of failure. More enclosing blocks and fewer
+neighbouring lines make the anchor **structural**: it survives neighbouring lines being
+edited by someone else's commit, because an unclosed `{` orders the search and its closer
+keeps the change inside the block. Fewer blocks and more neighbours give a shorter anchor
+that reads better but drifts with its neighbours.
 
-When synthesis cannot anchor a change — two identical places, say — and a person is at
-the terminal, `generate` does not simply fail: it says why and offers the editor
-(`$VISUAL`, else `$EDITOR`, else `vi` / `notepad`). The editor gets the `.hatch` so far —
-**every** hunk, with a hunk to start from for the change in question and the change
-itself quoted on top. Whatever comes back, pattern and patch body alike, is checked: it
-has to parse, and every hunk has to land on the old version in order. If it does not,
-the reason goes on top and you are asked again, as many times as it takes; say no and
-the run stops without a `.hatch` (the edited file is kept, and its path printed). Once it
-stands, synthesis goes on from the text those hunks produce. A patch body edited to
-differ from `--in` stays as edited, and the run ends with a warning that the `.hatch` does
-not give `--in`.
+sir answers ambiguity with detail first: it spells out one bracket at a time — the one
+that actually cuts down the places the anchor can start — and stops when no bracket helps.
+There is no ceiling on this. Only then does it add neighbouring lines.
 
-With no terminal — a script, CI — the error is the one it always was, with its exit
-code.
+`--parent-detail` and `--sibling-detail` set how many brackets are spelled out in every
+hunk at once. A longer anchor stays unique but breaks more often when the upstream edits
+arguments. That trade cannot be measured from one pair of versions, so it is a setting,
+not an automatic choice.
 
-#### When hatch asks before going on
+### Settings by task and language
 
-Some requests git can carry out but that may not say what was meant. Those are
-**asked about**, not refused — the warning says what going ahead means, and the answer
-decides:
+The built-in values are the best general choice in every language of "Language
+support": the ladder itself takes as many parents and neighbours as uniqueness needs,
+usually one neighbour. Change them for a specific risk — what the upstream is going to
+do to the code around the patch.
+
+| task | in `sir.config.json` | what you gain | what you pay |
+|---|---|---|---|
+| the general case | nothing | the patch survives a new argument on a neighbour and on the function, reindenting, blocks inserted and moved (not in Python and YAML — see below) | a renamed parent or a renamed line above the edit — refused |
+| the code has copies: generated code, the same method in several classes | `"parents": { "min": 99 }` | a copy of the function elsewhere is never taken for it | renaming any enclosing block (function, class, namespace) — refused |
+| the upstream often renames functions and classes | `"siblings": { "min": 2 }` | a renamed container survives twice as often | an edit to the line two above the change — refused |
+| shorter, more readable hunks | `"parents": { "detail": { "base": 1 } }` | parent headers with their arguments; in C++ a fifth shorter pattern | a new function parameter or a renamed condition — refused |
+| the upstream often changes arguments | nothing (`detail.base` 0) | `foo( ... )` survives a new argument | — |
+
+What not to do:
+
+- `"parents": { "max": 1 }` or `2` — on repeated code (identical function bodies)
+  `generate` fails as ambiguous;
+- `"siblings": { "max": 0 }` — a line added in the middle of a block has nothing to be
+  anchored to: without neighbours only an edit at the edge of a block is placed, where
+  the closing bracket stands in for the neighbour;
+- `"siblings": { "detail": { "base": 1 } }` — a new argument on a neighbouring line, the
+  most common upstream edit, is refused.
+
+`exact` does not change anchoring: it decides whether whitespace is compared, not where
+the anchor is.
+
+What depends on the language:
+
+| language | spelled verbatim in an anchor | recommendation |
+|---|---|---|
+| C++, Java, JavaScript, TypeScript | names; arguments and conditions are `( ... )` | built-in values |
+| Go, Rust, Kotlin, IDL | the condition of a block (`if ctx.ready {`, `group ready {`) | built-in values; a renamed condition is refused with any settings |
+| Python | the condition of a block (`if ctx.ready:`) | built-in values; a renamed condition is refused with any settings; a block that changes its place among its neighbours (moved, swapped with one, a new block next to it) may land in the wrong place without an error, with any settings |
+| YAML | lines as they are; read as text, its indentation makes no blocks | built-in values; as in Python, a block that changes its place among its neighbours may land in the wrong place without an error |
+| HTML, XML | attribute values in headers and neighbouring lines | built-in values; an attribute edited next to the patch is refused at any detail |
+| JSON | keys | built-in values; a renamed neighbouring key is refused |
+| CSS | the selector; arguments are `( ... )` | built-in values |
+
+The keys of one config apply to every language of the project. A setting for one
+language is given by a flag on the run or by a separate config (`--config`).
+
+Numbers and the stand: `npm run bench -- --case tuning` (one model of code in 18
+languages, nesting depth 1–3, distinct / repeated / cloned bodies, the edit in the middle
+and at the end of a block, 22 kinds of upstream edit); the claims of this section are
+held by `test/unit/tuning.test.ts`.
+
+### Writing a hunk by hand
+
+When synthesis cannot anchor a change — two identical places, say — and a person is at the
+terminal, `generate` explains why and opens the editor (`$VISUAL`, else `$EDITOR`, else
+`vi` / `notepad`). The editor gets the `.sirp` so far: **every** hunk, a hunk to start
+from for this change, and the change itself quoted on top. The text that comes back is
+checked: it has to parse, and every hunk has to land on the old version in order. If it
+does not, the reason goes on top and the question repeats; answering no stops the run
+without a `.sirp`, and the edited file is kept (its path is printed). Once it stands,
+synthesis goes on from the text those hunks produce. A patch body edited to differ from
+`--in` stays as edited, and the run ends with a warning.
+
+With no terminal — a script, CI — `generate` exits with code 8.
+
+Through the service (an editor extension) the same round trip is `SynthesisError`'s
+`detail.draft` sent back as `generate`'s `keep` — see [PROTOCOL.md](./PROTOCOL.md).
+
+### When sir asks before going on
+
+Some requests git can carry out but that may not say what was meant. Those are **asked
+about**: the warning says what going ahead means.
 
 | situation | going ahead means |
 |---|---|
-| `--commit` is not on the `--branch` named beside it | that commit is read all the same, out of a history the branch never had |
-| `--branch` names a tag or a raw sha | it is read as a plain revision, the way `--commit` would |
-| `apply` writes over `--in` while its content came out of git, and the file holds changes that version lacks | the patched git version takes its place; whatever of it was not committed is lost |
+| `--commit` is not on the `--branch` named beside it | the commit is read out of a history the branch never had |
+| `--branch` names a tag or a sha | it is read as a plain revision, as with `--commit` |
+| `apply` writes over `--in` taken from git, and the file holds changes that version lacks | the patched git version takes its place; uncommitted changes are lost |
+| `generate` writes a patch where the patch of another file already is | that patch is overwritten |
 
 ```
 warning: commit 1f3ac9d is not on branch main — going ahead reads that commit all the
@@ -417,184 +534,142 @@ same, out of a history branch main never had
   go ahead? [y/N]
 ```
 
-The default is **no**. `--yes` / `-y` answers yes in advance, for scripts. With no
-terminal to answer — a pipe, CI — the answer is no and the run stops, saying that
-`--yes` would have gone on. A run nobody watches must not be the one that quietly
-throws work away.
+The default is **no**. `--yes` / `-y` answers yes in advance. With no terminal — a pipe,
+CI — the answer is no, and the run stops with a hint about `--yes`.
 
-What git cannot carry out at all — a branch, commit or file that is not there, a
-directory where a file goes, git not runnable — is never a question: there is nothing
-to go ahead with, and `--yes` does not change that.
-
-#### Anchoring options (how much context a hunk carries)
-```
---parents <n|all>       cap on climbing up: at most n enclosing blocks per
-                        pattern (default: all)
---min-parents <n>       enclosing blocks EVERY pattern carries (1)
---parent-detail <n>     bracket levels spelled out in parent headers, counting
-                        from the outermost: 0 gives `foo( ... )`, 1 gives
-                        `foo(bar( ... ))` (0)
---min-siblings <n>      neighbouring significant lines EVERY pattern carries,
-                        per side (0)
---siblings <n>          cap of neighbouring significant lines per side (8);
-                        0 forbids leaning on neighbours at all
---sibling-detail <n>        same bracket baseline for neighbour anchors (0)
---require-parents       never fall back to a parentless pattern: fail instead
---bridge-gap <n>        stitch edits split by up to n unchanged non-blank
-                        lines back into a single hunk (0)
-```
-
-These trade the two failure modes against each other. More parents and fewer
-siblings make an anchor **structural**: it survives neighbouring lines being
-edited by someone else's commit, because an unclosed `{` orders the walk and its
-closer keeps the edit inside that block. Fewer parents and more siblings make a
-shorter, more literal anchor that reads better but drifts. Ambiguity is answered
-by *detail* first — and there is no unfolding ceiling: the ladder spells out ONE
-bracket at a time, the one that actually cuts down the places the anchor can start,
-and stops as soon as no bracket helps. Only then does it reach for
-neighbours.
-
-`detail.base` is the readability knob: raising it keeps outer brackets spelled
-out in every hunk. It costs drift-tolerance, not correctness — a longer anchor is
-*more* specific, so uniqueness never suffers. That trade cannot be measured from
-one pair of file versions, which is why it is policy rather than automatic.
+What git cannot carry out at all — a branch, commit or file that is not there, a directory
+where a file goes, git not runnable — is always a refusal, and `--yes` does not change that.
 
 ### Configuration
 
-Anything above can be pinned as project policy in `hatch.config.json`, searched
-for **upwards from `--in`** — but only within the project: the walk stops at the
-repository root (the directory holding `.git`) and never climbs into your home
-directory. A config one level above the repo is not policy you agreed to, and
-nothing in the output would tell you it applied. When that walk finds nothing, the
-config is one that **claims** the file — its `"upstream"` holds it (see "A project over
-somebody else's code" below) — then `$HATCH_CONFIG`, then the config in the current
-directory if it claims the file. `--config` comes before all of it. Layers, weakest
-first:
+`sir.config.json` pins the settings of `generate` for a project, so the flags need not be
+repeated on every run. `sir init` writes one (options above).
 
-```
-built-in defaults  <  hatch.config.json  <  CLI flags
-```
+- The format is JSON with no comments and no trailing commas.
+- Precedence: built-in defaults < `sir.config.json` < command-line flags.
+- The config is chosen in this order, the first found wins:
+  1. `--config <file>`;
+  2. `sir.config.json` up the directories from `--in` (for `apply`, from the patch) to
+     the repository root; the search never enters the home directory;
+  3. a config whose `upstream` holds the file — in the subdirectories of repository roots
+     on the way up and in directories above the repository (see "A project over somebody
+     else's code"); two of them are an error naming both;
+  4. the file in `$SIR_CONFIG`;
+  5. `sir.config.json` in the current directory, if its `upstream` holds the file.
+- `apply` takes only `upstream` (where `Target` is measured from) and `generate.base` (the
+  base of `--verify`) from the config. How a patch is read, the config never changes: a
+  `.sirp` means the same on every machine.
+- An unknown key, a value of the wrong type, a negative or fractional number — refused with
+  exit 5, and the message names the key.
+- Write only the keys that differ from the built-in values: then a better default in a
+  later sir reaches the project.
+- The effective settings and the origin of each: `sir generate --in src/a.cc --print-config`.
 
-`hatch init` writes one: only `"$schema"` and `"version"`, so every default stays the
-built-in one until you set it.
+#### Config keys
 
-| option | |
-|---|---|
-| `--config-version <n>` | the config schema to write; default the newest this hatch reads (`hatch --version`). An older one is said so on stderr |
-| `--dir <dir>` | where to write; default the git repository root around the current directory, outside a repository the directory itself |
-| `--upstream <path>` | the project patches code it does not own: writes `"upstream"` (from the config's directory) and `generate.out` (`--out`, default `patches`); an upstream that is not there is refused |
-| `--force` | replace an existing `hatch.config.json` — without it the file is left as it is and hatch exits with 5 |
-| `--dry-run` | print the file to stdout, write nothing |
-
-`"$schema"` names the JSON Schema of that very version,
-`schemas/hatch.config.v<N>.schema.json`: an editor checks a v1 file against v1, not
-against whatever is newest. A file is held to the keys of the version it names.
-
-#### Writing a config
-
-The file is plain JSON — no comments, no trailing commas. Write only what you want to
-differ from the default: a key left out keeps the built-in value, and a later hatch that
-improves that default reaches your project. Every key, with the flag that overrides it
-for one run:
-
-| key | value | default | flag | what it does |
+| key | value | default | flag | purpose |
 |---|---|---|---|---|
-| `$schema` | URL | — | — | for editors only: completion and checking while you type. hatch never reads it |
-| `version` | `2` | the newest this hatch reads | — | the config schema the file is written for. Write it: a file is checked against the keys of its version |
-| `upstream` | path or `null` | `null` | `init --upstream` | the root of code the project patches but does not own, **from the config's directory**. With it `generate.out` must be a directory, and the patch tree repeats the path of each file from that root (see "A project over somebody else's code") |
-| `generate.out` | path or `null` | `null` — next to `--in` | `--out` | where the `.hatch` goes. A directory (`patches`, `patches/`) gets `<name of --in>.hatch`; a name ending in `.hatch` is the file itself; anything else is refused. Relative — from the repository root |
-| `generate.language` | language name or `null` | `null` — by the extension of `--in` | `--language` | for files whose extension says nothing, or says the wrong thing (`.h` holding C) |
-| `generate.exact` | `true` / `false` | `false` | `--exact` | reproduce the new file byte for byte. Without it indentation and inner spacing are free, the set of lines is not |
-| `generate.bridgeGap` | 0–1000 | `0` | `--bridge-gap` | two edits split by up to this many unchanged non-blank lines become one hunk |
-| `generate.parents.min` | 0–1000 | `1` | `--min-parents` | enclosing blocks (function, class, namespace) every pattern names. `0` allows a pattern with no structure |
-| `generate.parents.max` | 0–1000 or `"all"` | `"all"` | `--parents` | how far up a pattern may climb when it needs more context |
-| `generate.parents.detail.base` | 0–1000 | `0` | `--parent-detail` | bracket levels spelled out in those headers, from the outermost: `0` gives `foo( ... )`, `1` gives `foo(bar( ... ))` |
-| `generate.parents.required` | `true` / `false` | `false` | `--require-parents` | fail rather than fall back to a pattern with no enclosing block |
-| `generate.siblings.min` | 0–1000 | `0` | `--min-siblings` | neighbouring lines every pattern quotes, on each side of the edit |
-| `generate.siblings.max` | 0–1000 | `8` | `--siblings` | at most this many neighbours per side; `0` — never lean on neighbours |
-| `generate.siblings.detail.base` | 0–1000 | `0` | `--sibling-detail` | as `parents.detail.base`, for neighbour lines |
-| `generate.base.head` | `true` / `false` | `false` | `--head` | take the old version from git: the last commit of the branch you are on |
-| `generate.base.branch` | branch or `null` | `null` — the current one | `--branch` | the old version is the tip of this branch (local or remote-tracking) |
-| `generate.base.commit` | revision or `null` | `null` — the tip | `--commit` | the old version is this commit: a sha, a tag, `HEAD~3` |
-| `generate.base.eol` | `"repository"` / `"worktree"` | `"repository"` | `--eol` | line endings of the version read from git: as stored, or as the file on disk has them (`core.autocrlf`) |
+| `$schema` | URL | — | — | The JSON Schema of the version `version` names. For editors only — completion and checking while you type; sir never reads it |
+| `version` | integer, now `3` | the newest this sir reads | `init --config-version` | The schema version the file is written for; keys are checked against it. A version newer than this sir knows is refused with "update sir" |
+| `upstream` | path or `null` | `null` | `init --upstream` | The root of somebody else's code the project writes patches for; a path from the config's directory. With it `generate.out` must be a directory, and patches are laid out in it by the path of each file from that root |
+| `generate.out` | path or `null` | `null` | `--out` | Where the `.sirp` is written. `null` — next to the source file. A value with no extension or ending in a slash is a directory, and the patch in it is named `<file name>.sirp`; a value ending in `.sirp` is the file itself; any other extension is refused. A relative path is from the repository root, and with `upstream` from the config's directory |
+| `generate.language` | language name or `null` | `null` | `--language` | The language of the files. `null` — by the extension. Needed when the extension points at the wrong language: `.h` holding C, say (`.h` is C++ by default) |
+| `generate.exact` | `true` / `false` | `false` | `--exact` | `true` — the patch reproduces the new file byte for byte. `false` — lines are compared after normalization: indentation and inner spacing do not count, the set and order of lines do |
+| `generate.bridgeGap` | 0–1000 | `0` | `--bridge-gap` | Two changes with at most this many unchanged non-blank lines between them become one hunk. A larger value gives fewer, longer hunks |
+| `generate.parents.min` | 0–1000 | `1` | `--min-parents` | The least number of enclosing blocks (function, class, namespace) in every pattern. An enclosing block ties the change to the structure, so it does not move to another function when neighbouring lines change. `0` allows a pattern with no enclosing block |
+| `generate.parents.max` | 0–1000 or `"all"` | `"all"` | `--parents` | The most enclosing blocks in a pattern. sir adds them from the inside out until the place of the change is unique |
+| `generate.parents.required` | `true` / `false` | `false` | `--require-parents` | `true` — when the change cannot be tied to any enclosing block, `generate` refuses rather than write a pattern with no structure |
+| `generate.parents.detail.base` | 0–1000 | `0` | `--parent-detail` | Bracket levels spelled out in the headers of enclosing blocks, from the outermost; the rest becomes `...`. `0` gives `foo( ... )`, `1` gives `foo(bar( ... ))`. More reads easier, but the pattern breaks more often when arguments change |
+| `generate.siblings.min` | 0–1000 | `0` | `--min-siblings` | The least number of neighbouring significant lines on each side of the change in every pattern |
+| `generate.siblings.max` | 0–1000 | `8` | `--siblings` | The most neighbouring significant lines on each side in a pattern. `0` — the pattern leans on the structure alone |
+| `generate.siblings.detail.base` | 0–1000 | `0` | `--sibling-detail` | Bracket levels spelled out in neighbouring lines, from the outermost |
+| `generate.base.head` | `true` / `false` | `false` | `--head` | `true` — the old version comes out of git: the last commit of the current branch |
+| `generate.base.branch` | branch name or `null` | `null` | `--branch` | The old version is the last commit of this branch, local or remote-tracking. `null` — the current branch |
+| `generate.base.commit` | revision or `null` | `null` | `--commit` | The old version is this commit: a sha, a tag, `HEAD~3`. With `branch` it must be on that branch. `null` — the last commit of the branch |
+| `generate.base.eol` | `"repository"` / `"worktree"` | `"repository"` | `--eol` | Line endings of the version read from git. `"repository"` — as git stores them; `"worktree"` — as the file on disk has them. `"worktree"` is needed with `core.autocrlf=true`, or every line looks changed |
 
-Any of `generate.base.head`, `branch` or `commit` asks for git; a git flag on the
-command line replaces all three for that run, and `--in-old` ignores them. Numbers are
-whole and not negative; a key the schema does not have, or a value of the wrong kind,
-stops the run with exit 5 and names the key.
+Any of `generate.base.head`, `branch`, `commit` means "the old version comes out of git". A
+git flag on the command line replaces all three for that run; `--in-old` ignores them.
 
-Configs for the usual cases:
+#### Examples: `out`, `base`, `upstream`
 
-```json
-{ "version": 2, "generate": { "base": { "head": true } } }
-```
-
-Patches next to their files, the old version always the last commit:
-`hatch generate --in src/a.cc` writes `src/a.cc.hatch`.
+**`generate.out` — where the patch goes.** Without it the patch sits next to its file:
 
 ```json
-{ "version": 2, "upstream": ".", "generate": { "out": "patches", "base": { "branch": "main" } } }
+{ "version": 3 }
+```
+```
+repo/
+├── src/net/http.cc
+└── src/net/http.cc.sirp        sir generate --in src/net/http.cc --head
 ```
 
-One repository, every patch in a tree of its own, compared with `main`:
-`src/net/http.cc` → `patches/src/net/http.cc.hatch`.
+A directory in `out` gathers every patch in one place — flat, by file name:
 
 ```json
-{
-  "version": 2,
-  "generate": {
-    "out": "patches/",
-    "base": { "head": true, "eol": "worktree" },
-    "parents": { "min": 2, "detail": { "base": 1 } },
-    "siblings": { "max": 2 }
-  }
-}
+{ "version": 3, "generate": { "out": "patches" } }
+```
+```
+repo/
+├── src/net/http.cc
+└── patches/
+    └── http.cc.sirp
 ```
 
-Every patch in one flat directory; Windows with `core.autocrlf=true`; anchors that
-always name two enclosing blocks with their arguments spelled out and lean on at most two
-neighbouring lines — longer patches that survive upstream editing the lines around them.
+When two files share a name (`src/net/http.cc` and `src/ui/http.cc`), their patches claim
+one place, and sir asks before overwriting. `upstream` (below) avoids that.
 
-To see what applies and where each value came from, before generating anything:
+**`generate.base` — what the file is compared with.** Without it every `generate` run needs
+`--in-old` or a git flag. With it, `--in` is enough:
 
-```bash
-hatch generate --in src/a.cc --print-config
+| `base` | old version | what the patch describes |
+|---|---|---|
+| `{ "head": true }` | the last commit of the current branch | the uncommitted changes of the file |
+| `{ "branch": "main" }` | the last commit of `main` | everything the working file differs from `main` by — the changes of a development branch, say |
+| `{ "commit": "v1.0" }` | the tag `v1.0` | everything changed since that release |
+
+```json
+{ "version": 3, "generate": { "base": { "branch": "main" } } }
 ```
 
-`$schema` is for editors only: it gives completion and checking while you type. The
-schema is also in the SchemaStore catalog's format (`.github/schemastore/`), and once it
-is listed there VS Code and JetBrains pick it up by the file name, without the line.
-hatch itself never reads `$schema` — it checks the whole file on every run and names
-any key it does not know.
+**`upstream` — patches as a tree.** `upstream` names the root of the code the patches are
+for, and `out` the directory where patches repeat the paths of files from that root. `"."`
+— the root is the config's directory, the repository itself:
 
-`generate.out` is a *place*, not necessarily a name. A value with **no extension** — or
-one ending with a slash, or naming a directory that is already there — is a directory, and
-`<name of --in>.hatch` is written inside it; a value with an extension is the file itself.
-Missing directories are created, and a file sitting where one of them has to go is
-reported by name rather than as `EEXIST … mkdir`. A relative value is measured from the **repository root**, never
-from the current directory — the same settings must mean the same place in a terminal, in
-an editor whose working directory is nobody's business, and in CI. Outside a repository
-the fallback is the directory of the file being patched. `apply --out` follows the same
-rules.
+```json
+{ "version": 3, "upstream": ".", "generate": { "out": "patches", "base": { "head": true } } }
+```
+```
+repo/
+├── sir.config.json
+├── src/net/http.cc
+├── src/ui/http.cc
+└── patches/
+    └── src/
+        ├── net/http.cc.sirp    Target: src/net/http.cc
+        └── ui/http.cc.sirp     Target: src/ui/http.cc
+```
 
-A value that names a file must end in `.hatch`; anything else is refused before a
-single file is read. What `generate` does with each kind of `--out`:
+When patches and code live in different repositories, `upstream` points from the config's
+directory to the other code — `".."`, say; see "A project over somebody else's code".
+
+What `generate` does with each kind of `--out` (or `generate.out`):
 
 | `--out` | the patch goes to | `Target` |
 |---|---|---|
-| not given | next to `--in`: `<in>.hatch` | from the repository root |
+| not given | next to `--in`: `<in>.sirp` | from the repository root |
 | `-` | stdout | — |
-| `patches`, `patches/`, an existing directory | `<repository root>/patches/<name of --in>.hatch` | from the repository root |
-| `p.hatch`, `deep/p.hatch` | that file, from the repository root | from the repository root |
+| `patches`, `patches/`, an existing directory | `<repository root>/patches/<name of --in>.sirp` | from the repository root |
+| `p.sirp`, `deep/p.sirp` | that file, from the repository root | from the repository root |
 | `p.md`, `p.txt` | refused, exit 5 | — |
 | an absolute path | as above, from `/` | none when the patch is outside the repository |
-| with `"upstream"` and a directory | `<config dir>/<out>/<path from the upstream>.hatch` | from the upstream root |
+| with `"upstream"` and a directory | `<config dir>/<out>/<path from the upstream>.sirp` | from the upstream root |
 | with `"upstream"` and `-` or no `out` | refused, exit 5 | — |
 
-A place hatch computed that already holds the patch of **another** file (two files with
-one name in a flat `out`) is asked about first — `--yes` goes ahead, and with nobody at
-a terminal the run stops with exit 5. The same file's patch, and a file named outright
-with `--out x.hatch`, are written over.
+A relative path is measured from the repository root, not the current directory: the same
+settings mean the same place in a terminal, in an editor and in CI. Outside a repository —
+from the directory of the file. The same file's patch, and a file named outright
+(`--out x.sirp`), are overwritten without asking.
 
 ### A project over somebody else's code
 
@@ -606,68 +681,41 @@ work/                         the upstream — a repository you do not commit to
 ├── src/ui/window.cc
 ├── third_party/zlib/         a repository of its own inside it
 └── myfork/                   your project — your repository
-    ├── hatch.config.json
+    ├── sir.config.json
     └── patches/
 ```
 
-`work/myfork/hatch.config.json` says where the code is:
+`work/myfork/sir.config.json` says where the code is:
 
 ```json
-{ "version": 2, "upstream": "..", "generate": { "out": "patches", "base": { "head": true } } }
+{ "version": 3, "upstream": "..", "generate": { "out": "patches", "base": { "head": true } } }
 ```
 
 `upstream` is the root of the patched code, **from the config file**. With it the patch
-of `work/src/ui/window.cc` is `work/myfork/patches/src/ui/window.cc.hatch`, and its
+of `work/src/ui/window.cc` is `work/myfork/patches/src/ui/window.cc.sirp`, and its
 `Target` is `src/ui/window.cc`. The base comes out of the git repository nearest the
 file — `work/third_party/zlib/...` is read from zlib's own repository, with no list of
 repositories to keep.
 
 ```bash
-hatch generate --in work/src/ui/window.cc                   # finds myfork's config
-hatch apply --verify --match work/myfork/patches/src/ui/window.cc.hatch
+sir generate --in work/src/ui/window.cc                   # finds myfork's config
+sir apply --verify --match work/myfork/patches/src/ui/window.cc.sirp
 ```
 
 The config of a file is found by its claim: up from the file to its repository root
 first; then in the immediate subdirectories of every repository root on the way up
-(`work/*/hatch.config.json`), and in the directories above the repository. Two configs
+(`work/*/sir.config.json`), and in the directories above the repository. Two configs
 that claim one file are an error that names both.
 
 | layout | config | `upstream` |
 |---|---|---|
-| the project inside the upstream | `work/myfork/hatch.config.json` | `".."` |
-| the upstream inside the project | `proj/hatch.config.json`, code in `proj/upstream/` | `"upstream"` |
-| beside each other | `ws/proj/hatch.config.json`, code in `ws/upstream/src/` | `"../upstream/src"` — run from `ws/proj`, or pass `--config` / `$HATCH_CONFIG` |
+| the project inside the upstream | `work/myfork/sir.config.json` | `".."` |
+| the upstream inside the project | `proj/sir.config.json`, code in `proj/upstream/` | `"upstream"` |
+| beside each other | `ws/proj/sir.config.json`, code in `ws/upstream/src/` | `"../upstream/src"` — run from `ws/proj`, or pass `--config` / `$SIR_CONFIG` |
 | one repository, patches in a tree of their own | at the repository root | `"."` |
 | one repository, a patch next to its file or in one directory | at the repository root | none |
 
-`hatch init --upstream ..` writes such a config. `"upstream": "."` is what
-`generate.mirror` used to be.
-
-`generate.base` (schema 2) names the old version once for the project, as `--head`,
-`--branch` and `--commit` do for one run: `{ "head": true }` is the last commit here,
-`{ "branch": "main" }` the tip of `main`, `{ "commit": "v1.0" }` that tag. With it,
-`hatch generate --in <file>` needs no source flag. Any git flag replaces all three for
-that run, and `--in-old` ignores them. `generate.base.eol: "worktree"` reads that
-version with the line endings of the file on disk (`--eol`), for `core.autocrlf`.
-
-```
---config <file>         use this config instead of searching upwards; an
-                        explicit path is bounded by nothing, so this is how one
-                        config is shared by several repositories
---no-config             ignore config files (built-in defaults + flags only)
---print-config          print the effective settings, the file they came from,
-                        and the origin of each value
-```
-
-Only the **generate** side is configurable. A `.hatch` patch is a public contract
-and must mean the same thing on every machine, so nothing that changes how
-`apply` reads an existing patch is ever put in a config file — such things
-belong inside the `.hatch` itself. An unknown key is an error (exit `5`), not a
-silent default.
-
-When a patch won't apply, `--debug` on `generate` is the fastest way to see how
-the anchors were chosen; `--dry-run` on `apply` shows the exact edits without
-touching the file.
+`sir init --upstream ..` writes such a config.
 
 ### Exit codes (for CI)
 `0` success · `2` parse error · `3` no match (reports the deepest point the
@@ -675,66 +723,70 @@ pattern reached) · `4` ambiguous match (reports the competing positions) · `5`
 bad configuration · `6` grammar missing or failing its checksum · `7` `generate`
 found nothing to change — the new version is the old one after normalization (spacing
 and blank lines alone are no change), or byte for byte with `--exact` — and wrote no
-`.hatch` · `8` `generate` could not anchor a change: no pattern around it lands there and
+`.sirp` · `8` `generate` could not anchor a change: no pattern around it lands there and
 only there (at a terminal the editor is offered first) · `1` everything
 else: a wrong invocation, a missing file, a git refusal, an unknown language, a
 question answered no, or an unexpected failure.
 
 `6` is deliberately its own code: it says the *build* lacks a grammar, or holds one that
-is not the pinned one (`HATCH_GRAMMAR_DIR`), not that anything is wrong with the patch.
+is not the pinned one (`SIR_GRAMMAR_DIR`), not that anything is wrong with the patch.
 
 Ambiguity is an **error**, never a silent pick: if a pattern fits in two places
 with different results, you get exit `4` and the positions, and the fix is more
 context.
 
-## Applying patches in a build: `hatch-apply`
+When a patch won't apply, `--debug` on `generate` is the fastest way to see how
+the anchors were chosen; `--dry-run` on `apply` shows the exact edits without
+touching the file.
+
+## Applying patches in a build: `sir-apply`
 
 A project's build should not need Node, npm or the network to lay its patches on the
-code. Every release carries `hatch-apply` — one executable with Node, the tree-sitter
+code. Every release carries `sir-apply` — one executable with Node, the tree-sitter
 runtime and every pinned grammar inside — for linux-x64, linux-arm64, darwin-arm64 and
-win-x64, and a `SHA256SUMS` beside them. It is the same engine as `hatch apply`: a patch
+win-x64, and a `SHA256SUMS` beside them. It is the same engine as `sir apply`: a patch
 `generate` made that applies in the editor applies in the build.
 
 ```bash
-curl -LO https://github.com/Danil-Varakin/hatchTs/releases/download/v0.4.0/hatch-apply-0.4.0-linux-x64
-curl -LO https://github.com/Danil-Varakin/hatchTs/releases/download/v0.4.0/SHA256SUMS
+curl -LO https://github.com/Danil-Varakin/S.I.R/releases/download/v0.5.0/sir-apply-0.5.0-linux-x64
+curl -LO https://github.com/Danil-Varakin/S.I.R/releases/download/v0.5.0/SHA256SUMS
 sha256sum -c --ignore-missing SHA256SUMS
-install -m755 hatch-apply-0.4.0-linux-x64 tools/hatch-apply
+install -m755 sir-apply-0.5.0-linux-x64 tools/sir-apply
 
-tools/hatch-apply verify --match myfork/patches/src/ui/window.cc.hatch
-tools/hatch-apply apply  --match myfork/patches/src/ui/window.cc.hatch
+tools/sir-apply verify --match myfork/patches/src/ui/window.cc.sirp
+tools/sir-apply apply  --match myfork/patches/src/ui/window.cc.sirp
 ```
 
 | | |
 |---|---|
-| `hatch-apply apply --match <patch> [--out <path>]` | lays the patch on its file — in place without `--out` |
-| `hatch-apply verify --match <patch>` | the same, writing nothing: exit 0 when it applies cleanly |
-| `hatch-apply --version` | its version, the Node inside, the pin of every grammar |
+| `sir-apply apply --match <patch> [--out <path>]` | lays the patch on its file — in place without `--out` |
+| `sir-apply verify --match <patch>` | the same, writing nothing: exit 0 when it applies cleanly |
+| `sir-apply --version` | its version, the Node inside, the pin of every grammar |
 
 The file is the one the patch names in `Target`, found through the project's
-`hatch.config.json` as `hatch` finds it (`--in` names another). The base is always a
+`sir.config.json` as `sir` finds it (`--in` names another). The base is always a
 clean one: out of git — `--head` / `--branch` / `--commit`, else `generate.base` of the
 config — or, with `--base-from-disk`, the files on disk as they are (and it warns that
 it took them so); those must be the clean base, never files a patch was already laid on
-(see "Known limitations"). With neither it stops with exit 5. It **never asks**: what `hatch`
-would ask about (a tag named as a branch, a commit off the branch named) is refused, and
+(see "Known limitations"). With neither it stops with exit 5. It **never asks**: what
+`sir` would ask about (a tag named as a branch, a commit off the branch named) is refused, and
 said. In place, a file that already holds the result is not written again, so the build
 does not recompile it; a file with changes of its own — the result of a patch that has
 changed since, say — is written over, and said: the code a build patches is not the
-project's to keep. Its options are picked out of `hatch apply`'s, each with the same
+project's to keep. Its options are picked out of `sir apply`'s, each with the same
 meaning; it does not generate, serve or download. For a base out of git, `git` must be
 on the `PATH`.
 
 ## API
 
 ```ts
-import { applyAll, synthesize, parseHatchFile, printHatchFile, adapterForLanguage } from 'hatch';
+import { applyAll, synthesize, parseSirFile, printSirFile, adapterForLanguage } from 'sir';
 
 const adapter = adapterForLanguage('cpp');
 await adapter.init();
 
-const { source, edits } = applyAll(oldCode, parseHatchFile(md), adapter);
-const md2 = printHatchFile(synthesize(oldCode, newCode, adapter), 'cpp');
+const { source, edits } = applyAll(oldCode, parseSirFile(md), adapter);
+const md2 = printSirFile(synthesize(oldCode, newCode, adapter), 'cpp');
 ```
 
 ### Functions
@@ -743,8 +795,10 @@ const md2 = printHatchFile(synthesize(oldCode, newCode, adapter), 'cpp');
 |---|---|
 | `applyAll(source, file, adapter)` | applies hunks in order; returns `{ source, edits }`. Throws `MatchError` or `AmbiguityError` on the first hunk that does not fit |
 | `synthesize(old, new, adapter, options?)` | produces `Hunk[]` from two versions of a file. Throws `SynthesisError` when a change cannot be anchored |
-| `parseHatchFile(text)` | `.hatch` → `HatchFile` |
-| `printHatchFile(hunks, language?)` | `Hunk[]` → `.hatch` |
+| `generatePatch(request)` | the whole of `generate` in one call, on text: the `.sirp` with its header, warnings, links. Throws `NoChanges` when there is nothing to change |
+| `resolveHunks(source, file, adapter)` | where each hunk lands: the patch, the base and the patched text side by side, a failure per hunk instead of a throw |
+| `parseSirFile(text)` | `.sirp` → `SirFile` |
+| `printSirFile(hunks, language?)` | `Hunk[]` → `.sirp` |
 | `trailingSpaceWarnings(hunks)` | patch-body lines that end in significant whitespace |
 | `adapterForLanguage(name)` | adapter by language name |
 | `adapterForFile(path)` | adapter by file extension |
@@ -755,36 +809,38 @@ afterwards.
 
 ### Errors
 
-`HatchError` is the base class. Each subclass carries an `exitCode` matching the CLI:
+`SirError` is the base class. Each subclass carries an `exitCode` matching the CLI:
 `ParseError` (2), `MatchError` (3), `AmbiguityError` (4), `ConfigError` (5),
-`GrammarError` (6).
+`GrammarError` (6), `NoChanges` (7), `SynthesisError` (8), and `GitError`,
+`LanguageError`, `PathError` (1).
 
 ### Types
 
-`HatchFile`, `Hunk`, `MatchPattern`, `LanguageAdapter`, `ApplyResult`, `AppliedEdit`,
-`SynthOptions`, `SynthEvent`, `Tracer`.
+`SirFile`, `Hunk`, `MatchPattern`, `LanguageAdapter`, `ApplyResult`, `AppliedEdit`,
+`SynthOptions`, `SynthEvent`, `Tracer`, `GenerateRequest`, `GenerateOutcome`,
+`HunkLink`, `LinkFailure`, `LinkStatus`, `ResolveResult`, `Span`, `SynthesisFailure`.
 
 ### Boundaries
 
 Only the above is exported. The matcher, patcher, canonicalizer, source map, `infra/`
 and the contents of the language folders are internal and change without notice;
-sub-paths (`hatch/dist/...`) are closed off by the `exports` field.
+sub-paths (`sir/dist/...`) are closed off by the `exports` field.
 
 `LanguageAdapter` is available as a type: adapters are obtained from the registry and
 handed back. Writing your own adapter is not supported.
 
-## Service: hatch for an editor
+## Service: sir for an editor
 
-`node node_modules/hatch/dist/bin/service.js` runs hatch as a long-lived process that
+`node node_modules/sir/dist/bin/service.js` runs sir as a long-lived process that
 speaks JSON over stdio: `generate`, `resolve` and `apply` on text instead of files, and
 coordinates of every hunk in the base and in the patched text. It is what the VS Code
 extension talks to. The contract, and how its version is checked, is in
-[PROTOCOL.md](./PROTOCOL.md); the types are published as `hatch/protocol`.
+[PROTOCOL.md](./PROTOCOL.md); the types are published as `sir/protocol`.
 
 ## Grammars
 
 Parsing is done by tree-sitter, so every language needs its `.wasm` grammar. They
-**ship inside hatch** — about 17 MB for all of them, 1.7 MB in the packed archive — and
+**ship inside sir** — about 17 MB for all of them, 1.7 MB in the packed archive — and
 nothing is downloaded at run time. Each language pins its grammar in its own folder:
 
 ```ts
@@ -802,16 +858,12 @@ the run (exit `6`). A grammar missing altogether is a fault of the build, said s
 
 | Variable | Effect |
 |---|---|
-| `HATCH_GRAMMAR_DIR` | look here first — work on the core, a build of one's own; the pin still holds |
+| `SIR_GRAMMAR_DIR` | look here first — work on the core, a build of one's own; the pin still holds |
 
 The grammars are not in the repository: `npm run grammars`
 (`scripts/fetch-grammars.ts`) puts the pinned ones into `grammars/`, and `npm test` and
 `npm pack` run it. `node --experimental-strip-types scripts/fetch-grammars.ts --pin
 <package@version>` prints the block to paste into a new language's `index.ts`.
-
-Until 0.3 grammars were fetched into a user cache by `hatch grammars` or
-`--download-grammars`. In 0.4 both still work, do nothing and say so; they are removed
-in 0.5. `HATCH_GRAMMAR_CACHE` and `HATCH_GRAMMARS_DOWNLOAD` no longer do anything.
 
 ## Three rules fixed by decision (not derivable from syntax)
 
@@ -827,24 +879,27 @@ These are intentional and stable; patches rely on them:
    means "the next anchor comes after it" — the search still runs to end of file,
    and leaving the block is legal. To keep an edit *inside* a construct you must
    write that construct's closing token in the pattern. This is why `generate`
-   emits both the header of an enclosing function and its `}`.
+   emits both the header of an enclosing function and its `}`. In Python a block
+   has no closing token: the next line at its level closes it, and that line
+   closes every block nested inside it too — `class Archive:` at column 0 ends the
+   method and the class before it at once.
 
 ## Known limitations
 
-What hatch does not do, on purpose or not yet — worth knowing before you rely on it:
+What sir does not do, on purpose or not yet — worth knowing before you rely on it:
 
 - **Identical code with identical context cannot be told apart.** The pattern
   language has no "the n-th occurrence": when two places match word for word, their
   neighbours included, `generate` reports ambiguity and `apply` exits `4`. Write that
   anchor by hand, leaning on code that differs — often what comes *after* the edit.
-- **"Already applied" is not recognized — the workflow rules it out instead.** hatch
+- **"Already applied" is not recognized — the workflow rules it out instead.** sir
   does not check whether a patch is in the file already: it finds the place and writes.
   Laid a second time on its own result, a patch may lay an insertion again with exit 0
   — `... void g() { ... >>> } ...` still finds the end of `g()`; on the wrong file it
   usually ends in exit `3`. So every run that matters starts from a clean base:
-  `apply --verify` and `hatch-apply` read the file out of git (`--head`, `--branch`,
+  `apply --verify` and `sir-apply` read the file out of git (`--head`, `--branch`,
   `--commit` or `generate.base`), and `generate` checks every hunk on the old text it
-  was given. Patch the files on disk (`hatch apply` without a git coordinate,
+  was given. Patch the files on disk (`sir apply` without a git coordinate,
   `--base-from-disk`) only when they are that clean base, never a file already patched.
 - **Line endings belong to the file, not to the patch.** A patch writes its lines
   with the ending of the line the edit starts on, so a patch cannot convert CRLF lines
@@ -853,7 +908,8 @@ What hatch does not do, on purpose or not yet — worth knowing before you rely 
   of git has the line endings the repository stores (LF), while the file on disk has
   CRLF, so `generate --head --exact` sees every line as changed. Add `--eol worktree`
   (or `generate.base.eol: "worktree"` in the config) to read it with the endings of the
-  file on disk, set `core.autocrlf false` for the repository, or pass the old version
+  file on disk, set `core.autocrlf false` for the repository (as Chromium's Windows setup
+  also asks), or pass the old version
   with `--in-old`.
 - **Large files full of near-identical code make `generate` slow** — seconds to minutes
   where one pattern has to be tried against many look-alike places.
@@ -865,14 +921,14 @@ What hatch does not do, on purpose or not yet — worth knowing before you rely 
 
 ## Language support
 
-The languages Chromium is written in:
+The languages Chromium is written in, and the markup of its resources:
 
 | Language | Extensions | Heading / `--language` |
 |----------|-----------|------------------------|
 | C++ | `.cc` `.cpp` `.cxx` `.h` `.hpp` `.inc` | `cpp`, `c++`, `cc`, `cxx`, `h`, `hpp` |
 | C | `.c` | `c` |
 | Objective-C | `.m` `.mm` | `objc`, `objective-c` |
-| Python | `.py` `.pyi` | `python`, `py` |
+| Python | `.py` `.pyi` `.star`, `DEPS` | `python`, `py` |
 | JavaScript (incl. JSX) | `.js` `.mjs` `.cjs` `.jsx` | `javascript`, `js`, `jsx` |
 | TypeScript | `.ts` `.mts` `.cts` | `typescript`, `ts` |
 | TSX | `.tsx` | `tsx` |
@@ -880,17 +936,50 @@ The languages Chromium is written in:
 | Java | `.java` | `java` |
 | Kotlin | `.kt` `.kts` | `kotlin`, `kt` |
 | Go | `.go` | `go`, `golang` |
+| HTML | `.html` `.htm` | `html`, `htm` |
+| XML | `.xml` `.plist` | `xml`, `plist` |
+| CSS | `.css` | `css` |
+| JSON | `.json` | `json` |
+| JSON5 | `.json5` | `json5` |
+| IDL | `.idl` `.webidl` | `idl`, `webidl` |
+| Mojom | `.mojom` | `mojom` |
+| Protocol Buffers | `.proto` | `proto`, `protobuf` |
+| Shell | `.sh` `.bash`, `postinst`, `postrm`, `preinst`, `prerm` | `shell`, `sh`, `bash` |
+| YAML | `.yaml` `.yml` | `yaml`, `yml` |
+| TOML | `.toml` | `toml` |
+| Text | `.txt` | `text`, `txt` |
 
 `generate` writes the language's own name into the heading — the first name in the
 last column (`cpp`, `objc`, `python`), however the language was picked. Every
-extension in the table, without its dot, is a name as well: hatch 0.2.0 and earlier
-wrote that (`# match mm`), and such a `.hatch` applies the same.
+extension in the table, without its dot, is a name as well (`# match mm`), and such a `.sirp` applies the same.
 
 Structure comes from tree-sitter, so preprocessor branches, raw strings, macros
 and generics (`Map<K, V>` is a bracket pair, `a < b` is not) don't confuse the
 pairing. `.h` is C++ by Chromium convention. `.mm` is Objective-C++, which no
 tree-sitter grammar covers fully — the Objective-C grammar handles it best and
 degrades to plain text matching on the C++-only parts.
+
+In HTML and XML a block is an element with both tags: the start tag, attributes
+included, is its header, and the end tag closes it — `<div id="a">` … `</div>` as
+`{` … `}`. An element with no end tag (`<img>`, an open `<p>`) and `<br/>`, `<tag/>`
+are no block. `<script>` and `<style>` are blocks whose content is text. Inside a
+quoted attribute value whitespace is data, as in a string literal; elsewhere it is
+free.
+
+In CSS a block is `{` … `}` of a rule or an at-rule, the selector or `@media (…)` its
+header. A space between two selectors is the descendant combinator, so it is kept:
+`.a .b` and `.a.b` are different anchors. In JSON a block is an object or an array, and
+the key it is the value of is its header (`"permissions": [`); an object inside an array
+has no header of its own. JSON5 is read by the JavaScript grammar; there an object in an
+array takes its first pair for its header (`{ name: "AIPromptAPI",`). `DEPS` and
+Starlark (`.star`) are Python by syntax and read as such.
+
+IDL, Mojom, Protocol Buffers, shell, YAML, TOML and plain text have no grammar in sir:
+they are read as text. A block is a pair of `()`, `[]` or `{}` that balances outside the
+format's strings and comments, headed by what stands before its opener (`interface X {`,
+`message M {`, `f() {`); `if … fi` in shell and the indentation of YAML are no blocks. In
+shell, YAML and text the indentation of a line is kept, as in Python. A file of none of
+these extensions is picked by name: `--language shell`, `--language text`.
 
 ### Adding a language: the one-folder rule
 
@@ -911,7 +1000,7 @@ Only language-*neutral* machinery is common — grammar loading, tree walking,
 canonicalization plumbing, map building — because a language does not get to
 choose it. The one shared file an addition touches is the adapter registry, and
 only because that whitelist has to be a static list: a language name arrives from
-an untrusted `.hatch`, so it must never become a dynamic import.
+an untrusted `.sirp`, so it must never become a dynamic import.
 
 Nothing in `src/core/` changes either; that is the other test of the boundary, and
 none of the languages above needed an exception. Python is the odd one out among
@@ -921,6 +1010,37 @@ block, where the opening token is the colon.
 Grammars live in `grammars/*.wasm`, put there from the official tree-sitter npm packages
 by `npm run grammars`, and ship inside the package.
 
+## Project layout
+
+```
+src/
+├── bin/        the only files that run anything: sir (CLI), service, sir-apply
+├── core/       S.I.R semantics — no knowledge of brackets, indents or tree-sitter
+├── lang/       everything language-dependent: structure (tree-sitter) + normalization
+├── generate/   diff → segments → hunks → .sirp
+├── cli/        flags, questions, git coordinates, writing the result
+├── service/    the JSON-lines wire: protocol types, request decoding, methods
+├── infra/      disk, git, config, project layout, grammars, logging
+└── index.ts    the public API of the package
+```
+
+| directory / file | what lives there |
+|---|---|
+| `src/bin/` | `sir.ts`, `service.ts`, `sir-apply.ts` — each only calls a `main`; no other module does anything when imported |
+| `src/core/` | the format and its semantics: `header.ts` (the `.sirp` header, one table of fields), `sir-parser.ts` / `sir-printer.ts`, `matcher.ts` (search with backtracking), `patcher.ts` (one edit per hunk), `apply.ts`, `resolve.ts` (where each hunk landed), `eol.ts`, `errors.ts` (each error carries its exit code) |
+| `src/lang/` | `source-map.ts` — the **only** bridge to `core/`; `canon.ts`, `build-map.ts`, `block-spans.ts`, `treesitter.ts`, `zones.ts` as shared machinery; `adapter.ts` as a closed name → adapter registry; then **one folder per language** (`cpp/`, `python/`, …), each self-contained: grammar pin, extensions, `normalize`, `blockOf` |
+| `src/generate/` | `diff.ts` (atomic change segments), `synth.ts` (candidate patterns, cheapest first, each verified by applying it), `steer.ts` (synthesis a person drives), `draft.ts` (the hunk to start a change from, and the draft a run hands over when it cannot anchor one — the editor's, `SynthesisError`'s), `printer.ts`, `limits.ts`, `pipeline.ts` (the whole of `generate` in one call, on text) |
+| `src/cli/` | `index.ts` (the command map), `command.ts` (one frame: args, `--help`, log, exit), `args.ts` (hand-written parsing, no commander), `apply.ts` / `generate.ts` / `init.ts`, `git-source.ts` (the git flags, one spelling for every command), `confirm.ts`, `prompt.ts`, `editor.ts` |
+| `src/service/` | `protocol.ts` (the wire contract, written out field by field), `request.ts` (a line decoded before any of it is used), `handler.ts` (methods in a Map), `settings.ts`, `index.ts` (`serve`) |
+| `src/infra/` | `fs.ts` (the file-system rules: atomic write, the walk up, path containment), `git.ts`, `config/`, `project.ts` (whose a file is), `pair.ts` (code ↔ patch, both ways), `out-path.ts`, `grammar-store.ts`, `runtime.ts`, `version.ts`, `log.ts` (facts → text) |
+| `grammars/` | the pinned `.wasm` grammars — not in git, but in the package; put there by `scripts/fetch-grammars.ts` |
+| `scripts/` | `fetch-grammars.ts` (grammars by their pins, development only), `build-apply-bin.mjs` (`sir-apply`: esbuild → one CJS file → Node SEA) |
+| `schemas/`, `sir.config.schema.json` | the config schema of every version in the range, and the newest one for SchemaStore |
+| `test/` | `unit/` per module (plus `versioning`, `protocol-types`, `hygiene`), `roundtrip/`, `golden/<language>/{apply,generate}` — apply goldens also run through every `sir-apply` binary |
+
+Why the boundaries fall where they do — and the one principle the whole design turns on —
+is [ARCHITECTURE.md](./ARCHITECTURE.md).
+
 ## Build & run
 
 Sources are `.ts` and run directly on **Node 22+** via type-stripping, so development
@@ -929,7 +1049,7 @@ that build is what `npm pack` puts in the tarball.
 
 ```bash
 npm test          # unit, round-trip and golden suites
-npm run typecheck # tsc --noEmit over src/ and test/
+npm run typecheck # tsc --noEmit over src/, test/ and bench/
 npm run check     # both
 npm run build     # dist/, for the package only
 ```

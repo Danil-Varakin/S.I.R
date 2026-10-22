@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/tsx/generate/test13.new.tsx
+Grammar: tree-sitter-typescript@0.23.2
+
+# match tsx
+    ...
+      return (
+    ...
+    >>>
+          \>>> дальше идёт пример \...
+    <<<
+    ...
+    )
+    ...
+# end
+# patch
+    >>> дальше идёт пример ... (см. ниже)
+# end

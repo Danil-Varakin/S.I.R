@@ -38,7 +38,7 @@ test('lineKind/lineText: reading the prefix markers, eofnl included', () => {
   assert.equal(lineText('-old'), 'old');
 });
 
-// --- changeSegments: atomic edits, one segment per Hatch hunk ---
+// --- changeSegments: atomic edits, one segment per Sir hunk ---
 
 test('replacing one line gives one segment {removed, added} with coordinates', () => {
   const oldStr = 'a\nb\nc\nd\ne\n';

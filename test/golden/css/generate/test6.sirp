@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/css/generate/test6.new.css
+Grammar: tree-sitter-css@0.25.0
+
+# match css
+    ...
+    >>>
+    .a{color:red}.b{color:red;margin:0}.c{color:red}.d{color:red;margin:0}
+    <<<
+    ...
+# end
+# patch
+    .a{color:red}.b{color:red;margin:0}.c{color:blue}.d{color:red;margin:0}
+# end

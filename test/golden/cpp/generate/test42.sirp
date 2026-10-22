@@ -1,0 +1,36 @@
+Sir: 2
+Target: test/golden/cpp/generate/test42.new.cc
+Grammar: tree-sitter-cpp@0.23.4
+
+# match cpp
+    ...
+    // [DUP] восемь одинаковых #include на верхнем уровне, правка седьмого (родителя нет вовсе)
+    #include "same.h"
+    #include "same.h"
+    #include "same.h"
+    #include "same.h"
+    #include "same.h"
+    #include "same.h"
+    >>>
+    ...
+# end
+# patch
+
+    #include "other.h"
+# end
+
+# match cpp
+    ...
+    #include "other.h"
+    #include "same.h"
+    >>>
+    #include "same.h"
+    ...
+    <<<
+    void f() {}
+    ...
+# end
+# patch
+
+
+# end

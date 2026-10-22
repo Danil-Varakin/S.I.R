@@ -1,0 +1,22 @@
+Sir: 2
+Target: test/golden/rust/generate/test10.new.rs
+Grammar: tree-sitter-rust@0.24.0
+
+# match rust
+    ...
+    pub async fn load(
+    ...
+    ) -> Result<
+    ...
+    > {
+    ...
+    >>>
+        let response = client.get(url).send().await?;
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    let response = client.get(url).timeout(SHORT).send().await?;
+# end

@@ -59,7 +59,11 @@ export const pythonAdapter = makeAdapter({
     version: '0.25.0',
     sha256: '16108b50df4ee9a30168794252ab55e7c93bfc5765d7fa0aa3e335752c515f47',
   },
-  extensions: ['.py', '.pyi'],
+  // Chromium's DEPS and Starlark (`.star`, the build config of siso) are Python by syntax
+  extensions: ['.py', '.pyi', '.star'],
+  fileNames: ['DEPS'],
   normalize,
   blockOf: pythonBlockOf,
+  /** `class B:` at column 0 ends the method and the class before it, both at once. */
+  closesByOutdent: true,
 });

@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/css/generate/test7.new.css
+Grammar: tree-sitter-css@0.25.0
+
+# match css
+    ...
+      to {
+    ...
+    >>>
+        transform: rotate(360deg);
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    transform: rotate(720deg);
+# end

@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/go/apply/test10.go
+Grammar: tree-sitter-go@0.25.0
+
+# match go
+    ...
+    Pool[
+    ...
+    ]{
+    ...
+    >>>
+    		jobs:    make([]T, 0, 16),
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    jobs:    make([]T, 0, 64),
+# end

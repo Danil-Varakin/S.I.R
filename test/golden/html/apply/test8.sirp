@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/html/apply/test8.html
+Grammar: tree-sitter-html@0.23.2
+
+# match html
+    ...
+        <style include="settings-shared">
+    ...
+    >>>
+          .row { padding: 0 16px; }
+    <<<
+    ...
+    </style>
+    ...
+# end
+# patch
+    .row { padding: 0 16px; margin: 0; }
+# end

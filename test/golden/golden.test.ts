@@ -5,9 +5,9 @@ import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { synthesize } from '../../src/generate/synth.ts';
-import { printHatchFile } from '../../src/generate/printer.ts';
+import { printSirFile } from '../../src/generate/printer.ts';
 import { printHeader } from '../../src/core/header.ts';
-import { parseHatchFile } from '../../src/core/hatch-parser.ts';
+import { parseSirFile } from '../../src/core/sir-parser.ts';
 import { applyAll } from '../../src/core/apply.ts';
 import { AmbiguityError, MatchError, SynthesisError } from '../../src/core/errors.ts';
 import { adapterForLanguage } from '../../src/lang/adapter.ts';
@@ -16,12 +16,19 @@ import type { LanguageAdapter } from '../../src/lang/source-map.ts';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const UPDATE = process.env['UPDATE_GOLDEN'] === '1';
 
-const mustRefuse = (text: string): boolean => (text.split('\n', 1)[0] ?? '').includes('MUST-REFUSE');
+/** The line a golden describes itself in: the first — the second after a `#!` line, which
+ *  a script must keep on top. */
+const headLine = (text: string): string => {
+  const [first = '', second = ''] = text.split('\n', 2);
+  return first.startsWith('#!') ? second : first;
+};
+
+const mustRefuse = (text: string): boolean => headLine(text).includes('MUST-REFUSE');
 
 const knownGap = (text: string): boolean => text.slice(0, 400).includes('KNOWN-GAP');
 
 function describe(text: string): string {
-  const m = /^(?:\/\/|#)\s*(\[.*)$/.exec((text.split('\n', 1)[0] ?? '').replace(/\r$/, ''));
+  const m = /^(?:\/\/|#|<!--|\/\*)\s*(\[.*?)(?:\s*(?:-->|\*\/))?$/.exec(headLine(text).replace(/\r$/, ''));
   return m === null ? '' : ` ${m[1]!.trim()}`;
 }
 
@@ -67,7 +74,7 @@ for (const language of languages) {
       }
       const oldStr = readFileSync(join(generateDir, oldFile), 'utf8');
       const newStr = readFileSync(join(generateDir, newFile), 'utf8');
-      const goldenPath = join(generateDir, `test${n}.hatch`);
+      const goldenPath = join(generateDir, `test${n}.sirp`);
 
       test(`golden ${language}/generate/${n}${describe(oldStr)}`, async () => {
         const adapter = await adapterFor(language);
@@ -77,21 +84,21 @@ for (const language of languages) {
           assert.throws(
             () => synthesize(oldStr, newStr, adapter),
             (e: unknown) => e instanceof SynthesisError,
-            'this case synthesizes now — remove the KNOWN-GAP marker and commit the golden .hatch',
+            'this case synthesizes now — remove the KNOWN-GAP marker and commit the golden .sirp',
           );
           return;
         }
 
         // what `generate` writes: the header, then the heading in the language's own name.
-        // Not `Generated-By` — it would change every golden on every release — and no
-        // `Generated-From`: the old version is a file here, not a git blob.
+        // Not `Sir-Version` — it would change every golden on every release — and no
+        // `Base-Blob`: the old version is a file here, not a git blob.
         const header = printHeader({
           target: `test/golden/${language}/generate/${newFile}`,
-          grammar: `${adapter.grammar.package}@${adapter.grammar.version}`,
+          grammar: adapter.grammar === undefined ? undefined : `${adapter.grammar.package}@${adapter.grammar.version}`,
         });
-        const md = header + printHatchFile(synthesize(oldStr, newStr, adapter), adapter.name);
+        const md = header + printSirFile(synthesize(oldStr, newStr, adapter), adapter.name);
 
-        const applied = applyAll(oldStr, parseHatchFile(md), adapter).source;
+        const applied = applyAll(oldStr, parseSirFile(md), adapter).source;
         assert.equal(applied, newStr, 'applying the generated patch did not reproduce the new file');
 
         if (UPDATE) {
@@ -101,7 +108,7 @@ for (const language of languages) {
         assert.ok(
           existsSync(goldenPath),
           `no golden for ${language}/generate/${n}: run \`UPDATE_GOLDEN=1 npm test\`, ` +
-            'read the produced .hatch, and commit it only if it is what you meant',
+            'read the produced .sirp, and commit it only if it is what you meant',
         );
         assert.equal(
           md,
@@ -115,27 +122,27 @@ for (const language of languages) {
   if (isDir(applyDir)) {
     const files = readdirSync(applyDir);
     const numbers = files
-      .map((f) => /^test(\d+)\.hatch$/.exec(f)?.[1])
+      .map((f) => /^test(\d+)\.sirp$/.exec(f)?.[1])
       .filter(Boolean)
       .map(Number)
       .sort((a, b) => a - b);
 
     for (const n of numbers) {
       const sourceFile = files.find(
-        (f) => f.startsWith(`test${n}.`) && !f.endsWith('.hatch') && !f.startsWith(`test${n}.expected.`),
+        (f) => f.startsWith(`test${n}.`) && !f.endsWith('.sirp') && !f.startsWith(`test${n}.expected.`),
       );
       if (sourceFile === undefined) {
-        test(`golden ${language}/apply/${n}`, () => assert.fail(`test${n}.hatch has no test${n}.<ext> source beside it`));
+        test(`golden ${language}/apply/${n}`, () => assert.fail(`test${n}.sirp has no test${n}.<ext> source beside it`));
         continue;
       }
       const source = readFileSync(join(applyDir, sourceFile), 'utf8');
-      const md = readFileSync(join(applyDir, `test${n}.hatch`), 'utf8');
+      const md = readFileSync(join(applyDir, `test${n}.sirp`), 'utf8');
 
       const expectedPath = join(applyDir, `test${n}.expected${extname(sourceFile)}`);
 
       test(`golden ${language}/apply/${n}${describe(source)}`, async () => {
         const adapter = await adapterFor(language);
-        const run = (): string => applyAll(source, parseHatchFile(md), adapter).source;
+        const run = (): string => applyAll(source, parseSirFile(md), adapter).source;
 
         if (mustRefuse(source)) {
           // refused as a patch is refused — no place, or two; a crash is no refusal
@@ -149,7 +156,7 @@ for (const language of languages) {
         const result = run();
         assert.notEqual(result, source, 'the patch applied but changed nothing');
         // a header names this golden's own source; only a hand-written patch has none
-        const target = parseHatchFile(md).header?.target;
+        const target = parseSirFile(md).header?.target;
         if (target !== undefined) assert.equal(target, `test/golden/${language}/apply/${sourceFile}`, 'Target names the source');
 
         if (UPDATE) {

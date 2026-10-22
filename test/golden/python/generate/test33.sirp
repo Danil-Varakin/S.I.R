@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/python/generate/test33.new.py
+Grammar: tree-sitter-python@0.25.0
+
+# match python
+    ...
+    >>>
+    PATTERN = r"\d+\.\d+"
+    <<<
+    ...
+# end
+# patch
+    PATTERN = r"\d+\,\d+"
+# end

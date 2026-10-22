@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/c/generate/test12.new.c
+Grammar: tree-sitter-c@0.24.1
+
+# match c
+    ...
+    >>>
+          fprintf(stderr, msg); \
+    <<<
+    ...
+# end
+# patch
+    fprintf(stdout, msg); \
+# end

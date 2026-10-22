@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/java/generate/test8.new.java
+Grammar: tree-sitter-java@0.23.5
+
+# match java
+    ...
+    >>>
+            .map(User::getName)
+    <<<
+    ...
+# end
+# patch
+    .map(User::getDisplayName)
+# end

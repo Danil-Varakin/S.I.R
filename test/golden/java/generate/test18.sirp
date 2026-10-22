@@ -1,0 +1,22 @@
+Sir: 2
+Target: test/golden/java/generate/test18.new.java
+Grammar: tree-sitter-java@0.23.5
+
+# match java
+    ...
+        FAST {
+    ...
+            int cost() {
+    ...
+    >>>
+                return base(1);
+    <<<
+    ...
+    }
+    ...
+    }
+    ...
+# end
+# patch
+    return base(4);
+# end

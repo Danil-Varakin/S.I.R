@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/css/generate/test3.new.css
+Grammar: tree-sitter-css@0.25.0
+
+# match css
+    ...
+    :host {
+    ...
+      --cr-card-shadow: 0 1px 2px rgba(
+    ...
+    );
+    >>>
+    ...
+    }
+    ...
+# end
+# patch
+
+      --brave-card-radius: 8px;
+# end

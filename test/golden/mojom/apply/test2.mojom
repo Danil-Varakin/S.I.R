@@ -1,0 +1,14 @@
+// [OTHERIFACE] upstream повторил ShowContextMenu в интерфейсе Page — различает заголовок PageHandler, ложится
+module side_panel.mojom;
+
+import "url/mojom/url.mojom";
+
+interface PageHandler {
+  OpenBookmark(int64 node_id, int32 parent_folder_depth);
+  ShowContextMenu(string id, gfx.mojom.Point point);
+};
+
+interface Page {
+  ShowContextMenu(string id, gfx.mojom.Point point);
+  OpenBookmark(int64 node_id, int32 parent_folder_depth);
+};

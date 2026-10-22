@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/proto/generate/test3.new.proto
+
+# match proto
+    ...
+      enum State {
+    ...
+    >>>
+    }
+    ...
+# end
+# patch
+      BRAVE_DEFERRED = 100;
+      
+# end

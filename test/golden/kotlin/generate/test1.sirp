@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/kotlin/generate/test1.new.kt
+Grammar: @tree-sitter-grammars/tree-sitter-kotlin@1.1.0
+
+# match kotlin
+    ...
+    >>>
+    fun perimeter(w: Int, h: Int) = 2 * (w + h)
+    <<<
+    ...
+# end
+# patch
+    fun perimeter(w: Int, h: Int) = 2 * (w + h) + 1
+# end

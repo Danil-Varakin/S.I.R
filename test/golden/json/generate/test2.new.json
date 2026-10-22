@@ -1,0 +1,11 @@
+// [TSCONFIG] tsconfig.json: новый ключ после последнего — запятая соседа
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "strict": true,
+    "noImplicitOverride": true
+  },
+  "include": [
+    "*.ts"
+  ]
+}

@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/typescript/generate/test2.new.ts
+Grammar: tree-sitter-typescript@0.23.2
+
+# match typescript
+    ...
+    >>>
+    const cache: Map<string, Array<Promise<number>>> = new Map();
+    <<<
+    ...
+# end
+# patch
+    const cache: Map<string, Array<Promise<bigint>>> = new Map();
+# end

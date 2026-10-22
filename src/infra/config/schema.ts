@@ -4,12 +4,12 @@ import type { SynthLimits } from '../../generate/limits.ts';
 import { GIT_EOLS } from '../git.ts';
 import type { GitEol, GitSource } from '../git.ts';
 
-// A RANGE, not a number: this hatch reads every config schema from CONFIG_MIN to
+// A RANGE, not a number: this sir reads every config schema from CONFIG_MIN to
 // CONFIG_VERSION, and writes CONFIG_VERSION. Adding an optional key raises only
 // CONFIG_VERSION, so every config already committed keeps loading; CONFIG_MIN moves
 // only when an old schema can no longer be read as it was meant. Rules: VERSIONING.md.
-export const CONFIG_VERSION: number = 2;
-export const CONFIG_MIN: number = 2;
+export const CONFIG_VERSION: number = 3;
+export const CONFIG_MIN: number = 3;
 
 /** `v1`, or `v1–v3` once the range opens up. */
 export function configRange(): string {
@@ -19,7 +19,7 @@ export function configRange(): string {
 export interface GenerateSettings extends SynthLimits {
   /** The root of the code the project patches, from the config file's directory — the
    *  top-level key `upstream`, not under `generate`: it is where the project lies, not
-   *  what a run does. With it a patch is `<config dir>/<out>/<path from upstream>.hatch`
+   *  what a run does. With it a patch is `<config dir>/<out>/<path from upstream>.sirp`
    *  and `Target` is measured from it. Schema 2. */
   readonly upstream: string | null;
   readonly out: string | null;
@@ -83,7 +83,7 @@ export interface RetiredField {
   readonly instead: string;
 }
 
-export const RETIRED_FIELDS: readonly RetiredField[] = [
+const RETIRED_FIELDS: readonly RetiredField[] = [
   {
     path: 'generate.mirror',
     since: 1,
@@ -159,25 +159,25 @@ export function schemaSummary(version: number): string {
 }
 
 /** Every schema in the range is read; outside it the message says WHICH side is behind —
- *  a config from a newer hatch asks for an update, not for its own deletion (C5). */
+ *  a config from a newer sir asks for an update, not for its own deletion (C5). */
 export function checkSchemaVersion(value: unknown, file: string | undefined): number {
   if (typeof value !== 'number' || !Number.isInteger(value)) {
     throw new ConfigError(
-      `"version" must be a whole number, the config schema version — this hatch reads ${configRange()} ` +
+      `"version" must be a whole number, the config schema version — this sir reads ${configRange()} ` +
         `(got ${JSON.stringify(value)})`,
       file,
     );
   }
   if (value > CONFIG_VERSION) {
     throw new ConfigError(
-      `"version" ${value} is a config schema this hatch does not know yet — it reads ${configRange()}: ` +
-        'update hatch, or write the config for the schema this one reads',
+      `"version" ${value} is a config schema this sir does not know yet — it reads ${configRange()}: ` +
+        'update sir, or write the config for the schema this one reads',
       file,
     );
   }
   if (value < CONFIG_MIN) {
     throw new ConfigError(
-      `"version" ${value} is a config schema this hatch no longer reads — it reads ${configRange()}: ` +
+      `"version" ${value} is a config schema this sir no longer reads — it reads ${configRange()}: ` +
         `move the file to v${CONFIG_VERSION}`,
       file,
     );

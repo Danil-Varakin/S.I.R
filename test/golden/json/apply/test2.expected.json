@@ -1,0 +1,18 @@
+// [REFLOW] upstream собрал массив в одну строку — пробелы вне строк не значимы
+{
+  "manifest_version": 3,
+  "name": "__MSG_extName__",
+  "permissions": ["storage",
+    "webRequest", "tabs"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ]
+}

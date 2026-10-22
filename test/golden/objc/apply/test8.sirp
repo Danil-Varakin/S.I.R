@@ -1,0 +1,16 @@
+Sir: 2
+Target: test/golden/objc/apply/test8.m
+Grammar: tree-sitter-objc@3.0.2
+
+# match objc
+    ...
+    @finally {
+    ...
+    >>>
+    }
+    ...
+# end
+# patch
+      [self drain];
+      
+# end

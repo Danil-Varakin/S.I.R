@@ -1,0 +1,21 @@
+Sir: 2
+Target: test/golden/json/generate/test5.new.json
+Grammar: tree-sitter-json@0.24.8
+
+# match json
+    ...
+      "rules": [
+    ...
+          "action": "allow"
+    >>>
+    ...
+    ]
+    ...
+# end
+# patch
+
+        },
+        {
+          "id": 3,
+          "action": "upgradeScheme"
+# end

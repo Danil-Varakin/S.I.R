@@ -1,7 +1,7 @@
 import { createInterface } from 'node:readline';
 import type { Interface } from 'node:readline';
 
-// Answers typed at a terminal or piped in (`printf 'y\nn\n' | hatch generate -a …`),
+// Answers typed at a terminal or piped in (`printf 'y\nn\n' | sir generate -a …`),
 // one line per question. ONE reader per run, not one per question: a pipe delivers
 // several lines at once, and a reader closed after the first answer would throw the
 // rest away.

@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/cpp/apply/test3.cc
+Generated-By: sir 0.4.1
+Grammar: tree-sitter-cpp@0.23.4
+
+# match cpp
+    ...
+    #include "base/logging.h"
+    >>>
+    ...
+# end
+# patch
+
+    #include "base/feature_list.h"
+# end

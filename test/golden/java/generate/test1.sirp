@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/java/generate/test1.new.java
+Grammar: tree-sitter-java@0.23.5
+
+# match java
+    ...
+        for (Number n : values) {
+    ...
+    >>>
+            sum += n.doubleValue();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    sum += n.doubleValue() * 2;
+# end

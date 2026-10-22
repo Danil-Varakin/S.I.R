@@ -1,0 +1,25 @@
+Sir: 2
+Target: test/golden/python/generate/test15.new.py
+Grammar: tree-sitter-python@0.25.0
+
+# match python
+    ...
+    def wrap(
+    ...
+    ):
+    >>>
+    ...
+        if cond:
+            step()
+            more()
+        return 1
+    <<<
+    ...
+# end
+# patch
+
+      if cond:
+        step()
+        more()
+      return 1
+# end

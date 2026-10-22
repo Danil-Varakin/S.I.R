@@ -50,7 +50,7 @@ export async function serve(
     const job = handle(request, send, session)
       .then(send)
       .catch((e: unknown) => {
-        process.stderr.write(`hatch service: ${(e as Error).message ?? String(e)}\n`);
+        process.stderr.write(`sir service: ${(e as Error).message ?? String(e)}\n`);
       });
     running.add(job);
     void job.finally(() => running.delete(job));
@@ -84,7 +84,7 @@ async function* jsonLines(input: NodeJS.ReadableStream): AsyncGenerator<string> 
 // Started as a file — `node dist/service/index.js`, the way the VS Code extension 0.0.1
 // starts it — it serves; imported, it does nothing. The entry of record is
 // dist/bin/service.js. (Only this module checks: the service is not bundled into
-// hatch-apply, where every module would look "started".)
+// sir-apply, where every module would look "started".)
 if (startedAsFile(import.meta.url)) await serve();
 
 function startedAsFile(moduleUrl: string): boolean {

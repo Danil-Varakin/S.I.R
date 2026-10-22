@@ -1,4 +1,4 @@
-// [TEXTBLOCK2] в текстовом блоке лежат ЗАГОЛОВКИ разметки Hatch и жёлоб в четыре пробела
+// [TEXTBLOCK2] в текстовом блоке лежат ЗАГОЛОВКИ разметки Sir и жёлоб в четыре пробела
 static final String DOC = """
 # match java
     void sample() {}

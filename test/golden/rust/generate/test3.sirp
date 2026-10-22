@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/rust/generate/test3.new.rs
+Grammar: tree-sitter-rust@0.24.0
+
+# match rust
+    ...
+    fn boot() {
+    ...
+    >>>
+        let names = vec!["a", "b", "c"];
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    let names = vec!["a", "b", "c", "d"];
+# end
