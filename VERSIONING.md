@@ -33,7 +33,7 @@ range is what lets an older client, config or patch keep working after the numbe
   export of `src/index.ts` removed or changed; the minimum Node (`engines`) or the
   minimum git raised; a platform dropped from the `hatch-apply` files of a release, or
   the name of those files changed (`hatch-apply-X.Y.Z-<os>-<arch>`, scripts download
-  them by name); a language name or a file extension no longer accepted (a `.hatch`
+  them by name); a language name or a file extension no longer accepted (a `.sirp`
   headed `# match mm` must keep applying); a grammar pin changed so that an apply golden
   changes (F3).
 - **P4.** A release that moves the protocol or config range is at least a minor bump.
@@ -106,41 +106,47 @@ field of params and results, error kinds and their `detail`, and every validatio
 
 ## 4. The patch format, and what has no number
 
-- **F1. The patch format.** A patch is a `.hatch` file. Every `.hatch` a released hatch
+- **F1. The patch format.** A patch is a `.sirp` file. Every `.sirp` a released sir
   wrote must parse and apply the same in every later release. `test/golden/*/apply/`
   holds this: an apply golden whose expected result changes is a breaking change unless
   the old result was a bug, and the commit says which. `test/golden/*/generate/` is
   different — it records the form `generate` prints; changing that form breaks no
   existing patch, so it is not breaking, but it is a visible change and goes into the
   CHANGELOG. *(Changed 2026-10-02: hatch 0.1–0.3 wrote patches as `.md`, with an
-  optional `<!-- hatch: target=… -->` line. From 0.4 a `.md` is not a patch anywhere,
-  `apply` included, and the line is not read — decided by the author: no one uses hatch
-  yet, so the break reaches no one, and a patch that looks like Markdown is reformatted
-  by Markdown tools and taken for a patch where it is a README. Not repeated: from 0.4 on
-  F1 holds for `.hatch` without exception.)*
-- **H1.** A `.hatch` opens with a header of `Name: value` lines up to the first blank
-  line; the first is `Hatch: N`, the format number. A file with no header is format 1.
-  hatch reads every patch whose `N` is in `[FORMAT_MIN, FORMAT_VERSION]` and writes
-  `FORMAT_VERSION`.
+  optional `<!-- hatch: target=… -->` line; from 0.4 a `.md` is not a patch anywhere.
+  Changed again 2026-10-22, by the author's decision: the project is renamed from hatch
+  to sir (search, insert, replace), and from 0.5 a patch is a `.sirp` — a `.hatch` is
+  not a patch anywhere, `apply` included, and no number keeps the old one readable:
+  protocol, config schema and patch format all raise their minimum. From 0.5 on F1
+  holds for `.sirp` without exception.)*
+- **H1.** A `.sirp` opens with a header of `Name: value` lines up to the first blank
+  line; the first is `Sir: N`, the format number. sir reads every patch whose `N` is in
+  `[FORMAT_MIN, FORMAT_VERSION]` and writes `FORMAT_VERSION`. A file with no header is
+  hunks alone, in the syntax of format 1; it is read while `FORMAT_MIN` names a format
+  with those hunks — formats 1 and 2 share them — and refused as older once it does not.
 - **H2.** The number rises only when the syntax of the hunks changes. A new header field
-  does not raise it: fields hatch does not know are read past. A change an older hatch
+  does not raise it: fields sir does not know are read past. A change an older sir
   would read wrongly rather than refuse is a new number; one it cannot read at all
   (`FORMAT_MIN` raised) is breaking (P3).
-- **H3.** Outside the range the message names the side: newer — update hatch; older —
+- **H3.** Outside the range the message names the side: newer — update sir; older —
   regenerate the patch. One bump per release, frozen on release — as R3.
-- **H4.** The fields hatch knows have fixed places — `HEADER_FIELDS` in
-  `src/core/header.ts`, the table "Patch header" in §6: line 1 is `Hatch`, the rest
+- **H4.** The fields sir knows have fixed places — `HEADER_FIELDS` in
+  `src/core/header.ts`, the table "Patch header" in §6: line 1 is `Sir`, the rest
   follow in that order, each at most once; a field left out keeps the rest in order.
   `generate` writes in that order and `apply` refuses a known field out of it. A new
   field is **appended**: the last place in the list, the last row of the table — never
   between two fields that exist. A field is never moved, renamed or given to another
   meaning; one no longer written keeps its place and its name is not reused. Fields
-  hatch does not know may stand anywhere after `Hatch` and are read past (H2), so a
-  header a newer hatch wrote still reads in an older one. *(Broken once, 2026-10-19, by
-  the author's decision: fields 3 and 4, `Generated-From` and `Generated-By`, were
-  renamed in place to `Base-Blob` and `Hatch-Version` — the old names read wrongly in a
-  patch written by hand. The old names are still read, in their places, as the new
-  ones, and are not reused. Not a change of this rule.)*
+  sir does not know may stand anywhere after `Sir` and are read past (H2), so a
+  header a newer sir wrote still reads in an older one. A field is renamed only with a
+  new format number that raises `FORMAT_MIN` past every format that had the old name,
+  so no file is read under both. *(Broken twice. 2026-10-19: fields 3 and 4,
+  `Generated-From` and `Generated-By`, were renamed in place to `Base-Blob` and
+  `Hatch-Version`, the old names read as the new. 2026-10-22, with format 2 and the
+  rename of the project: field 1 `Hatch` is `Sir`, field 4 `Hatch-Version` is
+  `Sir-Version`, and format 1 is read no longer, so none of the old names is read —
+  `Hatch` on line 1 is only recognised, to refuse the file as older. None of them is
+  reused.)*
 - **F3. Grammar pins.** A grammar is part of how a `.hatch` applies: a new version can
   shape the tree differently and move where a hunk lands. Every change of a pin in
   `src/lang/*/index.ts` runs the apply goldens, through the package and through every
