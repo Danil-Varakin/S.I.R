@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/rust/generate/test9.new.rs
+Grammar: tree-sitter-rust@0.24.0
+
+# match rust
+    ...
+        pub mod http {
+    ...
+    >>>
+            pub const PORT: u16 = 80;
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    pub const PORT: u16 = 8080;
+# end

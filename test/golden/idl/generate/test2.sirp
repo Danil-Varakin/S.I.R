@@ -1,0 +1,17 @@
+Sir: 2
+Target: test/golden/idl/generate/test2.new.idl
+
+# match idl
+    ...
+    partial interface Navigator {
+    ...
+    >>>
+        [HighEntropy=Direct, MeasureAs=NavigatorDeviceMemory] readonly attribute float deviceMemory;
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    [CallWith=ScriptState, HighEntropy=Direct, MeasureAs=NavigatorDeviceMemory] readonly attribute float deviceMemory;
+# end

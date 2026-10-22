@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/objc/generate/test2.new.m
+Grammar: tree-sitter-objc@3.0.2
+
+# match objc
+    ...
+    >>>
+    - (void)cancel;
+    <<<
+    ...
+# end
+# patch
+    - (BOOL)cancel;
+# end

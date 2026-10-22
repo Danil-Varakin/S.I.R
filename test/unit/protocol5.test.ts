@@ -37,7 +37,7 @@ function matchWord(patch: string): string {
 }
 
 test('config: language is the language’s own name — .cc is cpp, .mm is objc', async () => {
-  await inDir('hatch-p5-lang-', async (dir) => {
+  await inDir('sir-p5-lang-', async (dir) => {
     for (const [file, name] of [['a.cc', 'cpp'], ['a.mm', 'objc'], ['a.py', 'python'], ['a.ts', 'typescript']] as const) {
       assert.equal(ok(await call('config', { path: join(dir, file) }))['language'], name, file);
     }
@@ -45,8 +45,8 @@ test('config: language is the language’s own name — .cc is cpp, .mm is objc'
 });
 
 test('config: generate.language from the config, then overrides.language, over the extension', async () => {
-  await inDir('hatch-p5-lang-', async (dir) => {
-    writeFileSync(join(dir, 'hatch.config.json'), JSON.stringify({ version: 2, generate: { language: 'objective-c++' } }));
+  await inDir('sir-p5-lang-', async (dir) => {
+    writeFileSync(join(dir, 'sir.config.json'), JSON.stringify({ version: 3, generate: { language: 'objective-c++' } }));
     const path = join(dir, 'a.cc');
     assert.equal(ok(await call('config', { path }))['language'], 'objc', 'the config');
     assert.equal(ok(await call('config', { path, overrides: { language: 'c++' } }))['language'], 'cpp', 'overrides');
@@ -56,7 +56,7 @@ test('config: generate.language from the config, then overrides.language, over t
 });
 
 test('config: no language picked is null, not an error', async () => {
-  await inDir('hatch-p5-lang-', async (dir) => {
+  await inDir('sir-p5-lang-', async (dir) => {
     const c = ok(await call('config', { path: join(dir, 'notes.xyz') }));
     assert.equal(c['language'], null);
     assert.equal(ok(await call('config', { path: join(dir, 'Makefile') }))['language'], null);
@@ -65,8 +65,8 @@ test('config: no language picked is null, not an error', async () => {
   });
 });
 
-test('config: a .hatch answers the language of the file pair names for it; no pair — null', async () => {
-  await inDir('hatch-p5-lang-', async (dir) => {
+test('config: a .sirp answers the language of the file pair names for it; no pair — null', async () => {
+  await inDir('sir-p5-lang-', async (dir) => {
     const code = join(dir, 'a.mm');
     writeFileSync(code, NEW);
     const g = ok(await call('generate', { path: code, baseText: OLD, newText: NEW }));
@@ -75,16 +75,16 @@ test('config: a .hatch answers the language of the file pair names for it; no pa
     assert.equal(ok(await call('pair', { path: out }))['code'], code);
     assert.equal(ok(await call('config', { path: out }))['language'], 'objc');
 
-    // a format newer than this hatch: pair names no file, so there is no language
-    const stray = join(dir, 'newer.hatch');
-    writeFileSync(stray, 'Hatch: 99\n\n');
+    // a format newer than this sir: pair names no file, so there is no language
+    const stray = join(dir, 'newer.sirp');
+    writeFileSync(stray, 'Sir: 99\n\n');
     assert.equal(ok(await call('pair', { path: stray }))['code'], null);
     assert.equal(ok(await call('config', { path: stray }))['language'], null);
   });
 });
 
 test('config ≡ generate: language is the word generate writes in # match', async () => {
-  await inDir('hatch-p5-lang-', async (dir) => {
+  await inDir('sir-p5-lang-', async (dir) => {
     for (const [file, overrides] of [
       ['a.cc', {}],
       ['a.mm', {}],
@@ -110,7 +110,7 @@ function git(dir: string, ...args: string[]): string {
 
 /** a repository with `a.cc` committed as OLD and changed to NEW on disk */
 function inRepo(body: (dir: string) => Promise<void>): Promise<void> {
-  return inDir('hatch-p5-header-', async (dir) => {
+  return inDir('sir-p5-header-', async (dir) => {
     git(dir, 'init', '-q', '-b', 'main');
     git(dir, 'config', 'user.email', 't@example.com');
     git(dir, 'config', 'user.name', 't');
@@ -137,11 +137,11 @@ test('config: header for a git base — all five fields, in their order', async 
   await inRepo(async (dir) => {
     const c = ok(await call('config', { path: join(dir, 'a.cc'), overrides: { baseGit: {} } }));
     const header = c['header'] as string;
-    assert.deepEqual(names(header), ['Hatch', 'Target', 'Base-Blob', 'Hatch-Version', 'Grammar']);
-    assert.equal(field(header, 'Hatch'), '1');
+    assert.deepEqual(names(header), ['Sir', 'Target', 'Base-Blob', 'Sir-Version', 'Grammar']);
+    assert.equal(field(header, 'Sir'), '2');
     assert.equal(field(header, 'Target'), c['target']);
     assert.equal(field(header, 'Base-Blob'), git(dir, 'rev-parse', 'HEAD:a.cc'));
-    assert.equal(field(header, 'Hatch-Version'), packageIdentity().version);
+    assert.equal(field(header, 'Sir-Version'), packageIdentity().version);
     assert.match(field(header, 'Grammar')!, /^tree-sitter-cpp@/);
   });
 });
@@ -168,11 +168,11 @@ test('config ≡ generate: header is, byte for byte, the start of the patch gene
 test('config: header for a text base has no Base-Blob', async () => {
   await inRepo(async (dir) => {
     const header = ok(await call('config', { path: join(dir, 'a.cc'), overrides: { base: 'text' } }))['header'] as string;
-    assert.deepEqual(names(header), ['Hatch', 'Target', 'Hatch-Version', 'Grammar']);
+    assert.deepEqual(names(header), ['Sir', 'Target', 'Sir-Version', 'Grammar']);
     // no base at all: the same, and no error
     const none = ok(await call('config', { path: join(dir, 'a.cc') }));
     assert.equal(none['base'], null);
-    assert.deepEqual(names(none['header'] as string), ['Hatch', 'Target', 'Hatch-Version', 'Grammar']);
+    assert.deepEqual(names(none['header'] as string), ['Sir', 'Target', 'Sir-Version', 'Grammar']);
   });
 });
 
@@ -181,29 +181,29 @@ test('config: a file not in the base revision — no Base-Blob, no error', async
     writeFileSync(join(dir, 'b.cc'), NEW);
     const c = ok(await call('config', { path: join(dir, 'b.cc'), overrides: { baseGit: {} } }));
     assert.equal((c['base'] as { kind: string }).kind, 'unavailable');
-    assert.deepEqual(names(c['header'] as string), ['Hatch', 'Target', 'Hatch-Version', 'Grammar']);
+    assert.deepEqual(names(c['header'] as string), ['Sir', 'Target', 'Sir-Version', 'Grammar']);
   });
 });
 
 test('config: no language picked — no Grammar', async () => {
-  await inDir('hatch-p5-header-', async (dir) => {
+  await inDir('sir-p5-header-', async (dir) => {
     const c = ok(await call('config', { path: join(dir, 'notes.xyz'), overrides: { base: 'text' } }));
     assert.equal(c['language'], null);
-    assert.deepEqual(names(c['header'] as string), ['Hatch', 'Target', 'Hatch-Version']);
+    assert.deepEqual(names(c['header'] as string), ['Sir', 'Target', 'Sir-Version']);
   });
 });
 
 test('config: a file outside the upstream — no Target', async () => {
-  await inDir('hatch-p5-header-', async (dir) => {
+  await inDir('sir-p5-header-', async (dir) => {
     mkdirSync(join(dir, 'up'));
-    writeFileSync(join(dir, 'hatch.config.json'), JSON.stringify({ version: 2, upstream: 'up', generate: { out: 'patches' } }));
+    writeFileSync(join(dir, 'sir.config.json'), JSON.stringify({ version: 3, upstream: 'up', generate: { out: 'patches' } }));
     const c = ok(await call('config', { path: join(dir, 'a.cc'), overrides: { base: 'text' } }));
     assert.equal(c['target'], null);
-    assert.deepEqual(names(c['header'] as string), ['Hatch', 'Hatch-Version', 'Grammar']);
+    assert.deepEqual(names(c['header'] as string), ['Sir', 'Sir-Version', 'Grammar']);
   });
 });
 
-test('config: a .hatch answers the header of its pair; no pair — null', async () => {
+test('config: a .sirp answers the header of its pair; no pair — null', async () => {
   await inRepo(async (dir) => {
     const code = join(dir, 'a.cc');
     const overrides = { baseGit: {} };
@@ -214,8 +214,8 @@ test('config: a .hatch answers the header of its pair; no pair — null', async 
     assert.equal(ok(await call('config', { path: out, overrides }))['header'], ofCode);
     assert.ok((g['patch'] as string).startsWith(ofCode));
 
-    const stray = join(dir, 'newer.hatch');
-    writeFileSync(stray, 'Hatch: 99\n\n');
+    const stray = join(dir, 'newer.sirp');
+    writeFileSync(stray, 'Sir: 99\n\n');
     assert.equal(ok(await call('config', { path: stray, overrides }))['header'], null);
   });
 });
@@ -233,11 +233,11 @@ test('config ≡ generate: header with baseGit.eol "worktree" — Base-Blob is t
 });
 
 test('config: a language generate would refuse — header without Grammar, and generate refuses', async () => {
-  await inDir('hatch-p5-header-', async (dir) => {
+  await inDir('sir-p5-header-', async (dir) => {
     const path = join(dir, 'a.cc');
     const c = ok(await call('config', { path, overrides: { base: 'text', language: 'cobol' } }));
     assert.equal(c['language'], null);
-    assert.deepEqual(names(c['header'] as string), ['Hatch', 'Target', 'Hatch-Version'], 'no Grammar for no language');
+    assert.deepEqual(names(c['header'] as string), ['Sir', 'Target', 'Sir-Version'], 'no Grammar for no language');
     const g = await call('generate', { path, baseText: OLD, newText: NEW, language: 'cobol' });
     assert.equal(g.ok, false);
     assert.equal(!g.ok && g.error.kind, 'LanguageError', 'the header is what config can say; generate writes none');

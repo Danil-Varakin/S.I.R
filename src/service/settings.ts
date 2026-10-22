@@ -19,7 +19,7 @@ import { BadRequest } from './request.ts';
  *  `configPath` — with the request's settings over it, and the project it describes. */
 export function settingsFor(path: string | undefined, o: OverridesParams): LoadedProject {
   if (o.configPath !== undefined && (typeof o.configPath !== 'string' || !isAbsolute(o.configPath))) {
-    throw new BadRequest('configPath must be an absolute path to a hatch.config.json');
+    throw new BadRequest('configPath must be an absolute path to a sir.config.json');
   }
   return loadProject({
     path,

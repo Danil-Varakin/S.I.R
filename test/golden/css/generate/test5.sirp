@@ -1,0 +1,16 @@
+Sir: 2
+Target: test/golden/css/generate/test5.new.css
+Grammar: tree-sitter-css@0.25.0
+
+# match css
+    ...
+    .badge::after {
+    ...
+    >>>
+    }
+    ...
+# end
+# patch
+      margin-inline-start: 4px;
+
+# end

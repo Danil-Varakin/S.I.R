@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/go/generate/test10.new.go
+Grammar: tree-sitter-go@0.25.0
+
+# match go
+    ...
+    func label(
+    ...
+    ) string {
+    ...
+    >>>
+    		return "huge"
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    return "enormous"
+# end

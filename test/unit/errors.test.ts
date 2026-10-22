@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  HatchError,
+  SirError,
   ParseError,
   MatchError,
   AmbiguityError,
@@ -15,7 +15,7 @@ import {
 
 test('ParseError → code 2, carries a string and (optional) a hint', () => {
   const e = new ParseError('pain', 7, 'advice');
-  assert.ok(e instanceof HatchError);
+  assert.ok(e instanceof SirError);
   assert.equal(e.exitCode, 2);
   assert.equal(e.mdLine, 7);
   assert.equal(e.hint, 'advice');
@@ -43,7 +43,7 @@ test('AmbiguityError → code 4, carries match positions', () => {
 });
 
 test('class names are saved (instanceof via prototype chain)', () => {
-  const e: HatchError = new ParseError('x', 1);
+  const e: SirError = new ParseError('x', 1);
   assert.equal(e.name, 'ParseError');
   assert.ok(e instanceof Error);
 });
@@ -69,6 +69,6 @@ test('detail(): every error kind states exactly its protocol fields', () => {
   assert.deepEqual(new GitError('g', 'no-commits').detail(), { reason: 'no-commits' });
   assert.deepEqual(new GrammarError('m', 'tree-sitter-cpp@1').detail(), { grammar: 'tree-sitter-cpp@1' });
   assert.equal(new GrammarError('m').detail(), undefined);
-  assert.deepEqual(new ConfigError('c', '/p/hatch.config.json').detail(), { file: '/p/hatch.config.json' });
+  assert.deepEqual(new ConfigError('c', '/p/sir.config.json').detail(), { file: '/p/sir.config.json' });
   assert.equal(new ConfigError('c').detail(), undefined);
 });

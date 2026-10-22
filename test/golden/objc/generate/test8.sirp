@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/objc/generate/test8.new.m
+Grammar: tree-sitter-objc@3.0.2
+
+# match objc
+    ...
+    @catch (NSException *e) {
+    ...
+    >>>
+        [self report:e];
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    [self reportFatal:e];
+# end

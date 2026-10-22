@@ -39,7 +39,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: package
-          path: hatch-*.tgz
+          path: sir-*.tgz
 
   apply-bin:
     # Node's single executables are built on the platform they run on: one job each.
@@ -67,16 +67,16 @@ jobs:
 
       - name: apply goldens through the binary
         shell: bash
-        run: node test/golden/run-binary.mjs "build/hatch-apply-${GITHUB_REF_NAME#v}-${{ matrix.suffix }}"
+        run: node test/golden/run-binary.mjs "build/sir-apply-${GITHUB_REF_NAME#v}-${{ matrix.suffix }}"
 
-      - name: hatch-apply tests through the binary
+      - name: sir-apply tests through the binary
         shell: bash
-        run: HATCH_APPLY_BIN="build/hatch-apply-${GITHUB_REF_NAME#v}-${{ matrix.suffix }}" node --test --experimental-strip-types test/unit/hatch-apply.test.ts
+        run: SIR_APPLY_BIN="build/sir-apply-${GITHUB_REF_NAME#v}-${{ matrix.suffix }}" node --test --experimental-strip-types test/unit/sir-apply.test.ts
 
       - uses: actions/upload-artifact@v4
         with:
-          name: hatch-apply-${{ matrix.suffix }}
-          path: build/hatch-apply-*-${{ matrix.suffix }}
+          name: sir-apply-${{ matrix.suffix }}
+          path: build/sir-apply-*-${{ matrix.suffix }}
 
   publish:
     needs: [check, apply-bin]
@@ -90,7 +90,7 @@ jobs:
 
       - name: SHA256SUMS
         working-directory: dist-release
-        run: sha256sum hatch-* > SHA256SUMS && cat SHA256SUMS
+        run: sha256sum sir-* > SHA256SUMS && cat SHA256SUMS
 
       - name: publish the release
         env:

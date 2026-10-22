@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/idl/generate/test4.new.webidl
+
+# match idl
+    ...
+      interface Functions {
+    ...
+    >>>
+    }
+    ...
+# end
+# patch
+      static void braveGetExtensionsAllowed(BooleanCallback callback);
+      
+# end

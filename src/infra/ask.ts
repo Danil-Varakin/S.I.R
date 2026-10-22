@@ -1,4 +1,4 @@
-// The one shape of a yes/no question in hatch, whoever puts it and whoever answers:
+// The one shape of a yes/no question in sir, whoever puts it and whoever answers:
 // git's "a commit off the named branch — go ahead?", apply's "this loses local edits —
 // go ahead?", generate -a's "keep this hunk?". What differs between them is the POLICY
 // (the default answer, what no terminal means, whether --yes counts) — that lives with

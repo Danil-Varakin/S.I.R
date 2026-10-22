@@ -1,0 +1,16 @@
+Sir: 2
+Target: test/golden/rust/apply/test4.rs
+
+# match rust
+    ...
+    where
+        I: IntoIterator<Item = u64>,
+    ...
+    >>>
+        items.into_iter().map(|n| n.to_string()).collect()
+    <<<
+    ...
+# end
+# patch
+    items.into_iter().map(|n| format!("{n:04}")).collect()
+# end

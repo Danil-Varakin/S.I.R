@@ -87,7 +87,7 @@ export function editFirstCall(text: string): string {
 
 /** A hunk of the form `generate` settles on: a parent header and its closing token. */
 export function patchFor(method: number, body = '      EnableNewPath(list);'): string {
-  return `Hatch: 1\n\n# match cpp\n    ...\n    void Register${method}(\n    ...\n    ) {\n    ...\n    >>>\n    }\n    ...\n# end\n# patch\n${body}\n# end\n`;
+  return `Sir: 2\n\n# match cpp\n    ...\n    void Register${method}(\n    ...\n    ) {\n    ...\n    >>>\n    }\n    ...\n# end\n# patch\n${body}\n# end\n`;
 }
 
 // ── Python: the parent with no closing token (07-findings, С1) ─────────────────────────
@@ -127,13 +127,13 @@ export function pyEditCheck(text: string, classes: number): string {
  *  that opens a block: the form an outdent closing several blocks at once makes legal. */
 export function pyPatchFor(c: number): string {
   const body = ['...', `class Queue${c}:`, '...', '>>>', `def __init__(self, limit=${c}):`, '<<<', '...', `class Queue${c + 1}:`, '...'];
-  return `Hatch: 1\n\n# match python\n${body.map((l) => `    ${l}`).join('\n')}\n# end\n# patch\n    def __init__(self, cap=${c}):\n# end\n`;
+  return `Sir: 2\n\n# match python\n${body.map((l) => `    ${l}`).join('\n')}\n# end\n# patch\n    def __init__(self, cap=${c}):\n# end\n`;
 }
 
 /** The same edit in the form `generate` writes today: no parent. */
 export function pyPatchParentless(c: number): string {
   const body = ['...', '>>>', `def __init__(self, limit=${c}):`, '<<<', '...'];
-  return `Hatch: 1\n\n# match python\n${body.map((l) => `    ${l}`).join('\n')}\n# end\n# patch\n    def __init__(self, cap=${c}):\n# end\n`;
+  return `Sir: 2\n\n# match python\n${body.map((l) => `    ${l}`).join('\n')}\n# end\n# patch\n    def __init__(self, cap=${c}):\n# end\n`;
 }
 
 // ── neighbours on both sides (07-findings, С2) ─────────────────────────────────────────

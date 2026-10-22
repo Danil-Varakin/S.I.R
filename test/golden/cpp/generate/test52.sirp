@@ -1,0 +1,29 @@
+Sir: 2
+Target: test/golden/cpp/generate/test52.new.cc
+Grammar: tree-sitter-cpp@0.23.4
+
+# match cpp
+    ...
+    void a() {
+    ...
+    >>>
+    }
+    ...
+# end
+# patch
+      extra();
+
+# end
+
+# match cpp
+    ...
+    void b() {
+    >>>
+    ...
+    }
+    ...
+# end
+# patch
+
+      target();
+# end

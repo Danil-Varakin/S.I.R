@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/python/generate/test34.new.py
+Grammar: tree-sitter-python@0.25.0
+
+# match python
+    ...
+    def show(
+    ...
+    ):
+    ...
+    >>>
+        return f"{user.name} ({user.age})"
+    <<<
+    ...
+# end
+# patch
+    return f"{user.title} ({user.age})"
+# end

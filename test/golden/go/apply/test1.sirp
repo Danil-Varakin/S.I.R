@@ -1,0 +1,17 @@
+Sir: 2
+Target: test/golden/go/apply/test1.go
+
+# match go
+    ...
+    const (
+    	StateIdle State = iota
+    ...
+    >>>
+    	StateBusy
+    <<<
+    ...
+# end
+# patch
+    StateBusy
+    	StateStalled
+# end

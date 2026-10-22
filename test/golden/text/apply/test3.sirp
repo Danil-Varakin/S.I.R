@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/text/apply/test3.release
+
+# match text
+    ...
+    chrome.dll: %(
+    ...
+    )s\
+    >>>
+    ...
+# end
+# patch
+
+    brave_vpn_helper.exe: %(VersionDir)s\
+# end

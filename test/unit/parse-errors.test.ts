@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { parseHatchFile, MATCH_HEADING, PATCH_HEADING, END_HEADING, NOTE_HEADING } from '../../src/core/hatch-parser.ts';
+import { parseSirFile, MATCH_HEADING, PATCH_HEADING, END_HEADING, NOTE_HEADING } from '../../src/core/sir-parser.ts';
 import { readHeader, headerFields, parseHeader, isContainedPath, formatSide } from '../../src/core/header.ts';
 import { ParseError } from '../../src/core/errors.ts';
 
-// Every way a .hatch is refused, as a table: the line it names, the sentence, the hint.
+// Every way a .sirp is refused, as a table: the line it names, the sentence, the hint.
 // The line is where an editor underlines; the sentence and the hint are all a person gets
 // to fix it with — a test that only checks "it throws" lets either drift.
 
@@ -21,7 +21,7 @@ interface Refusal {
 }
 
 const NO_END = "every block ends with a '# end' line in column 0";
-const ORDER = 'the order is Hatch, Target, Base-Blob, Hatch-Version, Grammar; fields hatch does not know may stand anywhere after Hatch';
+const ORDER = 'the order is Sir, Target, Base-Blob, Sir-Version, Grammar; fields sir does not know may stand anywhere after Sir';
 const TARGET = (v: string): string => `Target must be a relative path inside the project, with no '..': '${v}'`;
 
 const REFUSALS: Refusal[] = [
@@ -207,70 +207,64 @@ const REFUSALS: Refusal[] = [
   // ── the header ──
   {
     name: 'a header line that is no Name: value — quoted trimmed',
-    text: 'Hatch: 1\nno colon here  \n\n' + H('    >>>'),
+    text: 'Sir: 2\nno colon here  \n\n' + H('    >>>'),
     line: 2,
     says: "a header line must be 'Name: value': 'no colon here'",
     hint: 'the header ends at the first blank line — put one before the patch',
   },
   {
     name: 'a header with no blank line before the first hunk',
-    text: 'Hatch: 1\n' + H('    >>>'),
+    text: 'Sir: 2\n' + H('    >>>'),
     line: 2,
     says: "a header line must be 'Name: value': '# match cpp'",
     hint: 'the header ends at the first blank line — put one before the patch',
   },
   {
     name: 'a space before the colon',
-    text: 'Hatch: 1\nTarget : a\n\n' + H('    >>>'),
+    text: 'Sir: 2\nTarget : a\n\n' + H('    >>>'),
     line: 2,
     says: "a header line must be 'Name: value': 'Target : a'",
     hint: 'the header ends at the first blank line — put one before the patch',
   },
   {
     name: 'a name that starts with a digit',
-    text: 'Hatch: 1\n2X: v\n\n' + H('    >>>'),
+    text: 'Sir: 2\n2X: v\n\n' + H('    >>>'),
     line: 2,
     says: "a header line must be 'Name: value': '2X: v'",
     hint: 'the header ends at the first blank line — put one before the patch',
   },
-  { name: 'a field twice, in another case', text: 'Hatch: 1\nTarget: a\ntarget: b\n\n' + H('    >>>'), line: 3, says: 'the header names Target twice' },
+  { name: 'a field twice, in another case', text: 'Sir: 2\nTarget: a\ntarget: b\n\n' + H('    >>>'), line: 3, says: 'the header names Target twice' },
+  { name: 'known fields out of order', text: 'Sir: 2\nGrammar: g@1\nTarget: a\n\n' + H('    >>>'), line: 3, says: 'Target must come before Grammar in the header', hint: ORDER },
   {
-    name: 'a field twice, once by its 0.4.1 name',
-    text: 'Hatch: 1\nGenerated-From: x\nBase-Blob: y\n\n' + H('    >>>'),
-    line: 3,
-    says: 'the header names Base-Blob twice',
+    name: 'a header of format 1 — its first field was Hatch',
+    text: 'Hatch: 1\nTarget: a\n\n' + H('    >>>'),
+    line: 1,
+    says: 'the patch is format 1, this sir reads 2–2',
+    hint: 'regenerate the patch',
   },
-  { name: 'known fields out of order', text: 'Hatch: 1\nGrammar: g@1\nTarget: a\n\n' + H('    >>>'), line: 3, says: 'Target must come before Grammar in the header', hint: ORDER },
-  {
-    name: 'out of order, named as the file spells them',
-    text: 'Hatch: 1\nGenerated-By: hatch 0.4.1\nGenerated-From: x\n\n' + H('    >>>'),
-    line: 3,
-    says: 'Generated-From must come before Generated-By in the header',
-    hint: ORDER,
-  },
-  { name: 'Hatch not a number', text: 'Hatch: one\n\n' + H('    >>>'), line: 1, says: "Hatch must be a format number: 'one'" },
-  { name: 'Hatch with a word after the number', text: 'Hatch: 1x\n\n' + H('    >>>'), line: 1, says: "Hatch must be a format number: '1x'" },
-  { name: 'Hatch with a sign', text: 'Hatch: +1\n\n' + H('    >>>'), line: 1, says: "Hatch must be a format number: '+1'" },
-  { name: 'a newer format — update hatch', text: 'Hatch: 2\n\n' + H('    >>>'), line: 1, says: 'the patch is format 2, this hatch reads 1–1', hint: 'update hatch' },
-  { name: 'an older format — regenerate', text: 'Hatch: 0\n\n' + H('    >>>'), line: 1, says: 'the patch is format 0, this hatch reads 1–1', hint: 'regenerate the patch' },
+  { name: 'Sir not a number', text: 'Sir: one\n\n' + H('    >>>'), line: 1, says: "Sir must be a format number: 'one'" },
+  { name: 'Sir with a word after the number', text: 'Sir: 1x\n\n' + H('    >>>'), line: 1, says: "Sir must be a format number: '1x'" },
+  { name: 'Sir with a sign', text: 'Sir: +1\n\n' + H('    >>>'), line: 1, says: "Sir must be a format number: '+1'" },
+  { name: 'a newer format — update sir', text: 'Sir: 3\n\n' + H('    >>>'), line: 1, says: 'the patch is format 3, this sir reads 2–2', hint: 'update sir' },
+  { name: 'an older format — regenerate', text: 'Sir: 0\n\n' + H('    >>>'), line: 1, says: 'the patch is format 0, this sir reads 2–2', hint: 'regenerate the patch' },
   {
     name: 'the format named at its own line, past blank lines',
-    text: '\n\nHatch: 7\n\n' + H('    >>>'),
+    text: '\n\nSir: 7\n\n' + H('    >>>'),
     line: 3,
-    says: 'the patch is format 7, this hatch reads 1–1',
-    hint: 'update hatch',
+    says: 'the patch is format 7, this sir reads 2–2',
+    hint: 'update sir',
   },
-  { name: 'Target with ..', text: 'Hatch: 1\nX-Note: hi\nTarget: ../x\n\n' + H('    >>>'), line: 3, says: TARGET('../x') },
-  { name: 'Target absolute', text: 'Hatch: 1\nTarget: /x\n\n' + H('    >>>'), line: 2, says: TARGET('/x') },
-  { name: 'Target with a drive', text: 'Hatch: 1\nTarget: C:x\n\n' + H('    >>>'), line: 2, says: TARGET('C:x') },
-  { name: 'Target UNC', text: 'Hatch: 1\nTarget: \\\\srv\\x\n\n' + H('    >>>'), line: 2, says: TARGET('\\\\srv\\x') },
-  { name: 'Target empty', text: 'Hatch: 1\nTarget:\n\n' + H('    >>>'), line: 2, says: TARGET('') },
+  { name: 'Target with ..', text: 'Sir: 2\nX-Note: hi\nTarget: ../x\n\n' + H('    >>>'), line: 3, says: TARGET('../x') },
+  { name: 'Target absolute', text: 'Sir: 2\nTarget: /x\n\n' + H('    >>>'), line: 2, says: TARGET('/x') },
+  { name: 'Target with a drive', text: 'Sir: 2\nTarget: C:x\n\n' + H('    >>>'), line: 2, says: TARGET('C:x') },
+  { name: 'Target UNC', text: 'Sir: 2\nTarget: \\\\srv\\x\n\n' + H('    >>>'), line: 2, says: TARGET('\\\\srv\\x') },
+  { name: 'Target empty', text: 'Sir: 2\nTarget:\n\n' + H('    >>>'), line: 2, says: TARGET('') },
 ];
 
 for (const r of REFUSALS) {
   test(`refused: ${r.name}`, () => {
     assert.throws(
-      () => parseHatchFile(r.text),
+      () => parseSirFile(r.text),
       (e: unknown) => {
         assert.ok(e instanceof ParseError, `${(e as Error).name}: ${(e as Error).message}`);
         assert.equal(e.mdLine, r.line, 'the line');
@@ -287,57 +281,54 @@ for (const r of REFUSALS) {
 const ONE = H('    >>>');
 
 test('header: names are read without regard to case, values trimmed, a colon inside a value kept', () => {
-  assert.deepEqual(parseHatchFile('hatch: 1\nTARGET:\t a/b.cc \t\nGrammar: tree:sitter@1:2  \n\n' + ONE).header, {
-    format: 1,
+  assert.deepEqual(parseSirFile('sir: 2\nTARGET:\t a/b.cc \t\nGrammar: tree:sitter@1:2  \n\n' + ONE).header, {
+    format: 2,
     target: 'a/b.cc',
     grammar: 'tree:sitter@1:2',
   });
 });
 
-test('header: unknown fields stand anywhere after Hatch, and are kept under their name lower-cased', () => {
-  const text = 'Hatch: 1\nX-Who: me\nTarget: a\nX-2a: two\nGrammar: g@1\n\n' + ONE;
+test('header: unknown fields stand anywhere after Sir, and are kept under their name lower-cased', () => {
+  const text = 'Sir: 2\nX-Who: me\nTarget: a\nX-2a: two\nGrammar: g@1\n\n' + ONE;
   const read = readHeader(text);
-  assert.deepEqual([...read.fields], [['hatch', '1'], ['x-who', 'me'], ['target', 'a'], ['x-2a', 'two'], ['grammar', 'g@1']]);
+  assert.deepEqual([...read.fields], [['sir', '2'], ['x-who', 'me'], ['target', 'a'], ['x-2a', 'two'], ['grammar', 'g@1']]);
   assert.equal(read.endLine, 5, 'the blank line after it');
   assert.equal(read.formatLine, 1);
   assert.equal(read.targetLine, 3);
 });
 
 test('header: blank lines before it are skipped, and the lines are counted from the file', () => {
-  const read = readHeader('\n\nHatch: 1\nTarget: a\n\n' + ONE);
+  const read = readHeader('\n\nSir: 2\nTarget: a\n\n' + ONE);
   assert.equal(read.formatLine, 3);
   assert.equal(read.targetLine, 4);
   assert.equal(read.endLine, 4);
 });
 
 test('header: CRLF lines read the same', () => {
-  assert.deepEqual(parseHatchFile('Hatch: 1\r\nTarget: a\r\n\r\n' + ONE.replace(/\n/g, '\r\n')).header, { format: 1, target: 'a' });
+  assert.deepEqual(parseSirFile('Sir: 2\r\nTarget: a\r\n\r\n' + ONE.replace(/\n/g, '\r\n')).header, { format: 2, target: 'a' });
 });
 
-test('header: none when the first line is not Hatch — what follows is prose before the first hunk', () => {
-  const read = readHeader('Target: a\nHatch: 1\n\n' + ONE);
-  assert.deepEqual(read, { format: 1, fields: new Map(), endLine: 0, formatLine: 0, targetLine: undefined });
-  assert.deepEqual(parseHatchFile('Target: a\nHatch: 1\n\n' + ONE).header, { format: 1 });
+test('header: none when the first line is not Sir — what follows is prose before the first hunk', () => {
+  const read = readHeader('Target: a\nSir: 2\n\n' + ONE);
+  assert.deepEqual(read, { format: 2, fields: new Map(), endLine: 0, formatLine: 0, targetLine: undefined });
+  assert.deepEqual(parseSirFile('Target: a\nSir: 2\n\n' + ONE).header, { format: 2 });
 });
 
-test('header: Hatch with a leading zero is the same number', () => {
-  assert.equal(parseHatchFile('Hatch: 01\n\n' + ONE).header!.format, 1);
+test('header: Sir with a leading zero is the same number', () => {
+  assert.equal(parseSirFile('Sir: 02\n\n' + ONE).header!.format, 2);
 });
 
-test('header: the names of 0.4.1 read as the fields of now, Generated-By losing its "hatch "', () => {
-  const fields = headerFields(parseHeader('Hatch: 1\nGenerated-From: abc\nGenerated-By: HATCH  0.4.1\n\n' + ONE));
-  assert.deepEqual(fields, { baseBlob: 'abc', hatchVersion: '0.4.1', generatedFrom: 'abc', generatedBy: 'hatch 0.4.1' });
-  assert.deepEqual(headerFields(parseHeader('Hatch: 1\nHatch-Version: 0.5.0\n\n' + ONE)), {
-    hatchVersion: '0.5.0',
-    generatedBy: 'hatch 0.5.0',
-  });
-  assert.deepEqual(headerFields(parseHeader('Hatch: 1\n\n' + ONE)), {}, 'no field, no derived one');
+test('header: the names format 1 had are not read — Generated-From, Generated-By, Hatch-Version are unknown fields', () => {
+  const fields = headerFields(parseHeader('Sir: 2\nGenerated-From: abc\nGenerated-By: hatch 0.4.1\nHatch-Version: 0.4.1\n\n' + ONE));
+  assert.deepEqual(fields, {});
+  assert.deepEqual(headerFields(parseHeader('Sir: 2\nSir-Version: 0.5.0\n\n' + ONE)), { sirVersion: '0.5.0' });
+  assert.deepEqual(headerFields(parseHeader('Sir: 2\n\n' + ONE)), {}, 'no field, no derived one');
 });
 
 test('header: the side of a format outside the range, and none inside', () => {
-  assert.equal(formatSide(0), 'older');
-  assert.equal(formatSide(1), undefined);
-  assert.equal(formatSide(2), 'newer');
+  assert.equal(formatSide(1), 'older');
+  assert.equal(formatSide(2), undefined);
+  assert.equal(formatSide(3), 'newer');
 });
 
 test('header: a contained path — relative, no .., no root, no drive', () => {
@@ -346,14 +337,14 @@ test('header: a contained path — relative, no .., no root, no drive', () => {
 });
 
 test('headings: one to six #, with or without a space, a colon or the language, in any case', () => {
-  const f = parseHatchFile('## Match: CPP\n    >>>\n#end\n#PATCH:\n# end\t\n');
+  const f = parseSirFile('## Match: CPP\n    >>>\n#end\n#PATCH:\n# end\t\n');
   assert.equal(f.language, 'CPP');
-  assert.equal(parseHatchFile('#match cpp\n    >>>\n# END   \n###### patch\n# end\n').hunks.length, 1);
-  assert.equal(parseHatchFile('# matches cpp\n# match\n    >>>\n# end\n# patch\n# end\n').language, undefined, '"# matches" is prose');
+  assert.equal(parseSirFile('#match cpp\n    >>>\n# END   \n###### patch\n# end\n').hunks.length, 1);
+  assert.equal(parseSirFile('# matches cpp\n# match\n    >>>\n# end\n# patch\n# end\n').language, undefined, '"# matches" is prose');
 });
 
 test('escapes: \\... is a literal ..., and one backslash of \\\\>>> is taken off', () => {
-  const steps = parseHatchFile('# match cpp\n    \\... >>> \\\\>>> x\n# end\n# patch\n# end\n').hunks[0]!.match.steps;
+  const steps = parseSirFile('# match cpp\n    \\... >>> \\\\>>> x\n# end\n# patch\n# end\n').hunks[0]!.match.steps;
   assert.deepEqual(
     steps.map((s) => (s.anchor.target === 'literal' ? s.anchor.literal.raw : 'EOF')),
     ['...', '\\>>> x'],
@@ -361,18 +352,18 @@ test('escapes: \\... is a literal ..., and one backslash of \\\\>>> is taken off
 });
 
 test('notes: blank lines at the edges of a note are trimmed, inside kept, trailing spaces dropped', () => {
-  const f = parseHatchFile(H('    >>>') + '\n# note\n\n  why  \n\nand how\n\n# end\n' + H('    >>>'));
+  const f = parseSirFile(H('    >>>') + '\n# note\n\n  why  \n\nand how\n\n# end\n' + H('    >>>'));
   assert.equal(f.hunks[1]!.note!.text, '  why\n\nand how');
   assert.deepEqual(f.hunks[1]!.note!.mdSpan, [8, 14]);
 });
 
 test('notes: before the first hunk only a closed note followed by blank lines is one — the rest is prose', () => {
-  assert.equal(parseHatchFile('# note\nwhy\n# end\n\n\n' + ONE).hunks[0]!.note?.text, 'why');
-  assert.equal(parseHatchFile('# note\nwhy\n# end\nprose\n' + ONE).hunks[0]!.note, undefined, 'prose after it');
-  assert.equal(parseHatchFile('# note\nwhy\n' + ONE).hunks[0]!.note, undefined, 'never closed');
-  assert.equal(parseHatchFile('# note\nwhy\n# end\n# patch\n# end\n' + ONE).hunks[0]!.note, undefined, 'a block between');
-  assert.equal(parseHatchFile('# note\na\n# end\n# note\nb\n# end\n' + ONE).hunks[0]!.note?.text, 'b', 'the last of two');
-  assert.equal(parseHatchFile('# end\n' + ONE).hunks[0]!.note, undefined, 'an # end with no note');
+  assert.equal(parseSirFile('# note\nwhy\n# end\n\n\n' + ONE).hunks[0]!.note?.text, 'why');
+  assert.equal(parseSirFile('# note\nwhy\n# end\nprose\n' + ONE).hunks[0]!.note, undefined, 'prose after it');
+  assert.equal(parseSirFile('# note\nwhy\n' + ONE).hunks[0]!.note, undefined, 'never closed');
+  assert.equal(parseSirFile('# note\nwhy\n# end\n# patch\n# end\n' + ONE).hunks[0]!.note, undefined, 'a block between');
+  assert.equal(parseSirFile('# note\na\n# end\n# note\nb\n# end\n' + ONE).hunks[0]!.note?.text, 'b', 'the last of two');
+  assert.equal(parseSirFile('# end\n' + ONE).hunks[0]!.note, undefined, 'an # end with no note');
 });
 
 // ── which lines are headings ───────────────────────────────────────────────────────
@@ -425,26 +416,26 @@ test('headings: what each heading pattern takes, and what it leaves as text', ()
 // ── a line of spaces is a blank line, wherever it stands ─────────────────────────────
 
 test('blank: a line of spaces between # end and # patch, between hunks, inside a block', () => {
-  assert.equal(parseHatchFile('# match cpp\n    >>>\n# end\n   \n# patch\n    x\n# end\n').hunks[0]!.patch, 'x');
-  assert.equal(parseHatchFile(ONE + '   \n' + ONE).hunks.length, 2);
-  assert.equal(parseHatchFile('# match cpp\n    >>>\n  \n# end\n# patch\n    x\n  \n# end\n').hunks[0]!.patch, 'x\n', 'blank, not payload of spaces');
+  assert.equal(parseSirFile('# match cpp\n    >>>\n# end\n   \n# patch\n    x\n# end\n').hunks[0]!.patch, 'x');
+  assert.equal(parseSirFile(ONE + '   \n' + ONE).hunks.length, 2);
+  assert.equal(parseSirFile('# match cpp\n    >>>\n  \n# end\n# patch\n    x\n  \n# end\n').hunks[0]!.patch, 'x\n', 'blank, not payload of spaces');
 });
 
 test('blank: lines of spaces at the edges of a note are trimmed', () => {
-  assert.equal(parseHatchFile(ONE + '# note\n   \nwhy\n \t\n# end\n' + ONE).hunks[1]!.note!.text, 'why');
+  assert.equal(parseSirFile(ONE + '# note\n   \nwhy\n \t\n# end\n' + ONE).hunks[1]!.note!.text, 'why');
 });
 
 test('blank: a line of spaces ends the header, and lines of spaces before it are skipped', () => {
-  assert.deepEqual(parseHatchFile('Hatch: 1\nTarget: a\n   \n' + ONE).header, { format: 1, target: 'a' });
-  assert.deepEqual(parseHatchFile('  \nHatch: 1\nTarget: a\n\n' + ONE).header, { format: 1, target: 'a' });
+  assert.deepEqual(parseSirFile('Sir: 2\nTarget: a\n   \n' + ONE).header, { format: 2, target: 'a' });
+  assert.deepEqual(parseSirFile('  \nSir: 2\nTarget: a\n\n' + ONE).header, { format: 2, target: 'a' });
 });
 
 test('blank: a line of spaces between a note before the first hunk and the hunk keeps the note', () => {
-  assert.equal(parseHatchFile('# note\nwhy\n# end\n   \n' + ONE).hunks[0]!.note?.text, 'why');
+  assert.equal(parseSirFile('# note\nwhy\n# end\n   \n' + ONE).hunks[0]!.note?.text, 'why');
 });
 
-test('header: only a leading "hatch " is taken off a version — not one inside it', () => {
-  assert.equal(headerFields(parseHeader('Hatch: 1\nHatch-Version: myhatch 1.0\n\n' + ONE)).hatchVersion, 'myhatch 1.0');
+test('header: only a leading "sir " is taken off a version — not one inside it', () => {
+  assert.equal(headerFields(parseHeader('Sir: 2\nSir-Version: mysir 1.0\n\n' + ONE)).sirVersion, 'mysir 1.0');
 });
 
 test('header: a drive is refused only at the start of a path — a colon further in is a name', () => {

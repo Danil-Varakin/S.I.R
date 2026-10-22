@@ -1,0 +1,23 @@
+Sir: 2
+Target: test/golden/cpp/generate/test85.new.cc
+Grammar: tree-sitter-cpp@0.23.4
+
+# match cpp
+    ...
+    namespace config {
+    constexpr int kVersion = 2;
+    ...
+    void Load() {
+    ...
+    >>>
+      Read();
+    <<<
+    ...
+    }
+    ...
+    }
+    ...
+# end
+# patch
+    ReadV2();
+# end

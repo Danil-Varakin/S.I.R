@@ -1,0 +1,16 @@
+Sir: 2
+Target: test/golden/xml/apply/test7.xml
+Grammar: @tree-sitter-grammars/tree-sitter-xml@0.7.0
+
+# match xml
+    ...
+                <intent-filter>
+    ...
+    >>>
+    </intent-filter>
+    ...
+# end
+# patch
+        <category android:name="android.intent.category.APP_BROWSER" />
+                
+# end

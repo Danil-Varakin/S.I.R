@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/tsx/generate/test3.new.tsx
+Grammar: tree-sitter-typescript@0.23.2
+
+# match tsx
+    ...
+      return (
+    ...
+    >>>
+          onPick={handle}
+    <<<
+    ...
+    )
+    ...
+# end
+# patch
+    onPick={handlePick}
+# end

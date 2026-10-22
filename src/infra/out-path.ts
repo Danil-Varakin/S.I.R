@@ -5,12 +5,12 @@ import { patchTreeRoot, upstreamTarget, withUpstream } from './project.ts';
 import type { Project, UpstreamProject } from './project.ts';
 
 /** The file name of a patch: the code's own name and this. */
-export const PATCH_EXTENSION = '.hatch';
+export const PATCH_EXTENSION = '.sirp';
 
 export interface OutPathInput {
   readonly inPath: string;
   readonly out: string | null;
-  /** a project with an upstream: the patch tree is `<project root>/<out>/<Target>.hatch` */
+  /** a project with an upstream: the patch tree is `<project root>/<out>/<Target>.sirp` */
   readonly project?: Project | undefined;
   readonly suffix?: string;
 }
@@ -49,7 +49,7 @@ function inUpstream(project: UpstreamProject, out: string | null, inPath: string
     throw new ConfigError('upstream keeps the patches in a tree of their own: generate.out must name a directory', project.configFile);
   }
   const target = upstreamTarget(project, inPath);
-  // one patch named outright (`--out x.hatch`) instead of its place in the tree
+  // one patch named outright (`--out x.sirp`) instead of its place in the tree
   if (!/[/\\]$/.test(out) && extname(out).toLowerCase() === PATCH_EXTENSION) return { path: patchTreeRoot(project, out), target };
   return { path: join(patchTreeRoot(project, out), ...target.split('/')) + PATCH_EXTENSION, target };
 }

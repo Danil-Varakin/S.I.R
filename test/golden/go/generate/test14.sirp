@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/go/generate/test14.new.go
+Grammar: tree-sitter-go@0.25.0
+
+# match go
+    ...
+    []string{
+    ...
+    >>>
+    		"value with spaces",
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    "value with gaps",
+# end

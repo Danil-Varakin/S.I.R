@@ -1,0 +1,13 @@
+Sir: 2
+Target: test/golden/text/apply/test4.rc
+
+# match text
+    ...
+        VK_F6,          IDC_FOCUS_LOCATION,         VIRTKEY
+    >>>
+    ...
+# end
+# patch
+
+        VK_F7,          IDC_BRAVE_SHIELDS,          VIRTKEY
+# end

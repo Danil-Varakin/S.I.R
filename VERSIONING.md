@@ -4,18 +4,18 @@ These rules are binding. A change that breaks one is not merged until the rule i
 followed or the rule itself is changed here first, in its own commit, with the reason.
 `test/unit/versioning.test.ts` checks the parts a machine can check.
 
-hatch carries **four independent numbers** and two compatibility surfaces without one:
+sir carries **four independent numbers** and two compatibility surfaces without one:
 
 | what | where it lives | who depends on it |
 |---|---|---|
 | package version | `package.json`, `package-lock.json`, git tag `vX.Y.Z` | users, the release workflow |
 | protocol range | `PROTOCOL_MIN`..`PROTOCOL_VERSION`, `src/service/protocol.ts`; announced by `version`; described in [PROTOCOL.md](./PROTOCOL.md) | service clients (the VS Code extension) |
-| config schema range | `CONFIG_MIN`..`CONFIG_VERSION`, `src/infra/config/schema.ts`; `hatch.config.schema.json` | `hatch.config.json` files committed to projects |
-| patch format range | `FORMAT_MIN`..`FORMAT_VERSION`, `src/core/header.ts`; the `Hatch:` line of every `.hatch`; `core/hatch-parser.ts`, `test/golden/` | every patch anyone has written |
+| config schema range | `CONFIG_MIN`..`CONFIG_VERSION`, `src/infra/config/schema.ts`; `sir.config.schema.json` | `sir.config.json` files committed to projects |
+| patch format range | `FORMAT_MIN`..`FORMAT_VERSION`, `src/core/header.ts`; the `Sir:` line of every `.sirp`; `core/sir-parser.ts`, `test/golden/` | every patch anyone has written |
 | the CLI | `src/cli/` | scripts and CI jobs |
-| `hatch-apply` | the release files `hatch-apply-X.Y.Z-<os>-<arch>`, `src/bin/hatch-apply.ts` | the build scripts of projects |
+| `sir-apply` | the release files `sir-apply-X.Y.Z-<os>-<arch>`, `src/bin/sir-apply.ts` | the build scripts of projects |
 
-Protocol, config and patch format are **ranges, never single numbers**: a hatch serves
+Protocol, config and patch format are **ranges, never single numbers**: a sir serves
 every client and reads every config and every patch from the minimum to the maximum. A
 range is what lets an older client, config or patch keep working after the number moves.
 
@@ -31,8 +31,8 @@ range is what lets an older client, config or patch keep working after the numbe
   (unless the old outcome was a bug); an exit code changed; a `.md` an older release
   wrote no longer applies the same (F1), or `FORMAT_MIN` raised; `PROTOCOL_MIN` or `CONFIG_MIN` raised; an
   export of `src/index.ts` removed or changed; the minimum Node (`engines`) or the
-  minimum git raised; a platform dropped from the `hatch-apply` files of a release, or
-  the name of those files changed (`hatch-apply-X.Y.Z-<os>-<arch>`, scripts download
+  minimum git raised; a platform dropped from the `sir-apply` files of a release, or
+  the name of those files changed (`sir-apply-X.Y.Z-<os>-<arch>`, scripts download
   them by name); a language name or a file extension no longer accepted (a `.sirp`
   headed `# match mm` must keep applying); a grammar pin changed so that an apply golden
   changes (F3).
@@ -70,7 +70,7 @@ field of params and results, error kinds and their `detail`, and every validatio
 - **R8. Clients** declare their own range `[a, b]`: `b` the newest protocol the client
   was written and tested against, `a` the oldest it still works with. They are
   compatible iff `a ≤ N` and `M ≤ b`. The client works at `min(N, b)` and does not use
-  anything newer. A mismatch names the side to update: `N < a` — update hatch;
+  anything newer. A mismatch names the side to update: `N < a` — update sir;
   `M > b` — update the client.
 - **R9.** Equality checks on the protocol number are forbidden on both sides. They break
   every client on every bump, compatible or not.
@@ -80,16 +80,16 @@ field of params and results, error kinds and their `detail`, and every validatio
 
 ## 3. Config schema
 
-- **C1.** hatch reads every config whose `"version"` is in `[CONFIG_MIN, CONFIG_VERSION]`
-  and writes `CONFIG_VERSION`. `hatch.config.schema.json` states the same range; a test
+- **C1.** sir reads every config whose `"version"` is in `[CONFIG_MIN, CONFIG_VERSION]`
+  and writes `CONFIG_VERSION`. `sir.config.schema.json` states the same range; a test
   holds the two together.
 - **C2.** A new optional key: `CONFIG_VERSION + 1`, `CONFIG_MIN` unchanged. Committed
-  configs load as before, and an older hatch meeting the new number says "update
-  hatch" instead of "unknown key".
+  configs load as before, and an older sir meeting the new number says "update
+  sir" instead of "unknown key".
 - **C3.** A key removed or renamed, its meaning or default changed: `CONFIG_MIN` rises
   with it — breaking for the package (P3). Prefer keeping the old key readable.
 - **C4.** One bump per release, frozen on release — as R3.
-- **C5.** Outside the range the message names the side: newer — update hatch; older —
+- **C5.** Outside the range the message names the side: newer — update sir; older —
   move the file to the current schema.
 - **C6.** Every `generate` option the core supports has a config key under `generate`,
   shipped in the same release as the option — a flag, a protocol param or both. *(Why:
@@ -147,13 +147,13 @@ field of params and results, error kinds and their `detail`, and every validatio
   `Sir-Version`, and format 1 is read no longer, so none of the old names is read —
   `Hatch` on line 1 is only recognised, to refuse the file as older. None of them is
   reused.)*
-- **F3. Grammar pins.** A grammar is part of how a `.hatch` applies: a new version can
+- **F3. Grammar pins.** A grammar is part of how a `.sirp` applies: a new version can
   shape the tree differently and move where a hunk lands. Every change of a pin in
   `src/lang/*/index.ts` runs the apply goldens, through the package and through every
-  `hatch-apply` binary; one whose expected result changes makes
+  `sir-apply` binary; one whose expected result changes makes
   the change breaking (P3), unless the old result was a bug, and the commit says which.
-- **F2. The CLI.** `hatch` and `hatch-apply` alike: the commands, flags and exit codes
-  of `hatch-apply` are a CLI, and its flags are a subset of `hatch apply`'s with the same
+- **F2. The CLI.** `sir` and `sir-apply` alike: the commands, flags and exit codes
+  of `sir-apply` are a CLI, and its flags are a subset of `sir apply`'s with the same
   meaning. A flag may be added in any minor release. Removing, renaming or
   changing one is breaking (P3), and goes through one minor release first where the old
   spelling still works and warns. A flag that never shipped in a release may still be
@@ -175,7 +175,7 @@ field of params and results, error kinds and their `detail`, and every validatio
 4. `git push origin dev`, then a pull request `dev` → `main`, merged.
 5. `git push origin vX.Y.Z` — the tag starts `.github/workflows/release.yml`, which
    checks the tag against `package.json`, runs typecheck and tests, packs, builds
-   `hatch-apply` for every platform (linux-x64, linux-arm64, darwin-arm64, win-x64),
+   `sir-apply` for every platform (linux-x64, linux-arm64, darwin-arm64, win-x64),
    runs the apply goldens through each binary, writes `SHA256SUMS` and publishes the
    GitHub Release with all of it. Nothing goes to the npm registry.
 
@@ -183,7 +183,7 @@ field of params and results, error kinds and their `detail`, and every validatio
 
 ### Releases
 
-| hatch | date | protocol M–N | config M–N | format M–N | |
+| release | date | protocol M–N | config M–N | format M–N | |
 |---|---|---|---|---|---|
 | 0.1.0 | 2026-08-27 | — no service | 1–1 | — a patch was a `.md` | first release |
 | 0.1.1 | 2026-08-27 | — no service | 1–1 | — a patch was a `.md` | fix |
@@ -191,6 +191,7 @@ field of params and results, error kinds and their `detail`, and every validatio
 | 0.3.0 | 2026-09-28 | 2–3 | 1–1 | — a patch was a `.md` | apply from git, hand-written hunks, CRLF, PROTOCOL.md |
 | 0.4.0 | — | — | — | — | tagged, and that is all: the check of the release failed, nothing was published. The number stays burned (P7) |
 | 0.4.1 | 2026-10-06 | 4–4 | 2–2 | 1–1 | the 0.4 line as it went out: a patch is a `.hatch` with a header; a project over its upstream; `hatch-apply`; the grammars inside |
+| 0.5.0 | 2026-10-22 | 5–5 | 3–3 | 2–2 | renamed from hatch to sir: a patch is a `.sirp` headed `Sir: 2`, the config `sir.config.json`, the commands `sir` and `sir-apply`; nothing of hatch is read. HTML, XML, CSS, JSON and the text formats; `keep` and the draft of a failed synthesis |
 
 ### Protocol
 
@@ -202,7 +203,7 @@ field of params and results, error kinds and their `detail`, and every validatio
 | 4 | 0.4.1 | **breaking, M = 4** (R5) | `configTemplate`: the text of a new `hatch.config.json` for a schema version and settings, `suggestedPath`, `exists`, `versions`; a `ConfigError` about keys outside the schema carries `detail.version` and `detail.keys` — a key a schema dropped with the schemas that had it (`generate.mirror`: `since: 1, until: 1`), not `since: null`; `generate` with neither `baseText` nor `baseGit` takes the config's `generate.base` (refused before); `config.settings` grows `baseHead`, `baseBranch`, `baseCommit`, `baseEol`; methods `config` (the settings `generate` would apply, the base resolved, `watch`) and `pair` (code ↔ `.hatch`, `how: "target"`, `reason` when none); `generate` answers a `.hatch` with its header (`Hatch`, `Target`, `Generated-From`, `Generated-By`, `Grammar`); `warningsAt`; `baseGit.eol`; `resolve`/`apply` with no base take `generate.base`; `resolve` answers `baseText` for a git base; hunks in `resolve`/`apply` carry `note`, `noteSpan` from a `# note` block; `cancel { id }` and the error kind `Cancelled`; `config` answers an unreadable git base as `base.kind: "unavailable"`; `pair` reasons `newer-format`, `older-format`, `bad-header` (all `unsafe-target` before); a line that is JSON but no request object, and a param of the wrong type, answer `BadRequest` (the first ended the service, the second answered `TypeError`); `SynthesisError` `reason: "no-match"` when no candidate could be built (`ambiguous` before); a line ends at `\n` alone — a request holding U+2028 or U+2029 inside a string was cut in two and answered with two `BadRequest`s, `id: 0` (a fix: the transport always said one JSON object per line) |
 | 4 | 0.4.1 | the breaking part (R5) | `generate` with no changes fails with the new kind `NoChanges` (exit 7) instead of `ParseError` — a new error kind a client could notice, so `protocolMin` rises to 4. `generate` that cannot anchor a change fails with the new kind `SynthesisError` (exit 8) instead of `MatchError`/`AmbiguityError`. Replies come as requests finish, no longer in their order. `generate`'s `md` is a `.hatch`: it opens with the header, with or without a `path`. The field `md` is renamed `patch` in `generate`, `resolve`, `apply`, `pair`. The config of a file may be one whose `upstream` claims it; `configPath`; `pair` `how: "upstream"` (no `mirror`), reasons `outside-upstream`, `two-patches`; `generate` answers `outExists`, `outTarget`; `config` answers `upstreamRoot`; the param `mirror` is gone. `resolve`/`apply` take the patch's own path (code by `Target`, base from its config) and answer `code`, `header`, `warningsAt`; `config` answers `projectRoot`, `target`; `configPath` on every method; `GitError` `detail.reason`; messages name no CLI flag; every reply carries `elapsedMs`. `allowDownload` is accepted and ignored: the grammars ship inside hatch. No client of protocols 2–3 was ever released; the notice S2 asked for was removed with it |
 
-| 5 | unreleased | additive, M = 4 (R4) | `generate` writes header fields 3 and 4 as `Base-Blob` and `Hatch-Version` (bare version), in their places — were `Generated-From`, `Generated-By: hatch <version>`; the old names still read. `header` answers `baseBlob`, `hatchVersion`; `generatedFrom`, `generatedBy` keep their protocol-4 values; `config` answers `language`, the word `generate` writes in `# match` for that file, or `null`; `config` answers `header`, the header `generate` would write for that file now (`Base-Blob` only for a git base that can be read, `Grammar` only with a language), or `null` for a `.hatch` with no pair; `SynthesisError` (`no-match`, `ambiguous`) answers `detail.draft` — the `.hatch` to finish by hand: header, hunks so far, a hunk to start the change from — with `draftHunk`, `draftLine`, `change`; `generate` takes `keep`, a `.hatch` of settled hunks: each must land, synthesis goes on from them, they open `patch` byte for byte; a hunk of `keep` that does not land answers its error kind with `detail.hunk`, `detail.mdLine`; the link table (`hunks` of `resolve`, `apply`, `generate`): `final` holds no text of a later hunk written at its edge, `base` no text an earlier hunk deleted at its edge — a fix, PROTOCOL.md always said what a hunk writes and what it replaces; the last hunk of `detail.draft`, laid as it is, makes the change with the blank lines above it — a fix, it dropped them; in Python one outdent closes every block nested inside: a closer past an overdue block with no closing token, nested in the block it ends, is no escape — `generate`, `resolve`, `apply` find a parent and its closer where they refused, and refuse as ambiguous a pattern that landed in a class it did not name (a fix); `ParseError` `mdLine` for a match block with no `# patch` after it at the end of the file names its `# end`, not a line past the end — a fix; `languages` grows by `html`, `htm`, `xml`, `plist`, `css`, `json`: HTML (`.html`, `.htm`), XML (`.xml`, `.plist`), CSS (`.css`), JSON (`.json`); `languages` grows by `json5` (`.json5`, read by the JavaScript grammar) and `star` (`.star` is Python); a file named `DEPS` is Python; `languages` grows by formats read as text, with no grammar — blocks by the balance of brackets: `idl` (`.idl`, `.webidl`), `mojom`, `proto` (`protobuf`), `shell` (`.sh`, `.bash`; files named `postinst`, `postrm`, `preinst`, `prerm`), `yaml` (`.yml`), `toml`, `text` (`.txt`); the header of such a patch has no `Grammar`; `generate` for a change that is the whole file spells the text it replaces — a pattern with no literal fit every file and wrote over it (a fix); a Python file opening with a BOM takes a pattern pinned to its first line (a fix) |
+| 5 | 0.5.0 | **breaking, M = 5** (R5) | the rename of hatch to sir: `version` answers `sir` in place of `hatch`; a patch is a `.sirp` (a `.hatch` is code); its header is format 2 — `Sir`, `Target`, `Base-Blob`, `Sir-Version`, `Grammar` — and a patch of format 1 (`Hatch: 1`) is refused as older, `pair` reason `older-format`; `header` answers `baseBlob`, `sirVersion`, and no longer `generatedFrom`, `generatedBy`; the config is `sir.config.json`, schema 3–3, `configTemplate` writes it and `suggestedPath` names it; messages say "update sir". Additive in the same number: `config` answers `language`, the word `generate` writes in `# match` for that file, or `null`; `config` answers `header`, the header `generate` would write for that file now (`Base-Blob` only for a git base that can be read, `Grammar` only with a language), or `null` for a `.sirp` with no pair; `SynthesisError` (`no-match`, `ambiguous`) answers `detail.draft` — the `.sirp` to finish by hand: header, hunks so far, a hunk to start the change from — with `draftHunk`, `draftLine`, `change`; `generate` takes `keep`, a `.sirp` of settled hunks: each must land, synthesis goes on from them, they open `patch` byte for byte; a hunk of `keep` that does not land answers its error kind with `detail.hunk`, `detail.mdLine`; the link table (`hunks` of `resolve`, `apply`, `generate`): `final` holds no text of a later hunk written at its edge, `base` no text an earlier hunk deleted at its edge — a fix, PROTOCOL.md always said what a hunk writes and what it replaces; the last hunk of `detail.draft`, laid as it is, makes the change with the blank lines above it — a fix, it dropped them; in Python one outdent closes every block nested inside: a closer past an overdue block with no closing token, nested in the block it ends, is no escape — `generate`, `resolve`, `apply` find a parent and its closer where they refused, and refuse as ambiguous a pattern that landed in a class it did not name (a fix); `ParseError` `mdLine` for a match block with no `# patch` after it at the end of the file names its `# end`, not a line past the end — a fix; `languages` grows by `html`, `htm`, `xml`, `plist`, `css`, `json`: HTML (`.html`, `.htm`), XML (`.xml`, `.plist`), CSS (`.css`), JSON (`.json`); `languages` grows by `json5` (`.json5`, read by the JavaScript grammar) and `star` (`.star` is Python); a file named `DEPS` is Python; `languages` grows by formats read as text, with no grammar — blocks by the balance of brackets: `idl` (`.idl`, `.webidl`), `mojom`, `proto` (`protobuf`), `shell` (`.sh`, `.bash`; files named `postinst`, `postrm`, `preinst`, `prerm`), `yaml` (`.yml`), `toml`, `text` (`.txt`); the header of such a patch has no `Grammar`; `generate` for a change that is the whole file spells the text it replaces — a pattern with no literal fit every file and wrote over it (a fix); a Python file opening with a BOM takes a pattern pinned to its first line (a fix) |
 
 ### Config schema
 
@@ -211,12 +212,14 @@ field of params and results, error kinds and their `detail`, and every validatio
 | 1 | 0.1.0 | first | `generate`: `out`, `language`, `exact`, `bridgeGap`, `parents`, `siblings` |
 | 1 | 0.2.0 | **added without a bump** | `generate.mirror` — before these rules; by C2 it would be schema 2. A config using it, read by hatch 0.1.x, fails with "unknown key" rather than "update hatch". Left as released (P7); marked `unbumpedIn` in `FIELDS` and in the v1 summary |
 | 2 | 0.4.1 | **breaking, M = 2** (C3) | `generate.base`: `head`, `branch`, `commit` — the old version out of git, as `--head` / `--branch` / `--commit` (C6); `generate.base.eol` (`--eol`); `upstream` (top level): the root of the code the project patches, from the config file — `generate.out` is then the root of the patch tree; `generate.mirror` removed (`"upstream": "."` takes its place), so schema 1 is read no longer |
+| 3 | 0.5.0 | **breaking, M = 3** (C3) | the file is `sir.config.json` (was `hatch.config.json`), its schema `sir.config.v3.schema.json`; the keys are those of schema 2; schemas 1 and 2 are read no longer |
 
 ### Patch format
 
 | N | first release | kind | what changed |
 |---|---|---|---|
 | 1 | 0.4.1 | first | `.hatch` with the header `Hatch`, `Target`, `Generated-From`, `Generated-By`, `Grammar`; the hunks as the `.md` of 0.1–0.3 wrote them |
+| 2 | 0.5.0 | **breaking, M = 2** (H2, H4) | `.sirp` with the header `Sir`, `Target`, `Base-Blob`, `Sir-Version`, `Grammar`; the hunks as format 1 has them, so a file with no header still reads (H1); format 1 is read no longer — a `Hatch: 1` line is refused as older |
 
 ### Patch header
 
@@ -225,18 +228,18 @@ end.
 
 | # | field | since | what |
 |---|---|---|---|
-| 1 | `Hatch` | format 1, 0.4.1 | the format number; always the first line |
+| 1 | `Sir` | format 2, 0.5.0 | the format number; always the first line; `Hatch` in format 1 |
 | 2 | `Target` | format 1, 0.4.1 | the file the patch is for, relative with `/` |
-| 3 | `Base-Blob` | format 1, 0.4.1 | the git blob of the base, when it came out of git; `Generated-From` until 0.5, still read |
-| 4 | `Hatch-Version` | format 1, 0.4.1 | the version of hatch, `0.5.0`; `Generated-By: hatch <version>` until 0.5, still read |
+| 3 | `Base-Blob` | format 1, 0.4.1 | the git blob of the base, when it came out of git; `Generated-From` in 0.4.1 |
+| 4 | `Sir-Version` | format 2, 0.5.0 | the version of sir, `0.5.0`; `Generated-By: hatch <version>` in 0.4.1 |
 | 5 | `Grammar` | format 1, 0.4.1 | `<package>@<version>` of the grammar |
 
 ### Clients
 
 | client | version | protocol it speaks | |
 |---|---|---|---|
-| VS Code extension (`HatchVSCodeExtension-`) | 0.0.1, 2026-10-06 | 4–4 | range check as R8; relies on `configTemplate`, `config`, `pair`, `configPath`, `resolve`/`apply` by the patch's path — protocol 4 |
-| VS Code extension (`HatchVSCodeExtension-`) | unreleased | 4–5 | tested against protocol 5 (unit and end-to-end); uses nothing of protocol 5 yet — reads neither `baseBlob` nor `hatchVersion`, nor their protocol-4 names; still carries hatch 0.4.1 inside |
+| VS Code extension (`HatchVSCodeExtension-`, now `S.I.R-VScodeExtension`) | 0.0.1, 2026-10-06 | 4–4 | range check as R8; relies on `configTemplate`, `config`, `pair`, `configPath`, `resolve`/`apply` by the patch's path — protocol 4 |
+| VS Code extension (`S.I.R-VScodeExtension`) | 0.1.0, 2026-10-22 | 5–5 | range check as R8; the rename to sir: `.sirp`, `sir.config.json`, `version.sir`, `header.sirVersion`; carries sir 0.5.0 inside |
 
 ## 7. Support
 
@@ -250,7 +253,7 @@ end.
   reach.)* A raise still needs a release allowed to break (P2, P3) and says in its own
   entry what to update. The number stays free: it is not reused.
 - **S3.** A client version that speaks the new protocol ships before, or together with,
-  the hatch that raises `PROTOCOL_MIN`; the Clients table in §6 is updated with it.
+  the sir that raises `PROTOCOL_MIN`; the Clients table in §6 is updated with it.
 - **S4.** A Node version is dropped only after its end of life, only in a release that is
   allowed to break, and announced in the `CHANGELOG.md` entry of the release before.
   The same holds for the minimum git.

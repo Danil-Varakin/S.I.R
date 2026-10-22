@@ -14,8 +14,8 @@
 // written down there before it is used in an argument.
 
 import { applyAll } from '../src/core/apply.ts';
-import { parseHatchFile } from '../src/core/hatch-parser.ts';
-import { printPattern } from '../src/core/hatch-printer.ts';
+import { parseSirFile } from '../src/core/sir-parser.ts';
+import { printPattern } from '../src/core/sir-printer.ts';
 import { resolveHunks } from '../src/core/resolve.ts';
 import { generatePatch } from '../src/generate/pipeline.ts';
 import type { SynthEvent } from '../src/generate/synth.ts';
@@ -117,10 +117,10 @@ async function caseApply(opts: Options): Promise<void> {
   console.log(row(['lines', 'KB', 'buildMap', 'apply 1', 'resolve 1', 'apply 10'], W));
   for (const funcs of sizes(opts)) {
     const source = cppFile(funcs);
-    const one = parseHatchFile(patchFor(0));
+    const one = parseSirFile(patchFor(0));
     const stride = Math.max(1, Math.floor(funcs / 10));
-    const ten = parseHatchFile(
-      `Hatch: 1\n\n${Array.from({ length: 10 }, (_, i) => patchFor(i * stride).split('\n\n').slice(1).join('\n\n')).join('\n')}`,
+    const ten = parseSirFile(
+      `Sir: 2\n\n${Array.from({ length: 10 }, (_, i) => patchFor(i * stride).split('\n\n').slice(1).join('\n\n')).join('\n')}`,
     );
     console.log(row([
       String(source.split('\n').length),
@@ -241,7 +241,7 @@ async function casePython(opts: Options): Promise<void> {
     const mid = Math.floor(classes / 2);
     const cells: string[] = [];
     for (const text of [pyPatchFor(mid), pyPatchParentless(mid)]) {
-      const file = parseHatchFile(text);
+      const file = parseSirFile(text);
       const status = resolveHunks(source, file, pythonAdapter).links[0]?.status ?? '?';
       cells.push(await cell(opts, () => { resolveHunks(source, file, pythonAdapter); }), status);
     }
@@ -322,7 +322,7 @@ async function caseMarkup(opts: Options): Promise<void> {
       const oldText = make(n);
       const newText = edit(oldText, n);
       const { md, hunkCount } = await generatePatch({ oldText, newText, language });
-      const patch = parseHatchFile(md);
+      const patch = parseSirFile(md);
       console.log(row([
         String(oldText.split('\n').length),
         (oldText.length / 1024).toFixed(0),
@@ -366,7 +366,7 @@ const TUNE_LANGS = ['cpp', 'java', 'javascript', 'typescript', 'go', 'rust', 'ko
 
 const flat = (text: string): string => text.split('\n').map((l) => l.trim()).filter((l) => l !== '').join('\n');
 
-/** Lines inside the `# match` blocks of a `.hatch` — how much a patch leans on. */
+/** Lines inside the `# match` blocks of a `.sirp` — how much a patch leans on. */
 function matchLines(md: string): number {
   let inside = false;
   let n = 0;
@@ -398,7 +398,7 @@ export async function tuneOne(
     return { gen: typeof reason === 'string' ? reason : (e as Error).name, lines: 0, ms: performance.now() - started, drifts: new Map() };
   }
   const ms = performance.now() - started;
-  const patch = parseHatchFile(md);
+  const patch = parseSirFile(md);
   const drifts = new Map<string, 'ok' | 'refused' | 'WRONG' | null>();
   for (const [name, drift] of Object.entries(TUNE_DRIFTS)) {
     const moved = drift(model, syntax);
@@ -509,7 +509,7 @@ export async function main(argv: readonly string[]): Promise<void> {
   await jsonAdapter.init();
   await json5Adapter.init();
   console.log(
-    `\nhatch bench — synthetic C++, Python, HTML, XML, CSS, JSON, JSON5 and IDL, Node ${process.versions.node}, ${process.platform}-${process.arch}\n` +
+    `\nsir bench — synthetic C++, Python, HTML, XML, CSS, JSON, JSON5 and IDL, Node ${process.versions.node}, ${process.platform}-${process.arch}\n` +
       `up to ${opts.reps} runs after a warm-up, median; budget ${opts.budgetMs / 1000} s per cell ` +
       `(* = one run, past the budget); times in ms unless marked s\n`,
   );

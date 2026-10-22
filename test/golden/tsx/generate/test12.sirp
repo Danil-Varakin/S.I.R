@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/tsx/generate/test12.new.tsx
+Grammar: tree-sitter-typescript@0.23.2
+
+# match tsx
+    ...
+      return (
+    ...
+    >>>
+              <Link to="/home" />
+    <<<
+    ...
+    )
+    ...
+# end
+# patch
+    <Link to="/start" />
+# end

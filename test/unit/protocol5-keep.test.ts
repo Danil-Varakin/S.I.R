@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { handle } from '../../src/service/handler.ts';
 import type { ResponseMessage, ServiceError, SynthesisErrorDetail } from '../../src/service/protocol.ts';
-import { parseHatchFile } from '../../src/core/hatch-parser.ts';
+import { parseSirFile } from '../../src/core/sir-parser.ts';
 
 // Protocol 5: a change synthesis cannot anchor is written by hand through the service, as
 // the CLI does it in the editor (`generate/steer.ts`) — with no session. `SynthesisError`
@@ -32,7 +32,7 @@ function draftOf(response: ResponseMessage): Required<SynthesisErrorDetail> {
   assert.equal(typeof d.draft, 'string');
   const lines = d.draft.split('\n');
   assert.equal(lines[d.draftLine - 1], '# match cpp', 'draftLine is the # match of the starting hunk');
-  assert.equal(parseHatchFile(d.draft).hunks.length, d.draftHunk, 'the starting hunk is the last');
+  assert.equal(parseSirFile(d.draft).hunks.length, d.draftHunk, 'the starting hunk is the last');
   return d;
 }
 
@@ -80,7 +80,7 @@ test('keep (a): a change synthesis cannot anchor answers draft, draftHunk, draft
   const error = failed(await call(BASE));
   const d = draftOf(await call(BASE));
   assert.equal(error.exitCode, 8);
-  assert.ok(d.draft.startsWith('Hatch: 1\n'), 'the header generate writes');
+  assert.ok(d.draft.startsWith('Sir: 2\n'), 'the header generate writes');
   assert.equal(d.draftHunk, 2, 'the hunk for head() so far, then the one to write');
   assert.match(d.draft, /^ {6}x\(\);$/m, 'the hunk so far is there');
   assert.ok(!/could not be anchored|edit the hunks/.test(d.draft), 'no prose in the draft');
@@ -103,7 +103,7 @@ test('keep (b): the draft finished by hand, sent back — the full patch, reprod
   const r = ok(await call({ ...BASE, keep }));
   assert.equal(r['reproducesNew'], true);
   assert.ok((r['patch'] as string).includes(hunk.trimEnd()), 'the hand hunk, as written');
-  assert.equal(parseHatchFile(r['patch'] as string).hunks.length, 2);
+  assert.equal(parseSirFile(r['patch'] as string).hunks.length, 2);
   assert.ok((r['hunks'] as { status: string }[]).every((h) => h.status === 'ok'));
 });
 
@@ -116,7 +116,7 @@ test('keep: hunks after the kept ones are synthesized and printed below them', a
   const r = ok(await call({ language: 'cpp', baseText: old, newText: neu, keep }));
   const patch = r['patch'] as string;
   assert.equal(r['reproducesNew'], true);
-  assert.equal(parseHatchFile(patch).hunks.length, 2);
+  assert.equal(parseSirFile(patch).hunks.length, 2);
   assert.ok(patch.indexOf('work(2);') < patch.indexOf('y2();'), 'kept first, synthesized after');
 });
 
@@ -163,7 +163,7 @@ test('keep (e): two changes it cannot anchor — two rounds; the second draft ho
 
   const r = ok(await call({ ...params, keep: finished(second, handHunk(['    ...', '    void g() {'], 'work(3);')) }));
   assert.equal(r['reproducesNew'], true);
-  assert.equal(parseHatchFile(r['patch'] as string).hunks.length, 2);
+  assert.equal(parseSirFile(r['patch'] as string).hunks.length, 2);
 });
 
 test('keep (f): a # note in keep stays — in the patch and in the link table', async () => {

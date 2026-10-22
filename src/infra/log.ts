@@ -1,11 +1,11 @@
 import { openSync, writeSync, closeSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { AmbiguityError, GitError, HatchError, MatchError, ParseError } from '../core/errors.ts';
+import { AmbiguityError, GitError, SirError, MatchError, ParseError } from '../core/errors.ts';
 import { ensureParent, isDirectory } from './fs.ts';
 
 // ── where a log file goes ────────────────────────────────────────────────────────
 
-const DEFAULT_LOG_DIR = 'hatch-logs';
+const DEFAULT_LOG_DIR = 'sir-logs';
 
 export function resolveLogPath(
   place: string | undefined,
@@ -52,7 +52,7 @@ export function createLogger(options: LoggerOptions = {}): Logger {
       fd = openSync(path, 'w', 0o600);
     } catch (e) {
       // Not a ConfigError: nothing in any config named this path, and exit 5 would send
-      // the reader to hatch.config.json. The CLI turns it into a warning anyway.
+      // the reader to sir.config.json. The CLI turns it into a warning anyway.
       throw new Error(`cannot open log file '${path}': ${(e as Error).message}`);
     }
     for (const line of options.header ?? []) writeLine(fd, line);
@@ -83,7 +83,7 @@ export function createLogger(options: LoggerOptions = {}): Logger {
       if (fd !== null) {
         process.stderr.write(`(full log: ${path})\n`);
       }
-      return e instanceof HatchError ? e.exitCode : 1;
+      return e instanceof SirError ? e.exitCode : 1;
     },
     close(): void {
       if (fd !== null) {
@@ -119,13 +119,13 @@ export interface ErrorContext {
 }
 
 /** The last resort of an entry point that has no logger yet — a command that failed to
- *  load, a bad argument to `hatch-apply`: the report goes to stderr and the exit code
+ *  load, a bad argument to `sir-apply`: the report goes to stderr and the exit code
  *  comes from the error itself, as `Logger.fail` does it for a command that got that far.
  *  The ONE place that pairs the two (`03-rules.md`: the core gives facts, log.ts the text).
  *  Returns the exit code to set. */
 export function reportFatal(e: unknown, ctx: ErrorContext = {}): number {
   process.stderr.write(`${renderError(e, ctx)}\n`);
-  return e instanceof HatchError ? e.exitCode : 1;
+  return e instanceof SirError ? e.exitCode : 1;
 }
 
 export function renderError(e: unknown, ctx: ErrorContext = {}): string {
@@ -135,7 +135,7 @@ export function renderError(e: unknown, ctx: ErrorContext = {}): string {
   // The core names no flags (the service has none): the CLI puts the one a git refusal
   // is about in front, `--branch nope: no such branch …`.
   if (e instanceof GitError && e.flag !== undefined) return `${e.name}: ${e.flag} ${e.message}`;
-  if (e instanceof HatchError) return `${e.name}: ${e.message}`;
+  if (e instanceof SirError) return `${e.name}: ${e.message}`;
   return `error: ${e instanceof Error ? e.message : String(e)}`;
 }
 
@@ -239,7 +239,7 @@ function quote(text: string): string {
 
 export function logHeader(command: string, argv: readonly string[], extra: readonly string[] = []): string[] {
   return [
-    `# hatch ${command}`,
+    `# sir ${command}`,
     `# when: ${new Date().toISOString()}`,
     `# cwd:  ${process.cwd()}`,
     `# argv: ${argv.join(' ')}`,

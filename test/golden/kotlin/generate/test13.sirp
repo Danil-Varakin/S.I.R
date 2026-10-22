@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/kotlin/generate/test13.new.kt
+Grammar: @tree-sitter-grammars/tree-sitter-kotlin@1.1.0
+
+# match kotlin
+    ...
+    >>>
+        matches(cmd, "push") -> handle(cmd.payload, retries(1))
+    <<<
+    ...
+# end
+# patch
+    matches(cmd, "push") -> handle(cmd.payload, retries(3))
+# end

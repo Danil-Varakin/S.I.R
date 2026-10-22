@@ -1,0 +1,13 @@
+Sir: 2
+Target: test/golden/text/generate/test1.new.txt
+
+# match text
+    ...
+    -third_party/
+    >>>
+    ...
+# end
+# patch
+
+    -brave/third_party/
+# end

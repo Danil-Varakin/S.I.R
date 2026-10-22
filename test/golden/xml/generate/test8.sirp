@@ -1,0 +1,16 @@
+Sir: 2
+Target: test/golden/xml/generate/test8.new.xml
+Grammar: @tree-sitter-grammars/tree-sitter-xml@0.7.0
+
+# match xml
+    ...
+    <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    ...
+    >>>
+    </PreferenceScreen>
+    ...
+# end
+# patch
+        <Preference android:key="brave_shields" android:title="@string/brave_shields_title" />
+
+# end

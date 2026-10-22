@@ -1,0 +1,17 @@
+Sir: 2
+Target: test/golden/html/generate/test5.new.html
+Grammar: tree-sitter-html@0.23.2
+
+# match html
+    ...
+    <div class="footer">
+    ...
+    >>>
+    </div>
+    ...
+# end
+# patch
+      <br/>
+      <a href="https://brave.com/privacy">$i18n{privacyPolicy}</a>
+
+# end

@@ -1,0 +1,23 @@
+Sir: 2
+Target: test/golden/c/generate/test5.new.c
+Grammar: tree-sitter-c@0.24.1
+
+# match c
+    ...
+    int legacy(
+    ...
+    )
+        int a;
+        int b;
+    {
+    ...
+    >>>
+      return a + b;
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    return a * b;
+# end

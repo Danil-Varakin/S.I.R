@@ -50,8 +50,8 @@ jobs:
         run: |
           seed="${SEED_IN:-$(node -e 'console.log(require("node:crypto").randomInt(2 ** 31))')}"
           runs="${RUNS_IN:-25}"
-          echo "HATCH_PROP_SEED=$seed" >> "$GITHUB_ENV"
-          echo "HATCH_PROP_RUNS=$runs" >> "$GITHUB_ENV"
+          echo "SIR_PROP_SEED=$seed" >> "$GITHUB_ENV"
+          echo "SIR_PROP_RUNS=$runs" >> "$GITHUB_ENV"
           echo "seed $seed, runs $runs"
 
       - name: property tests
@@ -62,9 +62,9 @@ jobs:
         shell: bash
         run: |
           {
-            echo "### property tests failed — seed $HATCH_PROP_SEED"
+            echo "### property tests failed — seed $SIR_PROP_SEED"
             echo
             echo '```bash'
-            echo "HATCH_PROP_SEED=$HATCH_PROP_SEED HATCH_PROP_RUNS=$HATCH_PROP_RUNS node --test --experimental-strip-types test/unit/property.test.ts"
+            echo "SIR_PROP_SEED=$SIR_PROP_SEED SIR_PROP_RUNS=$SIR_PROP_RUNS node --test --experimental-strip-types test/unit/property.test.ts"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

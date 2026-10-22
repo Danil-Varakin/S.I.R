@@ -47,8 +47,8 @@ export function editSession(command: string = editorCommand()): EditSession {
       return file;
     },
     edit(text) {
-      dir ??= mkdtempSync(join(tmpdir(), 'hatch-edit-'));
-      file ??= join(dir, 'hunks.hatch');
+      dir ??= mkdtempSync(join(tmpdir(), 'sir-edit-'));
+      file ??= join(dir, 'hunks.sirp');
       writeFileSync(file, text, 'utf8');
       runEditor(command, file);
       return Promise.resolve(readFileSync(file, 'utf8'));

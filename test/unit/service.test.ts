@@ -10,12 +10,12 @@ import { fileURLToPath } from 'node:url';
 
 import { handle } from '../../src/service/handler.ts';
 
-const CLI_PATH = fileURLToPath(new URL('../../src/bin/hatch.ts', import.meta.url));
+const CLI_PATH = fileURLToPath(new URL('../../src/bin/sir.ts', import.meta.url));
 import { serve } from '../../src/service/index.ts';
 import { PROTOCOL_VERSION } from '../../src/service/protocol.ts';
 import type { ProgressMessage, ResponseMessage, ServiceError } from '../../src/service/protocol.ts';
 import type { HunkLink } from '../../src/core/resolve.ts';
-import { hatchMd } from '../helpers.ts';
+import { sirMd } from '../helpers.ts';
 import { buildRepo, version } from '../git-repo.ts';
 import type { Repo } from '../git-repo.ts';
 
@@ -36,10 +36,10 @@ function failed(response: ResponseMessage): ServiceError {
 
 // ── handshake ────────────────────────────────────────────────────────────────
 
-test('service version: the protocol number, the hatch version and the languages', async () => {
+test('service version: the protocol number, the sir version and the languages', async () => {
   const result = ok(await handle({ id: 1, method: 'version' }));
   assert.equal(result['protocol'], PROTOCOL_VERSION);
-  assert.match(String(result['hatch']), /^\d+\.\d+\.\d+/);
+  assert.match(String(result['sir']), /^\d+\.\d+\.\d+/);
   assert.ok((result['languages'] as string[]).includes('cpp'));
   assert.equal(typeof result['configSchema'], 'number');
 });
@@ -110,7 +110,7 @@ test('service generate: the .md, the hunk coordinates and the reproducibility fl
   assert.equal(hunks.length, 1, 'one inserted line, one hunk');
   for (const hunk of hunks) {
     assert.equal(hunk.status, 'ok');
-    assert.ok(hunk.mdSpan !== undefined, 'coordinates in the .hatch');
+    assert.ok(hunk.mdSpan !== undefined, 'coordinates in the .sirp');
     assert.ok(hunk.base !== undefined && hunk.final !== undefined, 'coordinates on both sides');
   }
   assert.ok(NEW.includes(hunks[0]!.finalText!.trim()), 'the inserted text is there in the new file');
@@ -142,7 +142,7 @@ async function generateGit(
 }
 
 test('service generate: baseGit {} is the last commit of the branch we are on', async () => {
-  const repo = buildRepo('hatch-svc-git-');
+  const repo = buildRepo('sir-svc-git-');
   try {
     const result = ok(await generateGit(repo, { baseGit: {} }));
     assert.equal(result['baseSpec'], 'HEAD:src/core/f.cc');
@@ -154,7 +154,7 @@ test('service generate: baseGit {} is the last commit of the branch we are on', 
 });
 
 test('service generate: every coordinate travels, and the reply says what was read', async () => {
-  const repo = buildRepo('hatch-svc-coords-');
+  const repo = buildRepo('sir-svc-coords-');
   try {
     const byCommit = ok(await generateGit(repo, { baseGit: { commit: repo.a } }));
     assert.equal(byCommit['baseSpec'], `${repo.a}:src/core/f.cc`);
@@ -182,7 +182,7 @@ test('service generate: a base sent as text still reports no git spec', async ()
 });
 
 test('service generate: exactly one base — neither and both are refused', async () => {
-  const repo = buildRepo('hatch-svc-one-');
+  const repo = buildRepo('sir-svc-one-');
   try {
     const both = failed(await generateGit(repo, { baseText: BASE, baseGit: {} }));
     assert.equal(both.kind, 'BadRequest');
@@ -197,11 +197,11 @@ test('service generate: exactly one base — neither and both are refused', asyn
 });
 
 test('service generate: no base sent — the one generate.base names in the config (schema 2)', async () => {
-  const repo = buildRepo('hatch-svc-cfgbase-');
+  const repo = buildRepo('sir-svc-cfgbase-');
   try {
     writeFileSync(
-      join(repo.dir, 'hatch.config.json'),
-      JSON.stringify({ version: 2, generate: { base: { commit: repo.a } } }),
+      join(repo.dir, 'sir.config.json'),
+      JSON.stringify({ version: 3, generate: { base: { commit: repo.a } } }),
     );
     const fromConfig = ok(await generateGit(repo, {}));
     assert.equal(fromConfig['baseSpec'], `${repo.a}:src/core/f.cc`);
@@ -227,7 +227,7 @@ test('service generate: baseGit without a path cannot know which repository, and
 });
 
 test('service generate: a baseGit that is not a coordinate object is refused by name', async () => {
-  const repo = buildRepo('hatch-svc-shape-');
+  const repo = buildRepo('sir-svc-shape-');
   try {
     for (const [baseGit, expected] of [
       ['side', /must be an object/],
@@ -245,7 +245,7 @@ test('service generate: a baseGit that is not a coordinate object is refused by 
 });
 
 test('service generate: a git refusal crosses the wire as GitError, with the revision', async () => {
-  const repo = buildRepo('hatch-svc-refuse-');
+  const repo = buildRepo('sir-svc-refuse-');
   try {
     const error = failed(await generateGit(repo, { baseGit: { branch: 'nope' } }));
     assert.equal(error.kind, 'GitError');
@@ -269,9 +269,9 @@ test('service generate: a git refusal crosses the wire as GitError, with the rev
 });
 
 test('service resolve and apply: the base named in git, and the reply says what was read', async () => {
-  const repo = buildRepo('hatch-svc-apply-');
+  const repo = buildRepo('sir-svc-apply-');
   try {
-    const md = hatchMd([{ match: '... int a = 2; >>> ...', patch: 'X();' }]);
+    const md = sirMd([{ match: '... int a = 2; >>> ...', patch: 'X();' }]);
     const params = { patch: md, path: repo.inPath, language: 'cpp', baseGit: {} };
 
     const applied = ok(await handle({ id: 40, method: 'apply', params }));
@@ -290,9 +290,9 @@ test('service resolve and apply: the base named in git, and the reply says what 
 });
 
 test('service apply: the same one-base rule, and a pipe has nobody to ask', async () => {
-  const repo = buildRepo('hatch-svc-apply-rules-');
+  const repo = buildRepo('sir-svc-apply-rules-');
   try {
-    const md = hatchMd([{ match: '... int a = 2; >>> ...', patch: 'X();' }]);
+    const md = sirMd([{ match: '... int a = 2; >>> ...', patch: 'X();' }]);
     const both = failed(await handle({ id: 43, method: 'apply',
       params: { patch: md, path: repo.inPath, language: 'cpp', baseText: 'x', baseGit: {} } }));
     assert.match(both.message, /exactly one base/);
@@ -331,10 +331,10 @@ interface Project {
 }
 
 function project(config: string | undefined): Project {
-  const dir = mkdtempSync(join(tmpdir(), 'hatch-service-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sir-service-'));
   mkdirSync(join(dir, '.git'));
   mkdirSync(join(dir, 'src'));
-  if (config !== undefined) writeFileSync(join(dir, 'hatch.config.json'), config);
+  if (config !== undefined) writeFileSync(join(dir, 'sir.config.json'), config);
   return {
     dir,
     file: join(dir, 'src', 'a.cc'),
@@ -346,13 +346,13 @@ async function generated(params: Record<string, unknown>): Promise<Record<string
   return ok(await handle({ id: 20, method: 'generate', params: { baseText: BASE, newText: NEW, language: 'cpp', ...params } }));
 }
 
-test('service generate: hatch.config.json is found upwards from the file and applied', async () => {
-  const p = project('{"version":2,"generate":{"bridgeGap":3,"siblings":{"min":2}}}');
+test('service generate: sir.config.json is found upwards from the file and applied', async () => {
+  const p = project('{"version":3,"generate":{"bridgeGap":3,"siblings":{"min":2}}}');
   try {
     const result = await generated({ path: p.file });
     const config = result['config'] as { file: string; settings: Record<string, unknown>; origins: Record<string, string> };
 
-    assert.equal(config.file, join(p.dir, 'hatch.config.json'));
+    assert.equal(config.file, join(p.dir, 'sir.config.json'));
     assert.equal(config.settings['bridgeGap'], 3);
     assert.equal(config.settings['minSiblings'], 2);
     assert.match(config.origins['generate.bridgeGap']!, /^config /);
@@ -362,7 +362,7 @@ test('service generate: hatch.config.json is found upwards from the file and app
 });
 
 test('service generate: a sent param beats the config, as a flag beats the file', async () => {
-  const p = project('{"version":2,"generate":{"bridgeGap":3}}');
+  const p = project('{"version":3,"generate":{"bridgeGap":3}}');
   try {
     const result = await generated({ path: p.file, bridgeGap: 0 });
     const config = result['config'] as { settings: Record<string, unknown>; origins: Record<string, string> };
@@ -375,7 +375,7 @@ test('service generate: a sent param beats the config, as a flag beats the file'
 });
 
 test('service generate: a RELATIVE path is refused, not silently stripped of its config', async () => {
-  const p = project('{"version":2,"generate":{"bridgeGap":3}}');
+  const p = project('{"version":3,"generate":{"bridgeGap":3}}');
   try {
     const error = failed(
       await handle({ id: 40, method: 'generate', params: { baseText: BASE, newText: NEW, path: 'a.cc' } }),
@@ -392,7 +392,7 @@ test('service resolve: a relative path is refused there too', async () => {
     await handle({
       id: 41,
       method: 'resolve',
-      params: { patch: hatchMd([{ match: '...\n>>>\n  one();\n...' }]), baseText: BASE, path: 'a.cc' },
+      params: { patch: sirMd([{ match: '...\n>>>\n  one();\n...' }]), baseText: BASE, path: 'a.cc' },
     }),
   );
   assert.equal(error.kind, 'BadRequest');
@@ -400,7 +400,7 @@ test('service resolve: a relative path is refused there too', async () => {
 });
 
 test('service generate: a broken config refuses the CALL and names the file in detail', async () => {
-  const p = project('{"version":2,"generate":{"nosuchkey":1}}');
+  const p = project('{"version":3,"generate":{"nosuchkey":1}}');
   try {
     const error = failed(
       await handle({
@@ -411,7 +411,7 @@ test('service generate: a broken config refuses the CALL and names the file in d
     );
     assert.equal(error.kind, 'ConfigError');
     assert.equal(error.exitCode, 5);
-    assert.equal(error.detail!['file'], join(p.dir, 'hatch.config.json'));
+    assert.equal(error.detail!['file'], join(p.dir, 'sir.config.json'));
   } finally {
     p.cleanup();
   }
@@ -420,7 +420,7 @@ test('service generate: a broken config refuses the CALL and names the file in d
 // ── resolve and apply ─────────────────────────────────────────────────────────
 
 test('service resolve: the language is read from the # match heading, no path needed', async () => {
-  const md = hatchMd([{ match: '... one(); >>> ...', patch: 'two();' }]);
+  const md = sirMd([{ match: '... one(); >>> ...', patch: 'two();' }]);
   const result = ok(await handle({ id: 7, method: 'resolve', params: { patch: md, baseText: BASE } }));
 
   const hunks = result['hunks'] as HunkLink[];
@@ -430,7 +430,7 @@ test('service resolve: the language is read from the # match heading, no path ne
 });
 
 test('service resolve: a broken anchor keeps the call fine and marks the hunk failed', async () => {
-  const md = hatchMd([{ match: '... nosuchcall(); >>> ...', patch: 'X();' }]);
+  const md = sirMd([{ match: '... nosuchcall(); >>> ...', patch: 'X();' }]);
   const result = ok(await handle({ id: 8, method: 'resolve', params: { patch: md, baseText: BASE } }));
 
   const hunk = (result['hunks'] as HunkLink[])[0]!;
@@ -449,7 +449,7 @@ test('service resolve: an unparsable .md refuses the CALL and gives the line', a
 });
 
 test('service apply: hands back the resulting text along with the coordinates', async () => {
-  const md = hatchMd([{ match: '... one(); >>> ...', patch: 'two();' }]);
+  const md = sirMd([{ match: '... one(); >>> ...', patch: 'two();' }]);
   const result = ok(await handle({ id: 10, method: 'apply', params: { patch: md, baseText: BASE } }));
 
   assert.ok(String(result['text']).includes('one();two();'), String(result['text']));
@@ -563,18 +563,18 @@ function writableTo(sink: string[]): NodeJS.WritableStream {
 }
 
 test('service generate: outPath follows generate.out and upstream', async () => {
-  const root = mkdtempSync(join(tmpdir(), 'hatch-service-tree-'));
+  const root = mkdtempSync(join(tmpdir(), 'sir-service-tree-'));
   try {
     mkdirSync(join(root, '.git'));
     mkdirSync(join(root, 'chromium_src', 'browser'), { recursive: true });
-    writeFileSync(join(root, 'hatch.config.json'), '{"version":2,"upstream":".","generate":{"out":"patches"}}');
+    writeFileSync(join(root, 'sir.config.json'), '{"version":3,"upstream":".","generate":{"out":"patches"}}');
     const file = join(root, 'chromium_src', 'browser', 'a.cc');
     writeFileSync(file, BASE);
 
     const result = ok(
       await handle({ id: 30, method: 'generate', params: { baseText: BASE, newText: NEW, path: file } }),
     );
-    assert.equal(result['outPath'], join(root, 'patches', 'chromium_src', 'browser', 'a.cc.hatch'));
+    assert.equal(result['outPath'], join(root, 'patches', 'chromium_src', 'browser', 'a.cc.sirp'));
     assert.equal(result['outExists'], false);
     assert.equal(result['outTarget'], null);
   } finally {
@@ -583,10 +583,10 @@ test('service generate: outPath follows generate.out and upstream', async () => 
 });
 
 test('service generate: an upstream without an output root is a call-level failure; schema 1 is not read', async () => {
-  const root = mkdtempSync(join(tmpdir(), 'hatch-service-tree-'));
+  const root = mkdtempSync(join(tmpdir(), 'sir-service-tree-'));
   try {
     mkdirSync(join(root, '.git'));
-    writeFileSync(join(root, 'hatch.config.json'), '{"version":2,"upstream":"."}');
+    writeFileSync(join(root, 'sir.config.json'), '{"version":3,"upstream":"."}');
     const file = join(root, 'a.cc');
     writeFileSync(file, BASE);
 
@@ -596,16 +596,16 @@ test('service generate: an upstream without an output root is a call-level failu
     assert.equal(error.kind, 'ConfigError');
     assert.match(error.message, /set generate\.out .* to a directory/);
 
-    writeFileSync(join(root, 'hatch.config.json'), '{"version":1,"generate":{"out":"patches"}}');
+    writeFileSync(join(root, 'sir.config.json'), '{"version":1,"generate":{"out":"patches"}}');
     const old = failed(await handle({ id: 32, method: 'generate', params: { baseText: BASE, newText: NEW, path: file } }));
-    assert.match(old.message, /no longer reads .*move the file to v2/);
+    assert.match(old.message, /no longer reads .*move the file to v3/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
 test('service generate: without a config the patch belongs next to its file', async () => {
-  const root = mkdtempSync(join(tmpdir(), 'hatch-service-plain-'));
+  const root = mkdtempSync(join(tmpdir(), 'sir-service-plain-'));
   try {
     mkdirSync(join(root, '.git'));
     const file = join(root, 'a.cc');
@@ -614,18 +614,18 @@ test('service generate: without a config the patch belongs next to its file', as
     const result = ok(
       await handle({ id: 32, method: 'generate', params: { baseText: BASE, newText: NEW, path: file } }),
     );
-    assert.equal(result['outPath'], `${file}.hatch`);
+    assert.equal(result['outPath'], `${file}.sirp`);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
 test('service generate: a file where a directory has to go is named, not left to the client', async () => {
-  const root = mkdtempSync(join(tmpdir(), 'hatch-service-block-'));
+  const root = mkdtempSync(join(tmpdir(), 'sir-service-block-'));
   try {
     mkdirSync(join(root, '.git'));
     writeFileSync(join(root, 'patches'), 'x');
-    writeFileSync(join(root, 'hatch.config.json'), '{"version":2,"upstream":".","generate":{"out":"patches"}}');
+    writeFileSync(join(root, 'sir.config.json'), '{"version":3,"upstream":".","generate":{"out":"patches"}}');
     const file = join(root, 'a.cc');
     writeFileSync(file, BASE);
 
@@ -661,7 +661,7 @@ test('service: language "" is no language — generate and resolve alike go by t
 // ── configTemplate (protocol 4) ──────────────────────────────────────────────
 
 test('configTemplate: the text, where the core would look, whether it is there, every version', async () => {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'hatch-svc-cfg-')));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'sir-svc-cfg-')));
   try {
     mkdirSync(join(dir, '.git'));
     mkdirSync(join(dir, 'src'));
@@ -675,13 +675,13 @@ test('configTemplate: the text, where the core would look, whether it is there, 
     assert.equal(written['version'], CONFIG_VERSION);
     assert.deepEqual(written['generate'], { out: 'patches/' });
     assert.equal(result['version'], CONFIG_VERSION);
-    assert.equal(result['suggestedPath'], join(dir, 'hatch.config.json'));
+    assert.equal(result['suggestedPath'], join(dir, 'sir.config.json'));
     assert.equal(result['exists'], false);
     const versions = result['versions'] as { version: number; summary: string }[];
     assert.deepEqual(versions.map((v) => v.version), Array.from({ length: CONFIG_VERSION - CONFIG_MIN + 1 }, (_, i) => CONFIG_MIN + i));
     for (const v of versions) assert.match(v.summary, new RegExp(`^v${v.version}: `));
 
-    writeFileSync(join(dir, 'hatch.config.json'), '{}');
+    writeFileSync(join(dir, 'sir.config.json'), '{}');
     const again = ok(await handle({ id: 2, method: 'configTemplate', params: { path: dir } }));
     assert.equal(again['exists'], true, 'a folder as path works too');
   } finally {
@@ -705,5 +705,5 @@ test('configTemplate: path must be absolute; a bad key is a ConfigError listing 
     ],
   });
   const newer = failed(await handle({ id: 1, method: 'configTemplate', params: { path: tmpdir(), version: CONFIG_VERSION + 1 } }));
-  assert.match(newer.message, /update hatch/);
+  assert.match(newer.message, /update sir/);
 });

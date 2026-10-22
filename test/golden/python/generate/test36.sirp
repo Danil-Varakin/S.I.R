@@ -1,0 +1,16 @@
+Sir: 2
+Target: test/golden/python/generate/test36.new.py
+Grammar: tree-sitter-python@0.25.0
+
+# match python
+    ...
+    class Api:
+    ...
+    >>>
+        @cached(ttl=60)
+    <<<
+    ...
+# end
+# patch
+    @cached(ttl=120)
+# end

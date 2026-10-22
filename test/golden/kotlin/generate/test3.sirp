@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/kotlin/generate/test3.new.kt
+Grammar: @tree-sitter-grammars/tree-sitter-kotlin@1.1.0
+
+# match kotlin
+    ...
+    >>>
+        in 75..89 -> "B"
+    <<<
+    ...
+# end
+# patch
+    in 70..89 -> "B"
+# end

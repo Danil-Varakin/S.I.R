@@ -1,4 +1,4 @@
-import type { HatchFile, Hunk } from './ast.ts';
+import type { SirFile, Hunk } from './ast.ts';
 import type { LanguageAdapter, SourceMap, MapCache } from '../lang/source-map.ts';
 import { mapFor } from '../lang/source-map.ts';
 import type { Edit } from './patcher.ts';
@@ -31,7 +31,7 @@ export interface HunkLink {
   readonly mdSpan?: readonly [number, number];
   /** the hunk's `# note` text, when it has one. Protocol 4. */
   readonly note?: string;
-  /** lines of the `.hatch` from `# note` to its `# end`. Protocol 4. */
+  /** lines of the `.sirp` from `# note` to its `# end`. Protocol 4. */
   readonly noteSpan?: readonly [number, number];
   readonly base?: Span;
   readonly final?: Span;
@@ -47,7 +47,7 @@ export interface ResolveResult {
 
 export function resolveHunks(
   baseline: string,
-  file: HatchFile,
+  file: SirFile,
   adapter: LanguageAdapter,
   maps?: MapCache,
 ): ResolveResult {

@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/typescript/generate/test7.new.ts
+Grammar: tree-sitter-typescript@0.23.2
+
+# match typescript
+    ...
+    enum Level {
+    ...
+    >>>
+      Warn = 30,
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    Warn = 35,
+# end

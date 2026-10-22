@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/java/generate/test15.new.java
+Grammar: tree-sitter-java@0.23.5
+
+# match java
+    ...
+    >>>
+    private final Map<String, List<Set<Integer>>> index = new HashMap<>();
+    <<<
+    ...
+# end
+# patch
+    private final Map<String, List<Set<Long>>> index = new HashMap<>();
+# end

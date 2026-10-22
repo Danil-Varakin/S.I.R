@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 import type { Tracer, SynthEvent } from '../generate/synth.ts';
 import { generatePatch } from '../generate/pipeline.ts';
-import { printPattern } from '../core/hatch-printer.ts';
+import { printPattern } from '../core/sir-printer.ts';
 import { describeHunk } from '../generate/agreement.ts';
 import type { GenerateOutcome, GenerateRequest } from '../generate/pipeline.ts';
 import type { Steering } from '../generate/steer.ts';
@@ -52,7 +52,7 @@ interface Options extends GitOptions, ConfirmOptions {
   help: boolean;
 }
 
-const USAGE = `hatch generate — synthesize a .hatch patch from two versions of a file
+const USAGE = `sir generate — synthesize a .sirp patch from two versions of a file
 
   --in,     -i <file>     new version of the file                    [required]
 
@@ -68,17 +68,17 @@ git flag replaces those three as a whole for this run; --in-old ignores them.
 
 ${CONFIRM_USAGE}
 
-  --out,    -o <path>     where to write the .hatch. A directory (existing, or ending
+  --out,    -o <path>     where to write the .sirp. A directory (existing, or ending
                           with a slash, or a name without an extension) gets
-                          <name of --in>.hatch inside it; a file must be a .hatch and
+                          <name of --in>.sirp inside it; a file must be a .sirp and
                           is written as is, over what is there. Missing directories
                           are created. A relative path is measured from the
                           repository root, not from the current directory. Omitted
                           means next to --in; \`-\` writes to stdout. With
                           "upstream" in ${CONFIG_FILE_NAME} a directory is the root of
                           a tree that repeats the upstream's:
-                          <config dir>/<out>/<path of --in from the upstream>.hatch.
-                          A patch already at a place hatch computed that names
+                          <config dir>/<out>/<path of --in from the upstream>.sirp.
+                          A patch already at a place sir computed that names
                           another Target is not written over without asking (--yes)
   --language,-l <lang>    force language (else: extension of --in)
   --agreement,-a          confirm each hunk before writing
@@ -91,7 +91,7 @@ ${CONFIRM_USAGE}
                           synthesis trace, whether or not -v is on. A place that is a
                           directory (or ends in /) receives a generated name, so every
                           run gets its own file; any other place IS the name and is
-                          overwritten. Omitted → ./hatch-logs/. A log that cannot be
+                          overwritten. Omitted → ./sir-logs/. A log that cannot be
                           opened is a warning, not a failure: the run goes on without it
   --help,   -h            this help
 
@@ -126,7 +126,7 @@ Configuration
                           ${CONFIG_FILE_NAME} up from --in to its repository root;
                           else the one whose "upstream" holds --in, in a
                           subdirectory of a repository root on the way up or in a
-                          directory above the repository; else $HATCH_CONFIG; else
+                          directory above the repository; else $SIR_CONFIG; else
                           the one in the current directory, if it claims --in.
                           The search never enters the home directory
   --no-config             ignore config files entirely (built-in defaults + flags)
@@ -351,12 +351,12 @@ async function generate(
   log.note(`generated ${outcome.hunkCount} hunk(s) → ${outPath}`);
 }
 
-/** `--out x.hatch`: the person named the file, and writes over it. */
+/** `--out x.sirp`: the person named the file, and writes over it. */
 function namedOutright(out: string | undefined): boolean {
   return out !== undefined && !/[/\\]$/.test(out) && isPatchPath(out);
 }
 
-/** A place hatch computed holds a patch of ANOTHER file: two files met at one name
+/** A place sir computed holds a patch of ANOTHER file: two files met at one name
  *  (`out` changed, a flat directory). Regenerating the same file's patch is not asked
  *  about; this is, and with nobody to answer it is refused. */
 async function mayWriteOver(path: string, target: string | undefined, ask: Ask): Promise<void> {

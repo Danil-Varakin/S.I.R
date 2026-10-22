@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/json/generate/test11.new.json
+Grammar: tree-sitter-json@0.24.8
+
+# match json
+    ...
+      "block": [
+    ...
+        "https://a.example",
+    >>>
+    ...
+    ]
+    ...
+# end
+# patch
+
+        "https://ads.example",
+# end

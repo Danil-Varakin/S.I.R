@@ -1,5 +1,5 @@
 // Fills grammars/ of the package with the grammars src/lang/*/index.ts pins — for
-// development, CI and `npm pack` only: hatch itself never downloads anything
+// development, CI and `npm pack` only: sir itself never downloads anything
 // (src/infra/grammar-store.ts). Every file is checked against its sha256 pin; a file
 // already there with the right bytes is left alone.
 //
@@ -7,7 +7,7 @@
 //   node --experimental-strip-types scripts/fetch-grammars.ts --pin tree-sitter-go@0.25.0
 //       download one grammar and print the block to paste into a new language's index.ts
 //
-// Where the bytes come from, in order: grammars/ itself; the user cache hatch 0.1–0.3
+// Where the bytes come from, in order: grammars/ itself; the user cache sir 0.1–0.3
 // filled (a machine that ran it has them, and they are checked like any other); the npm
 // CDNs, jsdelivr then unpkg; last, for a package whose npm archive has no .wasm
 // (@tree-sitter-grammars/tree-sitter-xml), the GitHub Release of the same version — its
@@ -71,17 +71,17 @@ async function tryDownload(url: string, source: GrammarSource, failures: string[
   }
 }
 
-/** Where hatch 0.1–0.3 kept its downloads — read, never written. */
+/** Where sir 0.1–0.3 kept its downloads — read, never written. */
 function legacyCacheEntry(source: GrammarSource): string {
   const xdg = process.env['XDG_CACHE_HOME'];
   const root =
     xdg !== undefined && xdg !== ''
-      ? join(xdg, 'hatch', 'grammars')
+      ? join(xdg, 'sir', 'grammars')
       : process.platform === 'darwin'
-        ? join(homedir(), 'Library', 'Caches', 'hatch', 'grammars')
+        ? join(homedir(), 'Library', 'Caches', 'sir', 'grammars')
         : process.platform === 'win32'
-          ? join(process.env['LOCALAPPDATA'] ?? homedir(), 'hatch', 'grammars')
-          : join(homedir(), '.cache', 'hatch', 'grammars');
+          ? join(process.env['LOCALAPPDATA'] ?? homedir(), 'sir', 'grammars')
+          : join(homedir(), '.cache', 'sir', 'grammars');
   return join(root, `${source.package!.replace('/', '+')}@${source.version!}`, source.file);
 }
 

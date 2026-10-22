@@ -1,0 +1,16 @@
+Sir: 2
+Target: test/golden/objc/apply/test9.m
+Grammar: tree-sitter-objc@3.0.2
+
+# match objc
+    ...
+    @property(
+    ...
+    ) NSMutableArray *queue;
+    >>>
+    ...
+# end
+# patch
+
+    @property(nonatomic, assign) BOOL paused;
+# end

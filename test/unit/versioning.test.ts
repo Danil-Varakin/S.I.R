@@ -41,8 +41,8 @@ test('R1: the service announces the range it serves, not a single number', async
   assert.equal(result['configSchemaMin'], CONFIG_MIN);
 });
 
-test('C1: hatch.config.schema.json states the range the code reads', () => {
-  const schema = json('hatch.config.schema.json') as { properties: { version: Record<string, unknown> } };
+test('C1: sir.config.schema.json states the range the code reads', () => {
+  const schema = json('sir.config.schema.json') as { properties: { version: Record<string, unknown> } };
   const version = schema.properties.version;
   assert.equal(version['minimum'], CONFIG_MIN, 'minimum = CONFIG_MIN');
   assert.equal(version['maximum'], CONFIG_VERSION, 'maximum = CONFIG_VERSION');
@@ -102,10 +102,10 @@ test('C1: every config schema in the range has its own frozen JSON Schema, holdi
       return sub['properties'] !== undefined ? leaves(sub, path) : [path];
     });
   for (let v = CONFIG_MIN; v <= CONFIG_VERSION; v++) {
-    const file = `schemas/hatch.config.v${v}.schema.json`;
+    const file = `schemas/sir.config.v${v}.schema.json`;
     const schema = json(file) as { $id: string; properties: { version: Record<string, unknown> } };
-    assert.ok(schema.$id.endsWith(`/schemas/hatch.config.v${v}.schema.json`), `${file}: $id names this file`);
-    assert.ok(schemaUrl(v).endsWith(`/schemas/hatch.config.v${v}.schema.json`), `v${v}: the template points at this file`);
+    assert.ok(schema.$id.endsWith(`/schemas/sir.config.v${v}.schema.json`), `${file}: $id names this file`);
+    assert.ok(schemaUrl(v).endsWith(`/schemas/sir.config.v${v}.schema.json`), `v${v}: the template points at this file`);
     assert.equal(schema.properties.version['minimum'], v, `${file}: checks v${v} only`);
     assert.equal(schema.properties.version['maximum'], v, `${file}: checks v${v} only`);
     assert.deepEqual(
@@ -115,8 +115,8 @@ test('C1: every config schema in the range has its own frozen JSON Schema, holdi
     );
   }
   // The file SchemaStore points at is the newest schema, with the whole range for "version".
-  const newest = json(`schemas/hatch.config.v${CONFIG_VERSION}.schema.json`) as Record<string, Record<string, unknown>>;
-  const root = json('hatch.config.schema.json') as Record<string, Record<string, unknown>>;
+  const newest = json(`schemas/sir.config.v${CONFIG_VERSION}.schema.json`) as Record<string, Record<string, unknown>>;
+  const root = json('sir.config.schema.json') as Record<string, Record<string, unknown>>;
   assert.deepEqual(root['properties']!['generate'], newest['properties']!['generate']);
   assert.deepEqual(root['properties']!['upstream'], newest['properties']!['upstream']);
 });

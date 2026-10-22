@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/json/apply/test4.json
+Grammar: tree-sitter-json@0.24.8
+
+# match json
+    ...
+      "permissions": [
+    ...
+        "storage",
+    >>>
+    ...
+    ]
+    ...
+# end
+# patch
+
+        "webRequest",
+# end

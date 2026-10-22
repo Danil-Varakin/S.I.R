@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/go/generate/test9.new.go
+Grammar: tree-sitter-go@0.25.0
+
+# match go
+    ...
+    >>>
+    WHERE age > 18 AND (role = 'admin' OR role = 'root')
+    <<<
+    ...
+# end
+# patch
+    WHERE age >= 21 AND (role = 'admin' OR role = 'root')
+# end

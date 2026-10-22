@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/javascript/generate/test16.new.jsx
+Grammar: tree-sitter-javascript@0.25.0
+
+# match javascript
+    ...
+      return (
+    ...
+    >>>
+          <span>{item.label}</span>
+    <<<
+    ...
+    )
+    ...
+# end
+# patch
+    <span>{item.title}</span>
+# end

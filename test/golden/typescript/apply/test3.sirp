@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/typescript/apply/test3.ts
+
+# match ts
+    ...
+    export enum Priority {
+    ...
+    >>>
+      Normal = 10,
+    <<<
+    ...
+# end
+# patch
+    Normal = 15,
+# end

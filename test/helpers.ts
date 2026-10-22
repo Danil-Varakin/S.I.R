@@ -1,6 +1,6 @@
 import type { MatchPattern } from '../src/core/ast.ts';
-import { parseHatchFile } from '../src/core/hatch-parser.ts';
-import { printPattern } from '../src/core/hatch-printer.ts';
+import { parseSirFile } from '../src/core/sir-parser.ts';
+import { printPattern } from '../src/core/sir-printer.ts';
 
 export interface FlatAnchor {
   kind: 'literal' | 'eof';
@@ -29,7 +29,7 @@ export function strip(p: MatchPattern): FlatStep[] {
 }
 
 export function firstMatch(md: string): MatchPattern {
-  return parseHatchFile(md).hunks[0]!.match;
+  return parseSirFile(md).hunks[0]!.match;
 }
 
 // ── building a .md in the current format: a four-space gutter and '# end' ─────
@@ -47,7 +47,7 @@ export interface HunkSpec {
   patch?: string;
 }
 
-export function hatchMd(hunks: readonly HunkSpec[], lang: string | undefined = 'cpp'): string {
+export function sirMd(hunks: readonly HunkSpec[], lang: string | undefined = 'cpp'): string {
   const heading = lang === undefined ? '# match' : `# match ${lang}`;
   return (
     hunks
@@ -57,7 +57,7 @@ export function hatchMd(hunks: readonly HunkSpec[], lang: string | undefined = '
 }
 
 export function wrapMatch(body: string, lang = 'cpp'): string {
-  return hatchMd([{ match: body }], lang);
+  return sirMd([{ match: body }], lang);
 }
 
 export function roundtrip(m: MatchPattern, lang = 'cpp'): MatchPattern {

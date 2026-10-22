@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/python/generate/test27.new.py
+Grammar: tree-sitter-python@0.25.0
+
+# match python
+    ...
+        return [
+    ...
+    >>>
+            if a > 0
+    <<<
+    ...
+    ]
+    ...
+# end
+# patch
+    if a >= 0
+# end

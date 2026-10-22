@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/c/apply/test2.c
+
+# match c
+    ...
+    struct header {
+    ...
+    >>>
+      unsigned int level : 3;
+    <<<
+    ...
+# end
+# patch
+    unsigned int level : 5;
+# end

@@ -5,14 +5,14 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { synthesize, sameIgnoringSpace } from '../../src/generate/synth.ts';
-import { printHatchFile } from '../../src/generate/printer.ts';
-import { parseHatchFile } from '../../src/core/hatch-parser.ts';
+import { printSirFile } from '../../src/generate/printer.ts';
+import { parseSirFile } from '../../src/core/sir-parser.ts';
 import { applyAll } from '../../src/core/apply.ts';
 import { resolveHunks } from '../../src/core/resolve.ts';
 import { ParseError, SynthesisError } from '../../src/core/errors.ts';
 import { adapterForLanguage } from '../../src/lang/adapter.ts';
 import type { LanguageAdapter } from '../../src/lang/source-map.ts';
-import type { HatchFile } from '../../src/core/ast.ts';
+import type { SirFile } from '../../src/core/ast.ts';
 import { strip, type FlatStep } from '../helpers.ts';
 
 // Properties README promises for ANY input, checked on generated ones rather than on the
@@ -23,16 +23,16 @@ import { strip, type FlatStep } from '../helpers.ts';
 //   - the printer and the parser agree: print → parse gives the same hunks back;
 //   - resolve tells the editor where each hunk is: `base` is what it replaced in the old
 //     text, `final` what it wrote in the applied one — nothing of another hunk's;
-//   - a .hatch that is not well formed is a ParseError — never a crash, never a hang;
+//   - a .sirp that is not well formed is a ParseError — never a crash, never a hang;
 //   - normalization is idempotent.
 // The inputs are edits of the golden corpus — real code in every language — drawn from a
 // seeded generator, so a failure names its seed and is reproduced by
-// `HATCH_PROP_SEED=<seed> node --test --experimental-strip-types test/unit/property.test.ts`.
-// `HATCH_PROP_RUNS` multiplies the number of cases for a longer hunt.
+// `SIR_PROP_SEED=<seed> node --test --experimental-strip-types test/unit/property.test.ts`.
+// `SIR_PROP_RUNS` multiplies the number of cases for a longer hunt.
 
 const GOLDEN = join(dirname(fileURLToPath(import.meta.url)), '..', 'golden');
-const SEED = Number(process.env['HATCH_PROP_SEED'] ?? 20261019);
-const RUNS = Math.max(1, Number(process.env['HATCH_PROP_RUNS'] ?? 1));
+const SEED = Number(process.env['SIR_PROP_SEED'] ?? 20261019);
+const RUNS = Math.max(1, Number(process.env['SIR_PROP_RUNS'] ?? 1));
 
 /** mulberry32: small, fast, and the same sequence on every platform. */
 function rng(seed: number): () => number {
@@ -66,7 +66,7 @@ function corpus(language: string): { name: string; text: string }[] {
     const dir = join(GOLDEN, language, kind);
     if (!isDir(dir)) continue;
     for (const f of readdirSync(dir).sort()) {
-      if (f.endsWith('.hatch') || f.includes('.new.') || f.includes('.expected.')) continue;
+      if (f.endsWith('.sirp') || f.includes('.new.') || f.includes('.expected.')) continue;
       const text = readFileSync(join(dir, f), 'utf8');
       const lines = text.split('\n').length;
       // big enough to have structure, small enough that a hundred runs stay quick
@@ -129,13 +129,13 @@ function mutate(r: () => number, text: string): { text: string; ops: string[] } 
  *  a blank line inside a match block is not payload of a literal, so `#endif⏎⏎#if` reads
  *  back as `#endif⏎#if`, which no language tells apart once normalized. */
 function samePrinted(
-  file: HatchFile,
-  again: HatchFile,
+  file: SirFile,
+  again: SirFile,
   canon: (raw: string) => string,
   where: string,
   body: (text: string) => string = (text) => text,
 ): void {
-  const seen = (f: HatchFile, k: number): FlatStep[] =>
+  const seen = (f: SirFile, k: number): FlatStep[] =>
     strip(f.hunks[k]!.match).map((s) => (s.anchor.raw === undefined ? s : { ...s, anchor: { ...s.anchor, raw: canon(s.anchor.raw) } }));
   assert.equal(again.hunks.length, file.hunks.length, `${where}: print → parse keeps the number of hunks`);
   file.hunks.forEach((h, k) => {
@@ -182,8 +182,8 @@ for (const language of LANGUAGES) {
         continue;
       }
       anchored++;
-      const printed = printHatchFile(hunks, adapter.name);
-      const file = parseHatchFile(printed);
+      const printed = printSirFile(hunks, adapter.name);
+      const file = parseSirFile(printed);
       samePrinted({ hunks }, file, (raw) => adapter.normalize(raw), where);
       const applied = applyAll(source.text, file, adapter).source;
       if (exact) assert.equal(applied, next, `${where}: the printed patch does not give the new text`);
@@ -223,9 +223,9 @@ for (const language of LANGUAGES) {
       const { text: next, ops } = mutate(r, source.text);
       if (next === source.text) continue;
       const where = `seed ${SEED}, case ${c} (${source.name}: ${ops.join(', ')})`;
-      let file: HatchFile;
+      let file: SirFile;
       try {
-        file = parseHatchFile(printHatchFile(synthesize(source.text, next, adapter, { exact: true }), adapter.name));
+        file = parseSirFile(printSirFile(synthesize(source.text, next, adapter, { exact: true }), adapter.name));
       } catch (e) {
         if (e instanceof SynthesisError) continue;
         throw e;
@@ -265,22 +265,22 @@ for (const language of LANGUAGES) {
   });
 }
 
-// ── the parser: a .hatch that is not well formed is a ParseError, nothing else ──────
+// ── the parser: a .sirp that is not well formed is a ParseError, nothing else ──────
 
 const TOKENS = [
   '# match', '# match cpp', '# match python', '# match nosuchlang', '# patch', '# end', '# note', '#  end', ' # end',
   '    ...', '    >>>', '    <<<', '    \\...', '    foo >>> bar <<< baz', '    int x;', '      body();', '',
-  '    ', 'Hatch: 1', 'Hatch: 99', 'Hatch: x', 'Target: ../x', 'Target: /abs', 'Target: a\\b', 'Base-Blob: z',
-  'Hatch-Version: 9', 'Grammar: g@1', 'X-Unknown: v', '```', '```cpp', 'prose', '\t# end', '    \u2028', '    é ☃ 😀',
+  '    ', 'Sir: 2', 'Sir: 99', 'Sir: x', 'Target: ../x', 'Target: /abs', 'Target: a\\b', 'Base-Blob: z',
+  'Sir-Version: 9', 'Grammar: g@1', 'X-Unknown: v', '```', '```cpp', 'prose', '\t# end', '    \u2028', '    é ☃ 😀',
 ];
 
-function hatchFiles(): string[] {
+function sirFiles(): string[] {
   const out: string[] = [];
   for (const language of LANGUAGES) {
     for (const kind of ['generate', 'apply']) {
       const dir = join(GOLDEN, language, kind);
       if (!isDir(dir)) continue;
-      for (const f of readdirSync(dir).sort()) if (f.endsWith('.hatch')) out.push(readFileSync(join(dir, f), 'utf8'));
+      for (const f of readdirSync(dir).sort()) if (f.endsWith('.sirp')) out.push(readFileSync(join(dir, f), 'utf8'));
     }
   }
   return out;
@@ -309,20 +309,20 @@ function damage(r: () => number, text: string): string {
 }
 
 function parsesOrRefuses(text: string, where: string): void {
-  let file: HatchFile;
+  let file: SirFile;
   try {
-    file = parseHatchFile(text);
+    file = parseSirFile(text);
   } catch (e) {
     assert.ok(e instanceof ParseError, `${where}: ${(e as Error).name} instead of a ParseError: ${(e as Error).message}\n--- input ---\n${text}`);
     assert.ok(Number.isInteger(e.mdLine) && e.mdLine >= 0, `${where}: the ParseError names a line`);
     return;
   }
   // what reads must read again the same once printed
-  samePrinted(file, parseHatchFile(printHatchFile(file.hunks, file.language)), dropBlankLines, where, dropLineEndCr);
+  samePrinted(file, parseSirFile(printSirFile(file.hunks, file.language)), dropBlankLines, where, dropLineEndCr);
 }
 
-test('fuzz: a damaged .hatch from the goldens is read or refused with a ParseError — never another error', () => {
-  const sources = hatchFiles();
+test('fuzz: a damaged .sirp from the goldens is read or refused with a ParseError — never another error', () => {
+  const sources = sirFiles();
   const started = Date.now();
   let refused = 0;
   const cases = 1500 * RUNS;
@@ -335,7 +335,7 @@ test('fuzz: a damaged .hatch from the goldens is read or refused with a ParseErr
       throw e;
     }
     try {
-      parseHatchFile(text);
+      parseSirFile(text);
     } catch {
       refused++;
     }
@@ -344,7 +344,7 @@ test('fuzz: a damaged .hatch from the goldens is read or refused with a ParseErr
   assert.ok(Date.now() - started < 20_000 * RUNS, 'no input makes the parser crawl');
 });
 
-test('fuzz: a .hatch made of format tokens at random is read or refused with a ParseError', () => {
+test('fuzz: a .sirp made of format tokens at random is read or refused with a ParseError', () => {
   const cases = 1500 * RUNS;
   for (let c = 0; c < cases; c++) {
     const r = rng((SEED * 31 + c) >>> 0);

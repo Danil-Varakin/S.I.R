@@ -53,7 +53,7 @@ export function parseArgs<T extends object>(argv: readonly string[], spec: ArgSp
 }
 
 /** The options of `spec` named in `names`, each with the meaning it has there — how a
- *  command whose flags must be a subset of another's (`hatch-apply` of `hatch apply`,
+ *  command whose flags must be a subset of another's (`sir-apply` of `sir apply`,
  *  VERSIONING.md F2) is built: an option `spec` does not have is a fault of the build. */
 export function pickOptions<T>(spec: ArgSpec<T>, names: readonly string[]): ArgSpec<T> {
   const groups = ['flags', 'negated', 'values', 'counts', 'optional'] as const;

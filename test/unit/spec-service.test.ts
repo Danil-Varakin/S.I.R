@@ -10,7 +10,7 @@ import { handle } from '../../src/service/handler.ts';
 import { serve } from '../../src/service/index.ts';
 import type { ProgressMessage, ResponseMessage, ServiceError } from '../../src/service/protocol.ts';
 import type { HunkLink } from '../../src/core/resolve.ts';
-import { hatchMd } from '../helpers.ts';
+import { sirMd } from '../helpers.ts';
 
 // Audit 2026-10-05: the service against PROTOCOL.md — "Transport", "Two levels of
 // failure", the error table, `version`, `generate`, `apply`, `cancel`, "The link table".
@@ -132,7 +132,7 @@ test('generate progress: "done of total, where total is known before synthesis s
 // ── cancel ────────────────────────────────────────────────────────────────────────────
 
 test('cancel: "the other methods do not stop: they answer as usual" — a resolve with a cancel behind it', async () => {
-  const patch = hatchMd([{ match: '...\none();\n>>>\n...', patch: 'two();' }]);
+  const patch = sirMd([{ match: '...\none();\n>>>\n...', patch: 'two();' }]);
   const answered = replies(
     await served([
       JSON.stringify({ id: 1, method: 'resolve', params: { patch, baseText: BASE } }),
@@ -152,7 +152,7 @@ test('cancel: "cancel itself cannot be cancelled" — a cancel naming its own id
 // ── Two levels of failure; the link table ─────────────────────────────────────────────
 
 test('apply: "apply still returns text — with the hunks that landed"', async () => {
-  const patch = hatchMd([
+  const patch = sirMd([
     { match: '...\none();\n>>>\n...', patch: 'two();' },
     { match: '...\nnosuch();\n>>>\n...', patch: 'three();' },
   ]);
@@ -163,8 +163,8 @@ test('apply: "apply still returns text — with the hunks that landed"', async (
   assert.equal(result['text'], BASE.replace('one();', 'one();two();'));
 });
 
-test('link table: "one entry per hunk, in the order of the .hatch"; index is the hunk\'s position', async () => {
-  const patch = hatchMd([
+test('link table: "one entry per hunk, in the order of the .sirp"; index is the hunk\'s position', async () => {
+  const patch = sirMd([
     { match: '...\nnamespace f {\n>>>\n...', patch: '\nint a;' },
     { match: '...\nnosuch();\n>>>\n...', patch: 'x();' },
     { match: '...\none();\n>>>\n...', patch: 'two();' },
@@ -178,7 +178,7 @@ test('link table: "one entry per hunk, in the order of the .hatch"; index is the
 
 test('link table: "offsets are UTF-16 code units (JavaScript string indices), not bytes"', async () => {
   const base = `// 👋 привет 变量\n${BASE.replace('one();', 'log("🙂");\n  one();')}`;
-  const patch = hatchMd([{ match: '...\n>>>\none();\n<<<\n...', patch: 'uno();' }]);
+  const patch = sirMd([{ match: '...\n>>>\none();\n<<<\n...', patch: 'uno();' }]);
   const result = ok(await call('apply', { patch, baseText: base, language: 'cpp' }));
   const link = (result['hunks'] as HunkLink[])[0]!;
   assert.equal(link.status, 'ok');
@@ -198,7 +198,7 @@ test('errors: an unknown language is a LanguageError with detail.language, and e
 });
 
 test('errors: GitError reasons from the list — no-repository, no-git', async () => {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'hatch-svc-norepo-')));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'sir-svc-norepo-')));
   try {
     const path = join(dir, 'a.cc');
     writeFileSync(path, BASE);
@@ -253,7 +253,7 @@ test('generate: the same request twice gets the same answer', async () => {
 });
 
 test('"the service takes text and writes no files" — generate, resolve, apply, pair and config in a project leave it as it was', async () => {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'hatch-svc-nowrite-')));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'sir-svc-nowrite-')));
   const snapshot = (): string[] => {
     const all: string[] = [];
     const walk = (d: string): void => {
@@ -269,7 +269,7 @@ test('"the service takes text and writes no files" — generate, resolve, apply,
   try {
     mkdirSync(join(dir, '.git'));
     mkdirSync(join(dir, 'src'));
-    writeFileSync(join(dir, 'hatch.config.json'), JSON.stringify({ version: 2, upstream: '.', generate: { out: 'patches' } }));
+    writeFileSync(join(dir, 'sir.config.json'), JSON.stringify({ version: 3, upstream: '.', generate: { out: 'patches' } }));
     const path = join(dir, 'src', 'a.cc');
     writeFileSync(path, BASE);
     const before = snapshot();

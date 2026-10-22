@@ -1,0 +1,13 @@
+Sir: 2
+Target: test/golden/text/generate/test2.new.template
+
+# match text
+    ...
+    >>>
+    Maintainer: @@MAINTNAME@@ <@@MAINTMAIL@@>
+    <<<
+    ...
+# end
+# patch
+    Maintainer: Brave Software <support@brave.com>
+# end

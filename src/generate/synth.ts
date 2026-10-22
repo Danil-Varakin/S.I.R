@@ -4,8 +4,8 @@ import type { LanguageAdapter, SourceMap, BlockSpan, MapCache } from '../lang/so
 import { mapFor } from '../lang/source-map.ts';
 import { matchPattern } from '../core/matcher.ts';
 import { cutOf, patchHunk } from '../core/patcher.ts';
-import { printPattern } from '../core/hatch-printer.ts';
-import { literalAsRead } from '../core/hatch-parser.ts';
+import { printPattern } from '../core/sir-printer.ts';
+import { literalAsRead } from '../core/sir-parser.ts';
 import { AmbiguityError, MatchError, SynthesisError, firstLineOf } from '../core/errors.ts';
 import { withDraft } from './draft.ts';
 import { firstLineEnd } from '../core/eol.ts';
@@ -276,7 +276,7 @@ function resolveHunk(context: HunkContext): ResolvedHunk {
 }
 
 /** No candidate stood: the most informative of their failures, told as what it is — a
- *  change `generate` could not anchor, not a `.hatch` that failed to apply. No candidate
+ *  change `generate` could not anchor, not a `.sirp` that failed to apply. No candidate
  *  at all is `no-match`: no pattern lands there, and none fitted twice. Exported for its
  *  test. */
 export function anchorFailure(segment: ChangeSegment, failure: unknown): SynthesisError {

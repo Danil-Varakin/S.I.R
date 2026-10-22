@@ -6,26 +6,26 @@ import { isDirectory, isFile, isRepoRoot, pathWithin, toPosixPath, upwards } fro
 import { CONFIG_FILE_NAME, configCandidates, loadConfig } from './config/load.ts';
 import type { FlagOverride, ResolvedConfig } from './config/load.ts';
 
-// The ONE place that decides whose a file is: which hatch.config.json speaks for it,
+// The ONE place that decides whose a file is: which sir.config.json speaks for it,
 // and — with `upstream` — where the code it patches lives.
 //
 // A project may patch code it does not own: Brave keeps its patches in src/brave and
 // patches Chromium around it, which commits nowhere. Its config says so with
 // `"upstream": ".."`, the root of that code measured from the config file. The patch of
-// src/chrome/browser/ui/browser.h is then src/brave/<out>/chrome/browser/ui/browser.h.hatch
+// src/chrome/browser/ui/browser.h is then src/brave/<out>/chrome/browser/ui/browser.h.sirp
 // and its `Target` is chrome/browser/ui/browser.h.
 //
 // The config of a file of code is looked for:
 //   1. up from the file to the root of its git repository — a project of one repository;
 //   2. else a config that CLAIMS the file — its `upstream` holds it — in the immediate
-//      subdirectories of every repository root on the way up (src/*/hatch.config.json),
+//      subdirectories of every repository root on the way up (src/*/sir.config.json),
 //      and in the directories above the first repository root (the upstream inside the
 //      project);
-//   3. else HATCH_CONFIG, else a config in the current directory that claims the file.
+//   3. else SIR_CONFIG, else a config in the current directory that claims the file.
 // Two claims are an error that names both. `--config` (the protocol's `configPath`)
 // comes before all of it. A patch finds its config up from itself, as step 1.
 
-export const CONFIG_ENV = 'HATCH_CONFIG';
+export const CONFIG_ENV = 'SIR_CONFIG';
 
 /** Where a project lies. `upstreamRoot` null: the code is in the project's own tree, and
  *  paths are as they always were — beside the file, or under `out`. */

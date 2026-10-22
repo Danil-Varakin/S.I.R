@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/javascript/apply/test4.js
+
+# match js
+    ...
+      *entries() {
+    ...
+    >>>
+          yield [name, list.length];
+    <<<
+    ...
+# end
+# patch
+    yield [name, list.length, this.#depth];
+# end

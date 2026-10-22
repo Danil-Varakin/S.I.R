@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/objc/generate/test4.new.m
+Grammar: tree-sitter-objc@3.0.2
+
+# match objc
+    ...
+    ^(
+    ...
+    ) {
+    ...
+    >>>
+        [self handle:data];
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    [self handle:data error:error];
+# end

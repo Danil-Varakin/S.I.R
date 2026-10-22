@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/tsx/generate/test4.new.tsx
+Grammar: tree-sitter-typescript@0.23.2
+
+# match tsx
+    ...
+      return (
+    ...
+    >>>
+          {visible && <strong>{text}</strong>}
+    <<<
+    ...
+    )
+    ...
+# end
+# patch
+    {visible && <strong>{text.trim()}</strong>}
+# end

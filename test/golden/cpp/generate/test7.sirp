@@ -1,0 +1,16 @@
+Sir: 2
+Target: test/golden/cpp/generate/test7.new.cc
+Grammar: tree-sitter-cpp@0.23.4
+
+# match cpp
+    ...
+    ADD_PROPERTY_METADATA(
+    ...
+    )
+    >>>
+    ...
+# end
+# patch
+
+    ADD_PROPERTY_METADATA(int, Count)
+# end

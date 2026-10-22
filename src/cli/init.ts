@@ -16,12 +16,12 @@ interface Options {
   help: boolean;
 }
 
-const USAGE = `hatch init — write a hatch.config.json
+const USAGE = `sir init — write a sir.config.json
 
 Writes only "$schema" and "version": every other key keeps the built-in default until
 you set it, so a later change of a default reaches the project.
 
-  --config-version <n>  config schema to write (default: the newest this hatch reads)
+  --config-version <n>  config schema to write (default: the newest this sir reads)
   --dir <dir>           where to write it (default: the root of the git repository
                         around the current directory; outside one, the directory itself)
   --upstream <path>     the project patches code it does not own: the root of that
@@ -30,7 +30,7 @@ you set it, so a later change of a default reaches the project.
                         kept in a tree of their own in one repository). Written as
                         "upstream", with generate.out (default "patches") beside it
   --out <dir>           with --upstream: the patch tree, from the config's directory
-  --force               replace an existing hatch.config.json
+  --force               replace an existing sir.config.json
   --dry-run             print the file to stdout, write nothing
   --help, -h            this help`;
 

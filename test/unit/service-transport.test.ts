@@ -97,7 +97,7 @@ test('service: an output that breaks under a reply — told on stderr, the other
   }) as typeof output.write;
 
   const said = await stderrOf(() => serve(Readable.from([`${VERSION(1)}\n${VERSION(2)}\n${VERSION(3)}\n`]), output));
-  assert.equal(said, 'hatch service: the pipe is gone\n');
+  assert.equal(said, 'sir service: the pipe is gone\n');
   assert.deepEqual(ids(written).sort(), [1, 3]);
 });
 
@@ -107,5 +107,5 @@ test('service: a thrown value that is no Error is told by its text', async () =>
     throw 'just a string';
   }) as typeof output.write;
   const said = await stderrOf(() => serve(Readable.from([`${VERSION(1)}\n`]), output));
-  assert.equal(said, 'hatch service: just a string\n');
+  assert.equal(said, 'sir service: just a string\n');
 });

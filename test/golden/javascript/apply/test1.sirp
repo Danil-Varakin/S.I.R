@@ -1,0 +1,16 @@
+Sir: 2
+Target: test/golden/javascript/apply/test1.js
+
+# match js
+    ...
+    export class Bus {
+    ...
+      #handlers = new Map();
+    >>>
+      #depth = 0;
+    ...
+# end
+# patch
+
+      #closed = false;
+# end

@@ -1,0 +1,17 @@
+Sir: 2
+Target: test/golden/mojom/apply/test4.mojom
+
+# match mojom
+    ...
+    struct FrameReplicationState {
+    ...
+      string name;
+    >>>
+    ...
+    }
+    ...
+# end
+# patch
+
+      bool brave_farbling_enabled = false;
+# end

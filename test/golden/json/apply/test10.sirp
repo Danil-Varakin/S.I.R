@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/json/apply/test10.json
+Grammar: tree-sitter-json@0.24.8
+
+# match json
+    ...
+      "background": {
+    ...
+    >>>
+        "type": "module"
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    "type": "classic"
+# end

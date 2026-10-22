@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/c/generate/test10.new.c
+Grammar: tree-sitter-c@0.24.1
+
+# match c
+    ...
+    >>>
+    typedef int (*compare_fn)(const void *a, const void *b);
+    <<<
+    ...
+# end
+# patch
+    typedef int (*compare_fn)(const void *a, const void *b, void *ctx);
+# end

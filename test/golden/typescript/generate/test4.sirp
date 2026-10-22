@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/typescript/generate/test4.new.ts
+Grammar: tree-sitter-typescript@0.23.2
+
+# match typescript
+    ...
+    type Boxed<
+    ...
+    > = {
+    ...
+    >>>
+      [K in keyof T]: { value: T[K]; dirty: boolean };
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    [K in keyof T]: { value: T[K]; dirty: boolean; stamp: number };
+# end

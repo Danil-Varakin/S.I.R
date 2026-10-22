@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/go/generate/test7.new.go
+Grammar: tree-sitter-go@0.25.0
+
+# match go
+    ...
+    	StateBusy
+    >>>
+    ...
+# end
+# patch
+
+    	StateStalled
+# end

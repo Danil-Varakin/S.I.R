@@ -8,14 +8,14 @@ import { InputClosed } from '../../src/infra/ask.ts';
 import { MatchError } from '../../src/core/errors.ts';
 import type { Steering, Verdict } from '../../src/generate/steer.ts';
 import { synthesize } from '../../src/generate/synth.ts';
-import { printHatchFile } from '../../src/generate/printer.ts';
-import { parseHatchFile } from '../../src/core/hatch-parser.ts';
+import { printSirFile } from '../../src/generate/printer.ts';
+import { parseSirFile } from '../../src/core/sir-parser.ts';
 import { resolveHunks } from '../../src/core/resolve.ts';
 import { SynthesisError } from '../../src/core/errors.ts';
 import { cppAdapter } from '../../src/lang/cpp/index.ts';
 
 // The person is played by the test: what they answer, and what they type into the
-// editor, scripted; what hatch asked and showed them, recorded.
+// editor, scripted; what sir asked and showed them, recorded.
 
 interface Script {
   readonly verdicts?: Verdict[];
@@ -49,7 +49,7 @@ async function steer(oldText: string, newText: string, script: Script) {
 }
 
 function applied(oldText: string, hunks: readonly unknown[]): string {
-  const file = parseHatchFile(printHatchFile(hunks as never, 'cpp'));
+  const file = parseSirFile(printSirFile(hunks as never, 'cpp'));
   const { links, applied: text } = resolveHunks(oldText, file, cppAdapter);
   assert.ok(links.every((l) => l.status === 'ok'), JSON.stringify(links.map((l) => l.status)));
   return text;
@@ -101,9 +101,9 @@ test('steer: a # note written in the editor stays with its hunk — in the hunks
   });
   const result = await run;
   assert.equal(result.hunks[0]!.note?.text, 'why a2: the old name is gone upstream');
-  const printed = printHatchFile(result.hunks, 'cpp');
+  const printed = printSirFile(result.hunks, 'cpp');
   assert.match(printed, /^# note\nwhy a2: the old name is gone upstream\n# end\n# match cpp$/m);
-  assert.equal(parseHatchFile(printed).hunks[0]!.note?.text, 'why a2: the old name is gone upstream');
+  assert.equal(parseSirFile(printed).hunks[0]!.note?.text, 'why a2: the old name is gone upstream');
   assert.equal(applied(OLD, result.hunks), NEW);
 });
 
@@ -230,11 +230,11 @@ test('steer: the tracer hears every change as a segment, numbered from the hunks
 test('steer: the limits are passed on to synthesis', async () => {
   const plain = await steerWith({ oldText: OLD, newText: NEW }, unattended);
   const bare = await steerWith({ oldText: OLD, newText: NEW, limits: { maxParents: 0, minParents: 0 } }, unattended);
-  assert.match(printHatchFile(plain.hunks, 'cpp'), /void f\(\)/);
-  assert.doesNotMatch(printHatchFile(bare.hunks, 'cpp'), /void f\(\)/);
+  assert.match(printSirFile(plain.hunks, 'cpp'), /void f\(\)/);
+  assert.doesNotMatch(printSirFile(bare.hunks, 'cpp'), /void f\(\)/);
   assert.equal(
-    printHatchFile(bare.hunks, 'cpp'),
-    printHatchFile(synthesize(OLD, NEW, cppAdapter, { limits: { maxParents: 0, minParents: 0 } }), 'cpp'),
+    printSirFile(bare.hunks, 'cpp'),
+    printSirFile(synthesize(OLD, NEW, cppAdapter, { limits: { maxParents: 0, minParents: 0 } }), 'cpp'),
   );
 });
 
@@ -278,7 +278,7 @@ test('steer: the editor opens on a note — what to do, the reason, the change q
   const [note, hunks] = shown[0]!.split(`${'-'.repeat(80)}\n`);
   assert.equal(
     note,
-    'Hatch — edit the hunks below, then save and close the editor. The hunks are applied\n' +
+    'Sir — edit the hunks below, then save and close the editor. The hunks are applied\n' +
       'in order to the OLD version, and everything above the first "# match" is ignored.\n' +
       '\n' +
       '  hunk 1: declined\n' +

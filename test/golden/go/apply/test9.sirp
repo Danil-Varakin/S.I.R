@@ -1,0 +1,21 @@
+Sir: 2
+Target: test/golden/go/apply/test9.go
+Grammar: tree-sitter-go@0.25.0
+
+# match go
+    ...
+    func describe(
+    ...
+    ) string {
+    ...
+    		return v.Error()
+    >>>
+    ...
+    }
+    ...
+# end
+# patch
+
+    	case string:
+    		return v
+# end

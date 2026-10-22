@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { parseHatchFile } from '../../src/core/hatch-parser.ts';
+import { parseSirFile } from '../../src/core/sir-parser.ts';
 import { applyAll } from '../../src/core/apply.ts';
 import { synthesize } from '../../src/generate/synth.ts';
-import { printHatchFile } from '../../src/generate/printer.ts';
+import { printSirFile } from '../../src/generate/printer.ts';
 import { adapterForLanguage, adapterForFile } from '../../src/lang/adapter.ts';
-import { hatchMd } from '../helpers.ts';
+import { sirMd } from '../helpers.ts';
 import type { SourceMap } from '../../src/lang/source-map.ts';
 
 // depthAt жил в SourceMap, но в src/ его не звал никто — только тесты. Выводится из
@@ -205,11 +205,11 @@ for (const c of CASES) {
     assert.ok(withHeader.length >= 1, 'the block has a header');
     assert.ok(withHeader.every((s) => s.headerStart! < s.open), 'the header is not empty');
 
-    const md = hatchMd(
+    const md = sirMd(
       [{ match: `...\n${c.header}\n...\n${c.body}\n>>>\n...`, patch: '\n  c();' }],
       c.lang,
     );
-    const { source, edits } = applyAll(c.source, parseHatchFile(md), adapter);
+    const { source, edits } = applyAll(c.source, parseSirFile(md), adapter);
     assert.equal(edits.length, 1);
     const at = source.indexOf('c();');
     assert.ok(at > source.indexOf(c.body), 'the edit lands after the body anchor');
@@ -221,8 +221,8 @@ for (const c of CASES) {
     await adapter.init();
     const changed = c.source.replace(c.body, c.body.replace('b', 'z'));
     assert.notEqual(changed, c.source);
-    const md = printHatchFile(synthesize(c.source, changed, adapter), c.lang);
-    assert.equal(applyAll(c.source, parseHatchFile(md), adapter).source, changed);
+    const md = printSirFile(synthesize(c.source, changed, adapter), c.lang);
+    assert.equal(applyAll(c.source, parseSirFile(md), adapter).source, changed);
   });
 }
 
@@ -246,7 +246,7 @@ for (const language of readdirSync(GOLDEN, { withFileTypes: true }).filter((d) =
     for (const kind of ['apply', 'generate']) {
       const dir = join(GOLDEN, language, kind);
       if (!existsSync(dir)) continue;
-      for (const file of readdirSync(dir).filter((f) => !f.endsWith('.hatch'))) {
+      for (const file of readdirSync(dir).filter((f) => !f.endsWith('.sirp'))) {
         const map = adapter.buildMap(readFileSync(join(dir, file), 'utf8'));
         declared = map.closesByOutdent;
         const blocks = [...map.blocksWithin(0, map.eof), ...map.enclosing(map.eof)];

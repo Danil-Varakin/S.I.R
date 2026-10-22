@@ -1,0 +1,22 @@
+Sir: 2
+Target: test/golden/go/generate/test6.new.go
+Grammar: tree-sitter-go@0.25.0
+
+# match go
+    ...
+    func (
+    ...
+    ) Handle(
+    ...
+    ) {
+    ...
+    >>>
+    	s.count++
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    s.count += 2
+# end

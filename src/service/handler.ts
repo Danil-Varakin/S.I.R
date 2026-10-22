@@ -28,9 +28,10 @@ import type {
   VersionResult,
 } from './protocol.ts';
 import { PROTOCOL_MIN, PROTOCOL_VERSION } from './protocol.ts';
-import { parseHatchFile } from '../core/hatch-parser.ts';
+import { parseSirFile } from '../core/sir-parser.ts';
+import { FORMAT_MIN } from '../core/header.ts';
 import { resolveHunks } from '../core/resolve.ts';
-import { GitError, HatchError, NoChanges } from '../core/errors.ts';
+import { GitError, SirError, NoChanges } from '../core/errors.ts';
 import { generatePatch, patchHeader } from '../generate/pipeline.ts';
 import { trailingSpaceWarningsAt } from '../generate/printer.ts';
 import { pickAdapter, pickedAdapter, supportedLanguages } from '../lang/adapter.ts';
@@ -165,7 +166,7 @@ function cancel(p: CancelParams, session: Session): CancelResult {
 
 function version(): VersionResult {
   return {
-    hatch: packageIdentity().version,
+    sir: packageIdentity().version,
     protocol: PROTOCOL_VERSION,
     protocolMin: PROTOCOL_MIN,
     configSchema: CONFIG_VERSION,
@@ -312,13 +313,13 @@ async function resolveRequest(
   } else {
     patchText = readPatch(p.path!);
   }
-  const file = parseHatchFile(patchText);
+  const file = parseSirFile(patchText);
   const code = byPatch ? codeNamedBy(p.path!, patchText, p.configPath) : p.path;
   const at: ResolveParams = code === undefined ? p : { ...p, path: code };
   const base = await baseOf(patchedBase(at, byPatch ? p.path : code), at);
   const adapter = await ready(at, file.language);
   const facts = {
-    header: file.header ?? { format: 1 },
+    header: file.header ?? { format: FORMAT_MIN },
     code: code ?? null,
     warningsAt: trailingSpaceWarningsAt(file.hunks, patchText),
   };
@@ -379,7 +380,7 @@ function configTemplateOf(p: ConfigTemplateParams): ConfigTemplateResult {
 }
 
 async function configOf(p: ConfigParams): Promise<ConfigResult> {
-  requiredPath(p.path, 'the file (code or .hatch) the settings are for');
+  requiredPath(p.path, 'the file (code or .sirp) the settings are for');
   const o = withConfigPath(overridesOf(p.overrides), p.configPath);
   const { config, project } = settingsFor(p.path, o);
   const choice = baseChoice(config.generate, o);
@@ -441,7 +442,7 @@ function targetOfPair(path: string, config: ResolvedConfig, project: Project): s
 }
 
 function pairFor(p: PairParams): PairResult {
-  requiredPath(p.path, 'the file of code or the .hatch to pair');
+  requiredPath(p.path, 'the file of code or the .sirp to pair');
   const { config, project } = settingsFor(p.path, withConfigPath(overridesOf(p.overrides), p.configPath));
   return pairOf(p.path, { out: config.generate.out, project }, p.patch);
 }
@@ -480,7 +481,7 @@ function toServiceError(e: unknown): ServiceError {
   if (e instanceof Cancelled) {
     return { kind: 'Cancelled', message: e.message, exitCode: 1 };
   }
-  if (e instanceof HatchError) {
+  if (e instanceof SirError) {
     const detail = e.hunkAt === undefined ? e.detail() : { ...e.detail(), ...e.hunkAt };
     return {
       kind: e.name,

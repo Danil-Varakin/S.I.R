@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/go/generate/test12.new.go
+Grammar: tree-sitter-go@0.25.0
+
+# match go
+    ...
+    func describe(
+    ...
+    ) string {
+    ...
+    >>>
+    		return strconv.Itoa(v)
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    return strconv.FormatInt(int64(v), 10)
+# end

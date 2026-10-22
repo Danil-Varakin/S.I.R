@@ -1,0 +1,27 @@
+Sir: 2
+Target: test/golden/json5/generate/test8.new.json5
+Grammar: tree-sitter-javascript@0.25.0
+
+# match json5
+    ...
+      data: [
+    ...
+        {
+          name: "AIPromptAPI",
+    ...
+          status: {
+    ...
+            "Mac": "stable",
+    >>>
+    ...
+    }
+    ...
+    }
+    ...
+    ]
+    ...
+# end
+# patch
+
+            "Linux": "stable",
+# end

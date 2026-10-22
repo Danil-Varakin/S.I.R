@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/objc/apply/test5.m
+
+# match objc
+    ...
+    @property(nonatomic, copy) NSString *endpoint;
+    >>>
+    @property(nonatomic, assign) NSInteger retries;
+    ...
+# end
+# patch
+
+    @property(nonatomic, assign) NSTimeInterval timeout;
+# end

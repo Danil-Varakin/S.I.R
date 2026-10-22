@@ -1,31 +1,31 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { parseHatchFile } from '../../src/core/hatch-parser.ts';
+import { parseSirFile } from '../../src/core/sir-parser.ts';
 import { applyAll } from '../../src/core/apply.ts';
 import { synthesize } from '../../src/generate/synth.ts';
-import { printHatchFile } from '../../src/generate/printer.ts';
+import { printSirFile } from '../../src/generate/printer.ts';
 import { AmbiguityError, MatchError, ParseError } from '../../src/core/errors.ts';
 import { cppAdapter } from '../../src/lang/cpp/index.ts';
-import { firstMatch, hatchMd, strip, wrapMatch } from '../helpers.ts';
+import { firstMatch, sirMd, strip, wrapMatch } from '../helpers.ts';
 
 // Audit 2026-10-05: the core against README ("The file format", "The language",
 // "Three rules fixed by decision", "Known limitations", "API"). Every expectation below is
 // a sentence of the README, quoted in the test name; none is read off the code.
 
 const roundtrip = (oldText: string, newText: string): string => {
-  const md = printHatchFile(synthesize(oldText, newText, cppAdapter), 'cpp');
-  return applyAll(oldText, parseHatchFile(md), cppAdapter).source;
+  const md = printSirFile(synthesize(oldText, newText, cppAdapter), 'cpp');
+  return applyAll(oldText, parseSirFile(md), cppAdapter).source;
 };
 
-const applyText = (source: string, md: string): string => applyAll(source, parseHatchFile(md), cppAdapter).source;
+const applyText = (source: string, md: string): string => applyAll(source, parseSirFile(md), cppAdapter).source;
 
 // ── the file format: empty and degenerate inputs ─────────────────────────────────────
 
 test('format: an empty file, blank lines only, or a header with no hunks is a ParseError (exit 2), not an empty patch', () => {
-  for (const text of ['', '\n\n   \n', 'Hatch: 1\nTarget: a.cc\n\n', 'just prose\n']) {
+  for (const text of ['', '\n\n   \n', 'Sir: 2\nTarget: a.cc\n\n', 'just prose\n']) {
     assert.throws(
-      () => parseHatchFile(text),
+      () => parseSirFile(text),
       (e: unknown) => e instanceof ParseError && e.exitCode === 2,
       JSON.stringify(text),
     );
@@ -34,15 +34,15 @@ test('format: an empty file, blank lines only, or a header with no hunks is a Pa
 
 test('format: "an instruction file may reach you with LF or CRLF … both read alike"', () => {
   const lf =
-    'Hatch: 1\nTarget: src/a.cc\n\n' +
+    'Sir: 2\nTarget: src/a.cc\n\n' +
     '# note\nwhy: see review\n# end\n' +
-    hatchMd([
+    sirMd([
       { match: '...\nvoid f() {\n...\n>>>\n}\n...', patch: '\n  a();\n\n  b();' },
       { match: '...\nint x;\n>>>\n...', patch: '' },
     ]);
   const crlf = lf.replace(/\n/g, '\r\n');
-  const a = parseHatchFile(lf);
-  const b = parseHatchFile(crlf);
+  const a = parseSirFile(lf);
+  const b = parseSirFile(crlf);
   assert.deepEqual(b.header, a.header);
   assert.equal(b.hunks.length, a.hunks.length);
   for (let i = 0; i < a.hunks.length; i++) {
@@ -54,7 +54,7 @@ test('format: "an instruction file may reach you with LF or CRLF … both read a
 
 test('format: a large patch — 2000 hunks — is read whole, every hunk at its own lines', () => {
   const hunks = Array.from({ length: 2000 }, (_, i) => ({ match: `...\nint v${i} = ${i};\n>>>\n...`, patch: `int w${i};` }));
-  const file = parseHatchFile(hatchMd(hunks));
+  const file = parseSirFile(sirMd(hunks));
   assert.equal(file.hunks.length, 2000);
   for (let i = 1; i < file.hunks.length; i++) {
     const prev = file.hunks[i - 1]!.mdSpan!;
@@ -84,27 +84,27 @@ const SRC = 'void f() {\n  a();\n}\n';
 
 test('language: "no ... before the first literal means starts at the very beginning of the file"', async () => {
   await cppAdapter.init();
-  const md = hatchMd([{ match: 'a();\n>>>\n...', patch: 'X();' }]);
+  const md = sirMd([{ match: 'a();\n>>>\n...', patch: 'X();' }]);
   assert.throws(() => applyText(`x();\n${SRC}`, md), MatchError, 'a(); is not at offset 0');
   assert.equal(applyText('a();\nb();\n', md), 'a();X();\nb();\n');
 });
 
 test('language: "whitespace between literals and operators is insignificant for brace languages"', async () => {
   await cppAdapter.init();
-  const md = hatchMd([{ match: '...\n      void    f (  )\n {\n a ( ) ;\n>>>\n }\n...', patch: '\n  b();' }]);
+  const md = sirMd([{ match: '...\n      void    f (  )\n {\n a ( ) ;\n>>>\n }\n...', patch: '\n  b();' }]);
   assert.equal(applyText(SRC, md), 'void f() {\n  a();\n  b();\n}\n');
 });
 
 test('language: "inside a string literal, whitespace is data and it counts" — Log("a  b") does not match Log("a b")', async () => {
   await cppAdapter.init();
   const source = 'void f() {\n  Log("a b");\n}\n';
-  assert.throws(() => applyText(source, hatchMd([{ match: '...\nLog("a  b");\n>>>\n...', patch: 'X();' }])), MatchError);
-  assert.match(applyText(source, hatchMd([{ match: '...\nLog("a b");\n>>>\n...', patch: 'X();' }])), /Log\("a b"\);X\(\);/);
+  assert.throws(() => applyText(source, sirMd([{ match: '...\nLog("a  b");\n>>>\n...', patch: 'X();' }])), MatchError);
+  assert.match(applyText(source, sirMd([{ match: '...\nLog("a b");\n>>>\n...', patch: 'X();' }])), /Log\("a b"\);X\(\);/);
 });
 
 test('rule 1: "<<< replaces inclusively — literals between >>> and <<< must match"', async () => {
   await cppAdapter.init();
-  const md = hatchMd([{ match: '...\n>>>\nnot_there();\n<<<\n...', patch: 'new();' }]);
+  const md = sirMd([{ match: '...\n>>>\nnot_there();\n<<<\n...', patch: 'new();' }]);
   assert.throws(() => applyText(SRC, md), MatchError, 'old code that is not there is not replaced by nothing');
 });
 
@@ -112,13 +112,13 @@ test('rule 1: "<<< replaces inclusively — literals between >>> and <<< must ma
 
 test('API: applyAll "throws MatchError or AmbiguityError on the first hunk that does not fit" — with the CLI exit codes', async () => {
   await cppAdapter.init();
-  const second = hatchMd([
+  const second = sirMd([
     { match: '...\na();\n>>>\n...', patch: 'X();' },
     { match: '...\nnosuch();\n>>>\n...', patch: 'Y();' },
   ]);
   assert.throws(() => applyText(SRC, second), (e: unknown) => e instanceof MatchError && e.exitCode === 3);
 
-  const twice = hatchMd([{ match: '...\nping();\n>>>\n...', patch: 'X();' }]);
+  const twice = sirMd([{ match: '...\nping();\n>>>\n...', patch: 'X();' }]);
   assert.throws(
     () => applyText('void f(){ ping(); ping(); }', twice),
     (e: unknown) => e instanceof AmbiguityError && e.exitCode === 4 && e.positions.length === 2,
@@ -129,7 +129,7 @@ test('API: applyAll "throws MatchError or AmbiguityError on the first hunk that 
 // patch finds its place again and writes again, exit 0 — the clean base is what rules it out.
 test('known limitation: a patch laid a second time on its own result inserts again', async () => {
   await cppAdapter.init();
-  const patch = hatchMd([{ match: '...\nvoid g() {\n...\n>>>\n}\n...', patch: 'X();' }]);
+  const patch = sirMd([{ match: '...\nvoid g() {\n...\n>>>\n}\n...', patch: 'X();' }]);
   const once = applyText('void g() {\n  a();\n}\n', patch);
   const twice = applyText(once, patch);
   assert.equal(once.split('X();').length - 1, 1);
@@ -175,11 +175,11 @@ test('round trip: one line of 100 000 characters', async () => {
 
 // ── repeated calls ───────────────────────────────────────────────────────────────────
 
-test('repeat: synthesize twice on the same input prints the same .hatch (goldens rely on it)', async () => {
+test('repeat: synthesize twice on the same input prints the same .sirp (goldens rely on it)', async () => {
   await cppAdapter.init();
   const oldText = 'namespace n {\nvoid f() {\n  a();\n}\nvoid g() {\n  a();\n}\n}\n';
   const newText = 'namespace n {\nvoid f() {\n  a();\n}\nvoid g() {\n  a();\n  b();\n}\n}\n';
-  const once = printHatchFile(synthesize(oldText, newText, cppAdapter), 'cpp');
-  const twice = printHatchFile(synthesize(oldText, newText, cppAdapter), 'cpp');
+  const once = printSirFile(synthesize(oldText, newText, cppAdapter), 'cpp');
+  const twice = printSirFile(synthesize(oldText, newText, cppAdapter), 'cpp');
   assert.equal(twice, once);
 });

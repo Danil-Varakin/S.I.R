@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/cpp/generate/test10.new.cc
+Grammar: tree-sitter-cpp@0.23.4
+
+# match cpp
+    ...
+    >>>
+      "a": { "b": 1 }
+    <<<
+    ...
+# end
+# patch
+    "a": { "b": 2 }
+# end

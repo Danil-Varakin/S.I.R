@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/go/apply/test7.go
+
+# match go
+    ...
+    func banner() string {
+    ...
+    >>>
+    	return "value with spaces"
+    <<<
+    ...
+# end
+# patch
+    return "value with gaps"
+# end

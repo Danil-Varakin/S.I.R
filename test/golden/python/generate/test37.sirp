@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/python/generate/test37.new.py
+Grammar: tree-sitter-python@0.25.0
+
+# match python
+    ...
+    def build(
+    ...
+    >>>
+        tags: list[str] | None = None,
+    <<<
+    ...
+    )
+    ...
+# end
+# patch
+    tags: tuple[str, ...] | None = None,
+# end

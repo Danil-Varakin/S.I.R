@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/typescript/generate/test5.new.ts
+Grammar: tree-sitter-typescript@0.23.2
+
+# match typescript
+    ...
+    >>>
+    export function read(src: Buffer): string;
+    <<<
+    ...
+# end
+# patch
+    export function read(src: Buffer, enc?: string): string;
+# end

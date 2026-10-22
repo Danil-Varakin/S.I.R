@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import type * as wire from '../../src/service/protocol.ts';
 import type * as resolve from '../../src/core/resolve.ts';
-import type { HatchHeader } from '../../src/core/ast.ts';
+import type { SirHeader } from '../../src/core/ast.ts';
 import type { SynthesisDraft, SynthesisFailure } from '../../src/core/errors.ts';
 import type { PartialLimits, SynthLimits } from '../../src/generate/limits.ts';
 import type { HunkWarning } from '../../src/generate/printer.ts';
@@ -34,7 +34,7 @@ const sameAsTheCore: readonly true[] = [
   true satisfies Same<wire.HunkWarning, HunkWarning>,
   true satisfies Same<wire.PairReason, PairReason>,
   true satisfies Same<wire.PairResult, Pair>,
-  true satisfies Same<wire.PatchHeader, HatchHeader>,
+  true satisfies Same<wire.PatchHeader, SirHeader>,
   true satisfies Same<wire.SynthesisErrorDetail['reason'], SynthesisFailure>,
   true satisfies Same<NonNullable<wire.SynthesisErrorDetail['change']>, SynthesisDraft['change']>,
 ];

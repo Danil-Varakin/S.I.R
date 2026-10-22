@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/go/generate/test5.new.go
+Grammar: tree-sitter-go@0.25.0
+
+# match go
+    ...
+    Options{
+    ...
+    >>>
+    	Timeout: 5 * time.Second,
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    Timeout: 30 * time.Second,
+# end

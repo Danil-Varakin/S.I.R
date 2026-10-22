@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import * as api from '../../src/index.ts';
 import type {
-  HatchFile,
+  SirFile,
   Hunk,
   MatchPattern,
   LanguageAdapter,
@@ -31,7 +31,7 @@ import type {
 // and not the other, or dropped from both, fails here instead of in somebody's build.
 // The type imports above are the same check for types: the typecheck fails on a type gone.
 export type PublicTypes = [
-  HatchFile, Hunk, MatchPattern, LanguageAdapter, ApplyResult, AppliedEdit, SynthOptions, SynthEvent, Tracer,
+  SirFile, Hunk, MatchPattern, LanguageAdapter, ApplyResult, AppliedEdit, SynthOptions, SynthEvent, Tracer,
   GenerateRequest, GenerateOutcome, HunkLink, LinkFailure, LinkStatus, ResolveResult, Span, SynthesisFailure,
 ];
 
@@ -65,7 +65,7 @@ test('API: the types src/index.ts exports are exactly the types README names', (
   assert.deepEqual(exported, named);
 });
 
-test('API: every error carries the exit code README gives it, and is a HatchError', () => {
+test('API: every error carries the exit code README gives it, and is a SirError', () => {
   const errors = section(README, 'Errors');
   const text = errors.slice(errors.indexOf(':') + 1); // past "carries an `exitCode` matching the CLI:"
   // "`A` (2), `B` (3), and `C`, `D` (1)": a code belongs to every name since the last one
@@ -75,27 +75,27 @@ test('API: every error carries the exit code README gives it, and is a HatchErro
   }
   assert.equal(codes.size, 10, `README names ten errors with their codes: ${[...codes.keys()].join(', ')}`);
 
-  const make = (Ctor: unknown): InstanceType<typeof api.HatchError> =>
-    Reflect.construct(Ctor as new (...a: unknown[]) => object, ['m', 'x', 'y']) as InstanceType<typeof api.HatchError>;
+  const make = (Ctor: unknown): InstanceType<typeof api.SirError> =>
+    Reflect.construct(Ctor as new (...a: unknown[]) => object, ['m', 'x', 'y']) as InstanceType<typeof api.SirError>;
   for (const [name, code] of codes) {
     const Ctor = (api as Record<string, unknown>)[name];
     assert.equal(typeof Ctor, 'function', `${name} is exported`);
     const e = make(Ctor);
-    assert.ok(e instanceof api.HatchError, `${name} is a HatchError`);
+    assert.ok(e instanceof api.SirError, `${name} is a SirError`);
     assert.ok(e instanceof Error, `${name} is an Error`);
     assert.equal(e.exitCode, code, `${name} exits with ${code}`);
   }
 });
 
 test('API: the README example runs as written — synthesize → print → parse → applyAll gives the new text', async () => {
-  const { applyAll, synthesize, parseHatchFile, printHatchFile, adapterForLanguage } = api;
+  const { applyAll, synthesize, parseSirFile, printSirFile, adapterForLanguage } = api;
   const adapter = adapterForLanguage('cpp');
   await adapter.init();
 
   const oldCode = 'void f() {\n  a();\n}\n';
   const newCode = 'void f() {\n  a();\n  b();\n}\n';
-  const md = printHatchFile(synthesize(oldCode, newCode, adapter), 'cpp');
-  const { source, edits } = applyAll(oldCode, parseHatchFile(md), adapter);
+  const md = printSirFile(synthesize(oldCode, newCode, adapter), 'cpp');
+  const { source, edits } = applyAll(oldCode, parseSirFile(md), adapter);
 
   assert.equal(source, newCode);
   assert.equal(edits.length, 1);
@@ -108,7 +108,7 @@ test('API: generatePatch, resolveHunks, trailingSpaceWarnings, adapterForFile, s
     newText: 'int f() {\n  return 2;\n}\n',
     language: 'cpp',
   });
-  assert.match(outcome.md, /^Hatch: \d+$/m, 'the .hatch with its header');
+  assert.match(outcome.md, /^Sir: \d+$/m, 'the .sirp with its header');
 
   await assert.rejects(
     api.generatePatch({ oldText: 'int a;\n', newText: 'int a;\n', language: 'cpp' }),
@@ -118,7 +118,7 @@ test('API: generatePatch, resolveHunks, trailingSpaceWarnings, adapterForFile, s
   const adapter = api.adapterForFile('/x/y/z.cc');
   await adapter.init();
   assert.equal(adapter.name, 'cpp');
-  const file = api.parseHatchFile(outcome.md);
+  const file = api.parseSirFile(outcome.md);
   const resolved = api.resolveHunks('int f() {\n  return 1;\n}\n', file, adapter);
   assert.equal(resolved.links.length, 1);
   assert.equal(resolved.links[0]!.status, 'ok');

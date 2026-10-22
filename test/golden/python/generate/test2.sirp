@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/python/generate/test2.new.py
+Grammar: tree-sitter-python@0.25.0
+
+# match python
+    ...
+        def size(
+    ...
+    ):
+    ...
+    >>>
+            return len(self.items)
+    <<<
+    ...
+    class Gamma:
+    ...
+# end
+# patch
+    return len(self.items) - 1
+# end

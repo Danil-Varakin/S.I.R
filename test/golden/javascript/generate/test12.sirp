@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/javascript/generate/test12.new.js
+Grammar: tree-sitter-javascript@0.25.0
+
+# match javascript
+    ...
+    >>>
+    const b = a + 1
+    <<<
+    ...
+# end
+# patch
+    const b = a + 2
+# end

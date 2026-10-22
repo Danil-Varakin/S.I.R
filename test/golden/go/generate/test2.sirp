@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/go/generate/test2.new.go
+Grammar: tree-sitter-go@0.25.0
+
+# match go
+    ...
+    	if err != nil {
+    ...
+    >>>
+    		return nil, fmt.Errorf("read %s: %w", path, err)
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    return nil, fmt.Errorf("loading %s: %w", path, err)
+# end

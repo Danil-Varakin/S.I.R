@@ -1,0 +1,24 @@
+Sir: 2
+Target: test/golden/css/generate/test2.new.css
+Grammar: tree-sitter-css@0.25.0
+
+# match css
+    ...
+    @media (
+    ...
+    ) {
+    ...
+      .panel {
+    ...
+    >>>
+        color: var(--cr-primary-text-color);
+    <<<
+    ...
+    }
+    ...
+    }
+    ...
+# end
+# patch
+    color: var(--brave-dark-text-color);
+# end

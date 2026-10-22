@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/cpp/generate/test61.new.cc
+Grammar: tree-sitter-cpp@0.23.4
+
+# match cpp
+    ...
+    >>>
+    #endif  // defined(A)
+    <<<
+    ...
+# end
+# patch
+    #endif  // A
+# end

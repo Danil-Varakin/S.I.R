@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/javascript/generate/test2.new.js
+Grammar: tree-sitter-javascript@0.25.0
+
+# match javascript
+    ...
+    >>>
+    const render = (user) => `hello, ${user.name.trim()} (${user.roles.join(', ')})`;
+    <<<
+    ...
+# end
+# patch
+    const render = (user) => `hello, ${user.name.trim()} (${user.roles.join(' | ')})`;
+# end

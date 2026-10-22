@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/tsx/apply/test7.tsx
+Grammar: tree-sitter-typescript@0.23.2
+
+# match tsx
+    ...
+      return (
+    ...
+    >>>
+          {items.length === 0 && <Empty hint="nothing here" />}
+    <<<
+    ...
+    )
+    ...
+# end
+# patch
+    {items.length === 0 && <Empty hint="no tasks yet" />}
+# end

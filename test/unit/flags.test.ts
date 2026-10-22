@@ -7,20 +7,20 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 import { SynthesisError } from '../../src/core/errors.ts';
-import { printPattern } from '../../src/core/hatch-printer.ts';
+import { printPattern } from '../../src/core/sir-printer.ts';
 import { synthesize } from '../../src/generate/synth.ts';
-import { printHatchFile } from '../../src/generate/printer.ts';
+import { printSirFile } from '../../src/generate/printer.ts';
 import { cppAdapter } from '../../src/lang/cpp/index.ts';
 
 // The anchoring flags README documents that nothing ran end to end before: each one must
-// reach synthesis from the command line and from hatch.config.json, and change what it
+// reach synthesis from the command line and from sir.config.json, and change what it
 // says it changes. `--debug` is here too — the trace a person reads, not the events.
 
-const HATCH_CLI = fileURLToPath(new URL('../../src/bin/hatch.ts', import.meta.url));
+const SIR_CLI = fileURLToPath(new URL('../../src/bin/sir.ts', import.meta.url));
 
 function inTemp(body: (dir: string) => void | Promise<void>): () => Promise<void> {
   return async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'hatch-flags-'));
+    const dir = mkdtempSync(join(tmpdir(), 'sir-flags-'));
     try {
       await body(dir);
     } finally {
@@ -32,7 +32,7 @@ function inTemp(body: (dir: string) => void | Promise<void>): () => Promise<void
 function generate(dir: string, oldText: string, newText: string, ...flags: string[]): { status: number; stdout: string; stderr: string } {
   writeFileSync(join(dir, 'old.cc'), oldText);
   writeFileSync(join(dir, 'new.cc'), newText);
-  const r = spawnSync('node', ['--experimental-strip-types', HATCH_CLI, 'generate', '--in', 'new.cc', '--in-old', 'old.cc', '--out', '-', ...flags], {
+  const r = spawnSync('node', ['--experimental-strip-types', SIR_CLI, 'generate', '--in', 'new.cc', '--in-old', 'old.cc', '--out', '-', ...flags], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd: dir,
@@ -80,8 +80,8 @@ test('--require-parents: an edit at the top level has no parent to require, and 
   await cppAdapter.init();
   const old = '#include "a.h"\n#include "b.h"\n';
   const neu = '#include "a.h"\n#include "c.h"\n#include "b.h"\n';
-  const patch = printHatchFile(synthesize(old, neu, cppAdapter, { limits: { parentsRequired: true } }), 'cpp');
-  assert.equal(patch, printHatchFile(synthesize(old, neu, cppAdapter), 'cpp'));
+  const patch = printSirFile(synthesize(old, neu, cppAdapter, { limits: { parentsRequired: true } }), 'cpp');
+  assert.equal(patch, printSirFile(synthesize(old, neu, cppAdapter), 'cpp'));
 });
 
 test('CLI: --require-parents and generate.parents.required reach synthesis, with their origin', inTemp((dir) => {
@@ -89,9 +89,9 @@ test('CLI: --require-parents and generate.parents.required reach synthesis, with
   assert.equal(flag.status, 0, flag.stderr);
   assert.match(flag.stdout, /generate\.parents\.required\s+= true\s+\[flag --require-parents\]/);
 
-  writeFileSync(join(dir, 'hatch.config.json'), JSON.stringify({ version: 2, generate: { parents: { required: true } } }));
+  writeFileSync(join(dir, 'sir.config.json'), JSON.stringify({ version: 3, generate: { parents: { required: true } } }));
   const config = generate(dir, TWIN_OLD, TWIN_NEW, '--print-config');
-  assert.match(config.stdout, /generate\.parents\.required\s+= true\s+\[config .*hatch\.config\.json\]/);
+  assert.match(config.stdout, /generate\.parents\.required\s+= true\s+\[config .*sir\.config\.json\]/);
 }));
 
 // ── --sibling-detail / generate.siblings.detail.base ─────────────────────────────
@@ -104,7 +104,7 @@ const COMMENT_NEW = 'void f() {\n  // int a = 1;\n  int a = 2;\n  use(a);\n}\n';
 test('--sibling-detail: the baseline spells out the brackets of neighbour anchors', async () => {
   await cppAdapter.init();
   const at = (siblingDetailBase: number): string =>
-    printHatchFile(synthesize(COMMENT_OLD, COMMENT_NEW, cppAdapter, { limits: { siblingDetailBase } }), 'cpp');
+    printSirFile(synthesize(COMMENT_OLD, COMMENT_NEW, cppAdapter, { limits: { siblingDetailBase } }), 'cpp');
   assert.match(at(0), /^ {6}use\($/m, 'baseline 0: the neighbour is `use( ... )`');
   assert.ok(!at(0).includes('use(a);'), at(0));
   assert.match(at(1), /^ {6}use\(a\);$/m, 'baseline 1: the neighbour is spelled out');
@@ -121,7 +121,7 @@ test('CLI: --sibling-detail and generate.siblings.detail.base reach synthesis', 
   assert.equal(flag.status, 0, flag.stderr);
   assert.match(flag.stdout, /^ {6}use\(a\);$/m);
 
-  writeFileSync(join(dir, 'hatch.config.json'), JSON.stringify({ version: 2, generate: { siblings: { detail: { base: 1 } } } }));
+  writeFileSync(join(dir, 'sir.config.json'), JSON.stringify({ version: 3, generate: { siblings: { detail: { base: 1 } } } }));
   const config = generate(dir, COMMENT_OLD, COMMENT_NEW);
   assert.equal(config.status, 0, config.stderr);
   assert.equal(config.stdout, flag.stdout, 'the config key and the flag give the same patch');
@@ -145,7 +145,7 @@ test('CLI: --bridge-gap stitches edits split by unchanged lines into one hunk; g
   assert.equal(hunks(stitched.stdout), 1, stitched.stdout);
   assert.match(stitched.stdout, /^ {6}keep\(\);$/m, 'the line between rides along in the patch body');
 
-  writeFileSync(join(dir, 'hatch.config.json'), JSON.stringify({ version: 2, generate: { bridgeGap: 1 } }));
+  writeFileSync(join(dir, 'sir.config.json'), JSON.stringify({ version: 3, generate: { bridgeGap: 1 } }));
   const config = generate(dir, SPLIT_OLD, SPLIT_NEW);
   assert.equal(config.stdout, stitched.stdout);
 

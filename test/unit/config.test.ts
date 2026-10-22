@@ -21,13 +21,13 @@ import {
 } from '../../src/infra/config/index.ts';
 import { ConfigError, SynthesisError } from '../../src/core/errors.ts';
 import { DEFAULT_SYNTH_LIMITS, resolveLimits, synthesize } from '../../src/generate/synth.ts';
-import { printHatchFile } from '../../src/generate/printer.ts';
+import { printSirFile } from '../../src/generate/printer.ts';
 import { cppAdapter } from '../../src/lang/cpp/index.ts';
 import { buildRepo, version } from '../git-repo.ts';
 
 function withTempDir(body: (dir: string) => void | Promise<void>): () => Promise<void> {
   return async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'hatch-cfg-'));
+    const dir = mkdtempSync(join(tmpdir(), 'sir-cfg-'));
     try {
       await body(dir);
     } finally {
@@ -67,14 +67,14 @@ test('no file and no flags: built-in defaults, every origin is "default"', () =>
 
 test('file overrides defaults, flag overrides file', () => {
   const config = resolveConfig({
-    file: '/repo/hatch.config.json',
+    file: '/repo/sir.config.json',
     fromFile: { maxSiblings: 1, minParents: 2, out: 'patches/' },
     flags: [{ key: 'maxSiblings', value: 0, flag: '--siblings' }],
   });
   assert.equal(config.generate.maxSiblings, 0);
   assert.equal(config.origins['generate.siblings.max'], 'flag --siblings');
   assert.equal(config.generate.minParents, 2);
-  assert.equal(config.origins['generate.parents.min'], 'config /repo/hatch.config.json');
+  assert.equal(config.origins['generate.parents.min'], 'config /repo/sir.config.json');
   assert.equal(config.generate.parentDetailBase, DEFAULT_SETTINGS.parentDetailBase);
   assert.equal(config.origins['generate.parents.detail.base'], 'default');
 });
@@ -109,7 +109,7 @@ test('resolveLimits takes only defined keys', () => {
 });
 
 test('a detail ceiling is no longer a key at all', withTempDir((dir) => {
-  const file = writeConfig(dir, { version: 2, generate: { parents: { detail: { limit: 2 } } } });
+  const file = writeConfig(dir, { version: 3, generate: { parents: { detail: { limit: 2 } } } });
   assert.throws(
     () => readConfigFile(file),
     (e: unknown) => e instanceof ConfigError && /unknown key "generate\.parents\.detail\.limit"/.test(e.message),
@@ -131,7 +131,7 @@ test('a minimum above its maximum is a wish, not a contradiction: the config kee
 // ── file validation ──────────────────────────────────────────────────────────────
 
 test('an unknown key is an error, not a silent default', withTempDir((dir) => {
-  const file = writeConfig(dir, { version: 2, generate: { siblings: { maxx: 3 } } });
+  const file = writeConfig(dir, { version: 3, generate: { siblings: { maxx: 3 } } });
   assert.throws(
     () => readConfigFile(file),
     (e: unknown) =>
@@ -142,7 +142,7 @@ test('an unknown key is an error, not a silent default', withTempDir((dir) => {
 }));
 
 test('an unknown top-level key is caught too', withTempDir((dir) => {
-  assert.throws(() => readConfigFile(writeConfig(dir, { version: 2, apply: { out: 'x' } })), (e: unknown) => e instanceof ConfigError && /"apply"/.test(e.message));
+  assert.throws(() => readConfigFile(writeConfig(dir, { version: 3, apply: { out: 'x' } })), (e: unknown) => e instanceof ConfigError && /"apply"/.test(e.message));
 }));
 
 test('wrong types and out-of-range numbers are refused', withTempDir((dir) => {
@@ -156,8 +156,8 @@ test('wrong types and out-of-range numbers are refused', withTempDir((dir) => {
 }));
 
 test('README "Configuration": JSON with no comments and no trailing commas — either is refused', withTempDir((dir) => {
-  assert.throws(() => readConfigFile(writeConfig(dir, '{ "version": 2 // the schema\n}')), /invalid JSON/);
-  assert.throws(() => readConfigFile(writeConfig(dir, '{ "version": 2, }')), /invalid JSON/);
+  assert.throws(() => readConfigFile(writeConfig(dir, '{ "version": 3 // the schema\n}')), /invalid JSON/);
+  assert.throws(() => readConfigFile(writeConfig(dir, '{ "version": 3, }')), /invalid JSON/);
 }));
 
 test('broken JSON and a bad version value are refused', withTempDir((dir) => {
@@ -167,8 +167,8 @@ test('broken JSON and a bad version value are refused', withTempDir((dir) => {
 
 test('$schema is ignored, "all" and booleans pass through', withTempDir((dir) => {
   const file = writeConfig(dir, {
-    $schema: './hatch.config.schema.json',
-    version: 2,
+    $schema: './sir.config.schema.json',
+    version: 3,
     generate: { parents: { max: 'all', required: true } },
   });
   assert.deepEqual(readConfigFile(file), { maxParents: 'all', parentsRequired: true });
@@ -176,13 +176,13 @@ test('$schema is ignored, "all" and booleans pass through', withTempDir((dir) =>
 
 test('a version other than the current one is refused', withTempDir((dir) => {
   const file = writeConfig(dir, { version: CONFIG_VERSION + 1, generate: {} });
-  assert.throws(() => readConfigFile(file), /does not know yet — it reads v2: update hatch/);
+  assert.throws(() => readConfigFile(file), /does not know yet — it reads v3: update sir/);
 }));
 
 // ── file lookup ──────────────────────────────────────────────────────────────────
 
 test('the config is searched for UPWARDS from the input file', withTempDir((dir) => {
-  const file = writeConfig(dir, { version: 2, generate: { siblings: { max: 1 } } });
+  const file = writeConfig(dir, { version: 3, generate: { siblings: { max: 1 } } });
   const deep = join(dir, 'src', 'net');
   mkdirSync(deep, { recursive: true });
   assert.equal(findConfigFile(deep), file);
@@ -193,7 +193,7 @@ test('the config is searched for UPWARDS from the input file', withTempDir((dir)
 }));
 
 test('the search STOPS at the repository root', withTempDir((dir) => {
-  const above = writeConfig(dir, { version: 2, generate: { siblings: { max: 1 } } });
+  const above = writeConfig(dir, { version: 3, generate: { siblings: { max: 1 } } });
   const repo = join(dir, 'repo');
   const deep = join(repo, 'src', 'net');
   mkdirSync(join(repo, '.git'), { recursive: true });
@@ -204,14 +204,14 @@ test('the search STOPS at the repository root', withTempDir((dir) => {
   assert.equal(bounded.generate.maxSiblings, DEFAULT_SETTINGS.maxSiblings);
   assert.equal(bounded.file, undefined);
 
-  const own = writeConfig(repo, { version: 2, generate: { siblings: { max: 2 } } });
+  const own = writeConfig(repo, { version: 3, generate: { siblings: { max: 2 } } });
   assert.equal(findConfigFile(deep), own);
 
   assert.equal(loadConfig({ startDir: deep, useFile: true, explicitPath: above }).generate.maxSiblings, 1);
 }));
 
 test('a .git FILE ends the project too (worktree, submodule)', withTempDir((dir) => {
-  writeConfig(dir, { version: 2, generate: { siblings: { max: 1 } } });
+  writeConfig(dir, { version: 3, generate: { siblings: { max: 1 } } });
   const repo = join(dir, 'linked');
   const deep = join(repo, 'src');
   mkdirSync(deep, { recursive: true });
@@ -221,7 +221,7 @@ test('a .git FILE ends the project too (worktree, submodule)', withTempDir((dir)
 }));
 
 test('a config in the HOME directory is not inherited by projects below it', withTempDir((dir) => {
-  const forgotten = writeConfig(dir, { version: 2, generate: { siblings: { max: 1 } } });
+  const forgotten = writeConfig(dir, { version: 3, generate: { siblings: { max: 1 } } });
   const deep = join(dir, 'projects', 'app');
   mkdirSync(deep, { recursive: true });
 
@@ -234,7 +234,7 @@ test('a config in the HOME directory is not inherited by projects below it', wit
 test('from the HOME directory itself the search looks there and goes no higher', withTempDir((dir) => {
   const home = join(dir, 'home');
   mkdirSync(home);
-  writeConfig(dir, { version: 2 }); // above the home directory: never read
+  writeConfig(dir, { version: 3 }); // above the home directory: never read
   withHome(home, () => {
     assert.deepEqual(configCandidates(home), [join(home, CONFIG_FILE_NAME)]);
     assert.equal(findConfigFile(home), undefined);
@@ -242,7 +242,7 @@ test('from the HOME directory itself the search looks there and goes no higher',
 }));
 
 test('--no-config ignores the file, --config demands an existing one', withTempDir((dir) => {
-  writeConfig(dir, { version: 2, generate: { siblings: { max: 1 } } });
+  writeConfig(dir, { version: 3, generate: { siblings: { max: 1 } } });
   const off = loadConfig({ startDir: dir, useFile: false });
   assert.equal(off.generate.maxSiblings, DEFAULT_SETTINGS.maxSiblings);
   assert.equal(off.file, undefined);
@@ -260,19 +260,24 @@ test('formatConfig prints every value with its origin', () => {
   assert.match(text, /generate\.parents\.min\s+= 1\s+\[default\]/);
 });
 
-test('schema 2: generate.base names the old version in git; schema 1 is read no longer (C3)', withTempDir((dir) => {
-  const file = writeConfig(dir, { version: 2, generate: { base: { branch: 'main', commit: 'v1.0' } } });
+test('schema 3: generate.base names the old version in git; schemas 1 and 2 are read no longer (C3)', withTempDir((dir) => {
+  const file = writeConfig(dir, { version: 3, generate: { base: { branch: 'main', commit: 'v1.0' } } });
   assert.deepEqual(readConfigFile(file), { baseBranch: 'main', baseCommit: 'v1.0' });
   const config = loadConfig({ startDir: dir, useFile: true });
   assert.equal(basesOnGit(config.generate), true);
   assert.equal(basesOnGit(DEFAULT_SETTINGS), false);
 
-  const old = writeConfig(dir, { version: 1, generate: { base: { head: true } } });
-  assert.throws(() => readConfigFile(old), /"version" 1 is a config schema this hatch no longer reads — it reads v2: move the file to v2/);
+  for (const version of [1, 2]) {
+    const old = writeConfig(dir, { version, generate: { base: { head: true } } });
+    assert.throws(
+      () => readConfigFile(old),
+      new RegExp(`"version" ${version} is a config schema this sir no longer reads — it reads v3: move the file to v3`),
+    );
+  }
 }));
 
 test('the JSON Schema lists exactly the keys the code knows', () => {
-  const schemaPath = fileURLToPath(new URL('../../hatch.config.schema.json', import.meta.url));
+  const schemaPath = fileURLToPath(new URL('../../sir.config.schema.json', import.meta.url));
   const schema = JSON.parse(readFileSync(schemaPath, 'utf8')) as Record<string, never>;
   const paths: string[] = [];
   const walk = (node: Record<string, never>, prefix: string): void => {
@@ -294,17 +299,17 @@ const NESTED_NEW = 'namespace net {\nvoid f() {\n  int a = 2;\n  g(a);\n}\n}\n';
 
 test('parents.min: the ladder starts at the requested number of parents', async () => {
   await cppAdapter.init();
-  const one = printHatchFile(synthesize(NESTED_OLD, NESTED_NEW, cppAdapter), 'cpp');
+  const one = printSirFile(synthesize(NESTED_OLD, NESTED_NEW, cppAdapter), 'cpp');
   assert.ok(!one.includes('namespace net {'), one);
 
-  const two = printHatchFile(synthesize(NESTED_OLD, NESTED_NEW, cppAdapter, { limits: { minParents: 2 } }), 'cpp');
+  const two = printSirFile(synthesize(NESTED_OLD, NESTED_NEW, cppAdapter, { limits: { minParents: 2 } }), 'cpp');
   assert.ok(two.includes('namespace net {'), two);
   assert.ok(two.includes('void f() {'), two);
 });
 
 test('parents.max caps the climb, and asking for more than the file has is fine', async () => {
   await cppAdapter.init();
-  const capped = printHatchFile(
+  const capped = printSirFile(
     synthesize(NESTED_OLD, NESTED_NEW, cppAdapter, { limits: { minParents: 5, maxParents: 1 } }),
     'cpp',
   );
@@ -315,10 +320,10 @@ test('siblings.max = 0: ambiguity is resolved by structure, not by a neighbour',
   await cppAdapter.init();
   const oldStr = 'void f() {\n  x = 1;\n  y();\n  x = 1;\n}\n';
   const newStr = 'void f() {\n  x = 2;\n  y();\n  x = 1;\n}\n';
-  const withNeighbours = printHatchFile(synthesize(oldStr, newStr, cppAdapter), 'cpp');
+  const withNeighbours = printSirFile(synthesize(oldStr, newStr, cppAdapter), 'cpp');
   assert.ok(withNeighbours.includes('y();'), withNeighbours);
 
-  const structural = printHatchFile(synthesize(oldStr, newStr, cppAdapter, { limits: { maxSiblings: 0 } }), 'cpp');
+  const structural = printSirFile(synthesize(oldStr, newStr, cppAdapter, { limits: { maxSiblings: 0 } }), 'cpp');
   assert.ok(!structural.includes('y();'), structural);
   assert.ok(structural.includes('void f() {'), structural);
 });
@@ -327,7 +332,7 @@ test('siblings.max = 0: an edit only a neighbour could pin is refused, not guess
   await cppAdapter.init();
   const oldStr = 'void f() {\n  a();\n  b();\n}\n';
   const newStr = 'void f() {\n  a();\n  x();\n  b();\n}\n';
-  assert.ok(printHatchFile(synthesize(oldStr, newStr, cppAdapter), 'cpp').includes('a();'));
+  assert.ok(printSirFile(synthesize(oldStr, newStr, cppAdapter), 'cpp').includes('a();'));
   assert.throws(
     () => synthesize(oldStr, newStr, cppAdapter, { limits: { maxSiblings: 0 } }),
     (e) => e instanceof SynthesisError && e.reason === 'no-match',
@@ -339,14 +344,14 @@ test('detail.base: the baseline decides how much of a bracket stays spelled out'
   const oldStr = 'void f(map<int, A> m) {\n  x = 1;\n}\n';
   const newStr = 'void f(map<int, A> m) {\n  x = 2;\n}\n';
 
-  const collapsed = printHatchFile(synthesize(oldStr, newStr, cppAdapter), 'cpp');
+  const collapsed = printSirFile(synthesize(oldStr, newStr, cppAdapter), 'cpp');
   assert.ok(!collapsed.includes('map<'), collapsed);
 
-  const readable = printHatchFile(synthesize(oldStr, newStr, cppAdapter, { limits: { parentDetailBase: 1 } }), 'cpp');
+  const readable = printSirFile(synthesize(oldStr, newStr, cppAdapter, { limits: { parentDetailBase: 1 } }), 'cpp');
   assert.ok(readable.includes('void f(map<'), readable);
   assert.ok(!readable.includes('<int, A>'), readable);
 
-  const verbose = printHatchFile(synthesize(oldStr, newStr, cppAdapter, { limits: { parentDetailBase: 2 } }), 'cpp');
+  const verbose = printSirFile(synthesize(oldStr, newStr, cppAdapter, { limits: { parentDetailBase: 2 } }), 'cpp');
   assert.ok(verbose.includes('void f(map<int, A> m) {'), verbose);
 });
 
@@ -354,7 +359,7 @@ test('the round unfolds a neighbour bracket by itself when that is what tells th
   await cppAdapter.init();
   const oldStr = 'void f() {\n  log(fmt(a, b));\n  x = 1;\n  log(fmt(c, d));\n  x = 1;\n}\n';
   const newStr = 'void f() {\n  log(fmt(a, b));\n  x = 1;\n  log(fmt(c, d));\n  x = 2;\n}\n';
-  const md = printHatchFile(synthesize(oldStr, newStr, cppAdapter), 'cpp');
+  const md = printSirFile(synthesize(oldStr, newStr, cppAdapter), 'cpp');
   assert.ok(md.includes('log(fmt(c, d));'), md);
 });
 
@@ -364,17 +369,17 @@ test('a bracket that discriminates nothing is NOT dragged along', async () => {
     'class W : public Base<Alpha> {\n  void Run(map<int, T> m) {\n    x = 1;\n  }\n};\n' +
     'class W : public Base<Beta> {\n  void Run(map<int, T> m) {\n    x = 1;\n  }\n};\n';
   const newStr = oldStr.replace('Base<Beta> {\n  void Run(map<int, T> m) {\n    x = 1;', 'Base<Beta> {\n  void Run(map<int, T> m) {\n    x = 2;');
-  const md = printHatchFile(synthesize(oldStr, newStr, cppAdapter), 'cpp');
+  const md = printSirFile(synthesize(oldStr, newStr, cppAdapter), 'cpp');
   assert.ok(md.includes('Base<Beta>'), md);
   assert.ok(!md.includes('map<'), md);
 });
 
 // ── CLI ──────────────────────────────────────────────────────────────────────────
 
-const HATCH_CLI = fileURLToPath(new URL('../../src/bin/hatch.ts', import.meta.url));
+const SIR_CLI = fileURLToPath(new URL('../../src/bin/sir.ts', import.meta.url));
 
 function runCli(args: string[], cwd: string): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('node', ['--experimental-strip-types', HATCH_CLI, ...args], {
+  const r = spawnSync('node', ['--experimental-strip-types', SIR_CLI, ...args], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd,
@@ -390,22 +395,22 @@ function seedSources(dir: string): void {
 test('CLI: out and language come from the config, --print-config shows the origin', withTempDir((dir) => {
   seedSources(dir);
   mkdirSync(join(dir, 'patches'));
-  writeConfig(dir, { version: 2, generate: { out: 'patches/', language: 'cpp', parents: { min: 2 } } });
+  writeConfig(dir, { version: 3, generate: { out: 'patches/', language: 'cpp', parents: { min: 2 } } });
 
   const printed = runCli(['generate', '--in', 'in.cc', '--in-old', 'old.cc', '--print-config'], dir);
   assert.equal(printed.status, 0, printed.stderr);
-  assert.match(printed.stdout, /generate\.out\s+= "patches\/"\s+\[config .*hatch\.config\.json\]/);
+  assert.match(printed.stdout, /generate\.out\s+= "patches\/"\s+\[config .*sir\.config\.json\]/);
 
   const gen = runCli(['generate', '--in', 'in.cc', '--in-old', 'old.cc'], dir);
   assert.equal(gen.status, 0, gen.stderr);
-  const md = readFileSync(join(dir, 'patches', 'in.cc.hatch'), 'utf8');
+  const md = readFileSync(join(dir, 'patches', 'in.cc.sirp'), 'utf8');
   assert.match(md, /^# match cpp$/m);
   assert.ok(md.includes('namespace net {'), md);
 }));
 
 test('CLI: a flag beats the config, --no-config drops the file', withTempDir((dir) => {
   seedSources(dir);
-  writeConfig(dir, { version: 2, generate: { language: 'cpp', parents: { min: 2 } } });
+  writeConfig(dir, { version: 3, generate: { language: 'cpp', parents: { min: 2 } } });
 
   const flagWins = runCli(['generate', '--in', 'in.cc', '--in-old', 'old.cc', '--min-parents', '1', '--out', '-'], dir);
   assert.equal(flagWins.status, 0, flagWins.stderr);
@@ -418,7 +423,7 @@ test('CLI: a flag beats the config, --no-config drops the file', withTempDir((di
 
 test('CLI: a broken config and a broken flag value both exit with 5', withTempDir((dir) => {
   seedSources(dir);
-  writeConfig(dir, { version: 2, generate: { siblings: { max: -1 } } });
+  writeConfig(dir, { version: 3, generate: { siblings: { max: -1 } } });
   const broken = runCli(['generate', '--in', 'in.cc', '--in-old', 'old.cc', '--out', '-'], dir);
   assert.equal(broken.status, 5, broken.stderr);
   assert.match(broken.stderr, /ConfigError/);
@@ -440,10 +445,10 @@ test('CLI: --parent-detail is honoured, and the removed ceiling flag is refused'
 }));
 
 test('CLI generate: generate.base in the config is the old version when no flag names one', () => {
-  const repo = buildRepo('hatch-cfg-base-');
+  const repo = buildRepo('sir-cfg-base-');
   try {
     writeFileSync(repo.inPath, version(4));
-    writeFileSync(join(repo.dir, CONFIG_FILE_NAME), JSON.stringify({ version: 2, generate: { base: { commit: repo.a } } }));
+    writeFileSync(join(repo.dir, CONFIG_FILE_NAME), JSON.stringify({ version: 3, generate: { base: { commit: repo.a } } }));
     const gen = (...args: string[]): string => {
       const r = runCli(['generate', '--in', repo.inPath, '--out', '-', ...args], repo.dir);
       assert.equal(r.status, 0, r.stderr);

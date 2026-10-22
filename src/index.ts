@@ -14,16 +14,16 @@ export type { GenerateRequest, GenerateOutcome } from './generate/pipeline.ts';
 export { resolveHunks } from './core/resolve.ts';
 export type { HunkLink, LinkFailure, LinkStatus, ResolveResult, Span } from './core/resolve.ts';
 
-// ── the .hatch format: read and write ────────────────────────────────────────────
-export { parseHatchFile } from './core/hatch-parser.ts';
-export { printHatchFile, trailingSpaceWarnings } from './generate/printer.ts';
+// ── the .sirp format: read and write ────────────────────────────────────────────
+export { parseSirFile } from './core/sir-parser.ts';
+export { printSirFile, trailingSpaceWarnings } from './generate/printer.ts';
 
 // ── languages: a closed registry, and the only door into it ──────────────────────
 export { adapterForLanguage, adapterForFile, supportedLanguages } from './lang/adapter.ts';
 
 // ── errors: a caller must tell "did not fit" from "fits twice" ───────────────────
 export {
-  HatchError,
+  SirError,
   ParseError,
   MatchError,
   AmbiguityError,
@@ -38,5 +38,5 @@ export {
 export type { SynthesisFailure } from './core/errors.ts';
 
 // ── types needed to write a signature against this API ───────────────────────────
-export type { HatchFile, Hunk, MatchPattern } from './core/ast.ts';
+export type { SirFile, Hunk, MatchPattern } from './core/ast.ts';
 export type { LanguageAdapter } from './lang/source-map.ts';

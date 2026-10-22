@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path';
 import { CONFIG_FILE_NAME } from '../../src/infra/config/index.ts';
 
 // .github/schemastore/catalog-entry.json is what goes into SchemaStore's catalog, so that
-// editors find hatch.config.schema.json by the file's name, with no "$schema" in it. The
+// editors find sir.config.schema.json by the file's name, with no "$schema" in it. The
 // catalog's own CI refuses an entry that breaks its rules; these are those rules, checked
 // here first, and the ties between the entry, the schema and the code.
 
@@ -16,7 +16,7 @@ const read = (path: string): Record<string, unknown> =>
   JSON.parse(readFileSync(join(ROOT, path), 'utf8')) as Record<string, unknown>;
 
 const entry = read('.github/schemastore/catalog-entry.json');
-const schema = read('hatch.config.schema.json');
+const schema = read('sir.config.schema.json');
 
 test('SchemaStore entry: exactly the fields the catalog takes', () => {
   assert.deepEqual(Object.keys(entry).sort(), ['description', 'fileMatch', 'name', 'url']);
@@ -33,7 +33,7 @@ test('SchemaStore entry: name and description as the catalog wants them', () => 
   }
 });
 
-test('SchemaStore entry: it matches the file hatch looks for', () => {
+test('SchemaStore entry: it matches the file sir looks for', () => {
   assert.deepEqual(entry['fileMatch'], [CONFIG_FILE_NAME]);
 });
 
@@ -41,7 +41,7 @@ test('SchemaStore entry: an absolute https URL, the same the schema names itself
   const url = entry['url'] as string;
   assert.match(url, /^https:\/\//);
   assert.equal(url, schema['$id'], 'catalog url and $id are one address');
-  assert.ok(url.endsWith('/main/hatch.config.schema.json'), 'the file in the repository, on main');
+  assert.ok(url.endsWith('/main/sir.config.schema.json'), 'the file in the repository, on main');
 });
 
 test('the schema itself: a JSON Schema dialect, a title and a description to show', () => {

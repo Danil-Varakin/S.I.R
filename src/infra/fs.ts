@@ -47,7 +47,7 @@ export function readInputFile(path: string, argument: string): string {
 export function writeFileAtomic(path: string, data: string): void {
   const target = throughLinks(path);
   const mode = modeOf(target);
-  const tmp = join(dirname(target), `.${basename(target)}.hatch-${process.pid}-${Date.now()}.tmp`);
+  const tmp = join(dirname(target), `.${basename(target)}.sirp-${process.pid}-${Date.now()}.tmp`);
   try {
     writeFileSync(tmp, data, 'utf8');
     if (mode !== undefined) chmodSync(tmp, mode);

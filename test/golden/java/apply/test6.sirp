@@ -1,0 +1,16 @@
+Sir: 2
+Target: test/golden/java/apply/test6.java
+
+# match java
+    ...
+        public List<String> names() {
+    ...
+    >>>
+                    .map(Object::toString)
+    <<<
+    ...
+# end
+# patch
+    .map(Object::toString)
+                    .filter(s -> !s.isEmpty())
+# end

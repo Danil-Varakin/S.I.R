@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/java/generate/test13.new.java
+Grammar: tree-sitter-java@0.23.5
+
+# match java
+    ...
+    static int mix(
+    ...
+    ) {
+    ...
+    >>>
+        h ^= h \>>> 16;
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    h ^= h >>> 13;
+# end

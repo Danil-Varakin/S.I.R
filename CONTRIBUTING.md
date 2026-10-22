@@ -2,7 +2,7 @@
 
 > Русская версия: [CONTRIBUTING.ru.md](./CONTRIBUTING.ru.md)
 
-How to work on Hatch. The design rationale is in [ARCHITECTURE.md](./ARCHITECTURE.md), the
+How to work on Sir. The design rationale is in [ARCHITECTURE.md](./ARCHITECTURE.md), the
 versioning rules in [VERSIONING.md](./VERSIONING.md).
 
 ## Prerequisites
@@ -29,8 +29,8 @@ npm run bench      # speed measurements (bench/); not part of check
 The commands run straight from the sources:
 
 ```bash
-npm run hatch -- <command> …
-npm run apply -- --match changes.hatch --in src/main.cpp --out out.cpp
+npm run sir -- <command> …
+npm run apply -- --match changes.sirp --in src/main.cpp --out out.cpp
 npm run generate -- --in new.cpp --in-old old.cpp --debug
 npm run service    # the JSON-lines service, PROTOCOL.md
 ```
@@ -65,15 +65,15 @@ Each flag is there for a reason; do not loosen one without it:
   `lang/`.
 - A new language never means editing `core/`: one folder under `lang/` and two lines in
   the registry `lang/adapter.ts`. The registry is a closed whitelist — a language name
-  from a `.hatch` never becomes a dynamic `import()`. The rule of one folder per language
+  from a `.sirp` never becomes a dynamic `import()`. The rule of one folder per language
   is in README, "Adding a language".
 - Comments explain **why**, not what. A comment that restates the code is noise; one that
   records the failure a line prevents is worth its space.
 - An invariant a bug can break should `throw`, not quietly produce `undefined`: a bad
   index silently turning into "the whole file" surfaces three modules away.
-- Files are written atomically (`infra/fs.ts`): a temp file, then `rename`. hatch edits
+- Files are written atomically (`infra/fs.ts`): a temp file, then `rename`. sir edits
   source files, and a truncated file is a broken build.
-- Errors extend `HatchError` and carry an `exitCode`. Messages to the user are in
+- Errors extend `SirError` and carry an `exitCode`. Messages to the user are in
   English and say what to do next.
 
 Where each directory and file is, and what it holds: README, "Project layout". Which file
@@ -109,14 +109,14 @@ stay green on every commit.
 
 - **`generate/`** — `test<n>.old.<ext>` and `test<n>.new.<ext>`. Each case is synthesized,
   printed, parsed, applied to the old file and compared with the new one (the result is
-  correct), and the printed `.hatch` is compared byte for byte with `test<n>.hatch` (the
+  correct), and the printed `.sirp` is compared byte for byte with `test<n>.sirp` (the
   form is the same). The round trip says nothing about form: a hunk that rewrites a whole
   function body reproduces the file as faithfully as a one-line one. A change of form is
   not breaking, but goes into CHANGELOG (VERSIONING.md F1).
-- **`apply/`** — `test<n>.hatch` applied to `test<n>.<ext>` must give
-  `test<n>.expected.<ext>`. This is how VERSIONING.md F1 is held: a released `.hatch` must
+- **`apply/`** — `test<n>.sirp` applied to `test<n>.<ext>` must give
+  `test<n>.expected.<ext>`. This is how VERSIONING.md F1 is held: a released `.sirp` must
   apply the same in every later release, so a changed expected result is a breaking
-  change unless the old one was a bug. The same cases run through every `hatch-apply`
+  change unless the old one was a bug. The same cases run through every `sir-apply`
   binary.
 
 When a change is MEANT to alter the expected output, regenerate it and **read the diff**:
@@ -128,11 +128,11 @@ UPDATE_GOLDEN=1 npm test
 Two markers, on the first line of a case:
 
 - `MUST-REFUSE` — the patch must NOT apply. A silent false match is the worst class of
-  bug hatch can have, so it gets a test.
+  bug sir can have, so it gets a test.
 - `KNOWN-GAP` — synthesis cannot do this yet. Once it can, the test fails with "remove
   the marker".
 
-Hatch has also been run against real Chromium files carrying real downstream patches.
+S.I.R has also been run against real Chromium files carrying real downstream patches.
 That material is third-party code under a third-party licence and is not part of this
 repository; `test/golden` is the suite everyone can run.
 
@@ -144,7 +144,7 @@ repository; `test/golden` is the suite everyone can run.
    behaviour on inputs nobody wrote.
 3. A change of public behaviour is in `README.md` **and** `README.ru.md`, and the
    `--help` text of the CLI says the same as README.
-4. A change of a contract — protocol, config schema, `.hatch` format, CLI flags — raises
+4. A change of a contract — protocol, config schema, `.sirp` format, CLI flags — raises
    its number as VERSIONING.md says and has its line in the "Unreleased" entry of
    `CHANGELOG.md`.
 5. The commit message says *why*, not only *what* changed.
@@ -155,9 +155,9 @@ Grammars are not in git. `npm run grammars` (`scripts/fetch-grammars.ts`) puts t
 ones into `grammars/`, each checked against its sha256 pin; a file already there with the
 right bytes is left alone. `npm test` (`pretest`) and `npm pack` (`prepack`) run it, so the
 first test run of a fresh clone needs the network (the npm CDNs, jsdelivr then unpkg).
-hatch itself never downloads anything.
+sir itself never downloads anything.
 
-`HATCH_GRAMMAR_DIR` makes hatch look in another directory first — for work on the core or
+`SIR_GRAMMAR_DIR` makes sir look in another directory first — for work on the core or
 a grammar of one's own; the pin is checked all the same.
 
 ## Releasing
@@ -178,8 +178,8 @@ git push origin v<version>
    the previous version is refused;
 2. runs typecheck and tests;
 3. runs `npm pack` (`prepack` fetches the grammars and builds `dist/`);
-4. builds `hatch-apply` for linux-x64, linux-arm64, darwin-arm64 and win-x64 and runs the
-   apply goldens and `test/unit/hatch-apply.test.ts` through each binary;
+4. builds `sir-apply` for linux-x64, linux-arm64, darwin-arm64 and win-x64 and runs the
+   apply goldens and `test/unit/sir-apply.test.ts` through each binary;
 5. writes `SHA256SUMS` and publishes the GitHub Release with the `.tgz`, the binaries and
    the sums. Nothing goes to the npm registry.
 
@@ -198,11 +198,11 @@ To list its files without creating anything:
 npm pack --dry-run
 ```
 
-The archive holds `dist/`, `grammars/`, `schemas/`, `hatch.config.schema.json`, both
+The archive holds `dist/`, `grammars/`, `schemas/`, `sir.config.schema.json`, both
 READMEs, `PROTOCOL.md`, `LICENSE` and `package.json` — the `files` field of `package.json`
 decides. Nothing from `src/`, `test/` or `docs/`.
 
-How users install each form of hatch: README, "Install".
+How users install each form of sir: README, "Install".
 
 ## Checks (CI)
 
@@ -222,7 +222,7 @@ How users install each form of hatch: README, "Install".
 - **package contents** — builds the package, checks that the archive holds the grammars,
   and installs it the way README does (`npm run smoke:install`): the command, the API and
   the service;
-- **hatch-apply (linux-x64)** — builds the binary and runs the apply goldens and its tests
+- **sir-apply (linux-x64)** — builds the binary and runs the apply goldens and its tests
   through it, so an import that does not bundle is caught before a release.
 
 `.github/workflows/nightly.yml` runs the property tests every night on a new seed, 25 times
@@ -231,7 +231,7 @@ failing case names its seed; the run's summary gives the command that draws the 
 again:
 
 ```bash
-HATCH_PROP_SEED=<seed> HATCH_PROP_RUNS=25 node --test --experimental-strip-types test/unit/property.test.ts
+SIR_PROP_SEED=<seed> SIR_PROP_RUNS=25 node --test --experimental-strip-types test/unit/property.test.ts
 ```
 
 A failing seed is a bug like any other: fix it and add the case as a test of its own — a

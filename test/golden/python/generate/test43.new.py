@@ -1,4 +1,4 @@
-# [ELLIPSISANN] Ellipsis как ТИП: Callable[ ..., None] — оператор Hatch отдельным словом
+# [ELLIPSISANN] Ellipsis как ТИП: Callable[ ..., None] — оператор Sir отдельным словом
 from typing import Callable
 
 Sink = Callable[ ..., bool]

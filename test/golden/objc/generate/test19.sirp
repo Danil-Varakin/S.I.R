@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/objc/generate/test19.new.mm
+Grammar: tree-sitter-objc@3.0.2
+
+# match objc
+    ...
+    - (
+    ...
+    )reset {
+    ...
+    >>>
+    }
+    ...
+# end
+# patch
+      _stats->upgraded = 0;
+
+# end

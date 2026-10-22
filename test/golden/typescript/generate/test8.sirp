@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/typescript/generate/test8.new.ts
+Grammar: tree-sitter-typescript@0.23.2
+
+# match typescript
+    ...
+    class Api {
+    ...
+    >>>
+      @route({ path: '/users', method: 'GET' })
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    @route({ path: '/users', method: 'POST' })
+# end

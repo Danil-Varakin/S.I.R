@@ -1,0 +1,22 @@
+Sir: 2
+Target: test/golden/objc/apply/test11.m
+Grammar: tree-sitter-objc@3.0.2
+
+# match objc
+    ...
+    - (
+    ...
+    )wire:(
+    ...
+    )button {
+    ...
+    >>>
+      [button addTarget:self action:@selector(tap:withEvent:) forControlEvents:UIControlEventTouchUpInside];
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    [button addTarget:self action:@selector(tap:withEvent:) forControlEvents:UIControlEventTouchDown];
+# end

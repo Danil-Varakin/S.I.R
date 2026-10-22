@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/c/generate/test2.new.c
+Grammar: tree-sitter-c@0.24.1
+
+# match c
+    ...
+    void reset(
+    ...
+    ) {
+    ...
+    >>>
+      *p = (struct Point){ .x = 0, .y = 0 };
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    *p = (struct Point){ .x = 0, .y = 0, .z = 0 };
+# end

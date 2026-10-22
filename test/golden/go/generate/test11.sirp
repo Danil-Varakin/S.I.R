@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/go/generate/test11.new.go
+Grammar: tree-sitter-go@0.25.0
+
+# match go
+    ...
+    func(
+    ...
+    ) {
+    ...
+    >>>
+    			j.Run()
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    j.RunWithRetry()
+# end

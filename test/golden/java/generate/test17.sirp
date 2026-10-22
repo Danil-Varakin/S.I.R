@@ -1,0 +1,21 @@
+Sir: 2
+Target: test/golden/java/generate/test17.new.java
+Grammar: tree-sitter-java@0.23.5
+
+# match java
+    ...
+            @Override
+            public int compare(
+    ...
+    ) {
+    ...
+    >>>
+                return Integer.compare(a.width, b.width);
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    return Integer.compare(b.width, a.width);
+# end

@@ -23,14 +23,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { synthesize, sameIgnoringSpace } from '../src/generate/synth.ts';
-import { printHatchFile } from '../src/generate/printer.ts';
-import { parseHatchFile } from '../src/core/hatch-parser.ts';
+import { printSirFile } from '../src/generate/printer.ts';
+import { parseSirFile } from '../src/core/sir-parser.ts';
 import { applyAll } from '../src/core/apply.ts';
 import { AmbiguityError, MatchError, SynthesisError } from '../src/core/errors.ts';
 import { adapterForLanguage } from '../src/lang/adapter.ts';
 import type { LanguageAdapter } from '../src/lang/source-map.ts';
-import type { HatchFile } from '../src/core/ast.ts';
-import { hatchMd } from './helpers.ts';
+import type { SirFile } from '../src/core/ast.ts';
+import { sirMd } from './helpers.ts';
 
 export interface Slots {
   /** the name of the block around the target */
@@ -137,14 +137,14 @@ export async function adapterOf(language: string): Promise<LanguageAdapter> {
   return a;
 }
 
-/** The .hatch `generate` writes for `old` → `new`. */
+/** The .sirp `generate` writes for `old` → `new`. */
 export function patchText(oldText: string, newText: string, adapter: LanguageAdapter, exact = false): string {
-  return printHatchFile(synthesize(oldText, newText, adapter, { exact }), adapter.name);
+  return printSirFile(synthesize(oldText, newText, adapter, { exact }), adapter.name);
 }
 
 /** The patch `generate` writes for `old` → `new`, read back as `apply` reads it. */
-export function patchOf(oldText: string, newText: string, adapter: LanguageAdapter, exact = false): HatchFile {
-  return parseHatchFile(patchText(oldText, newText, adapter, exact));
+export function patchOf(oldText: string, newText: string, adapter: LanguageAdapter, exact = false): SirFile {
+  return parseSirFile(patchText(oldText, newText, adapter, exact));
 }
 
 /** The lines of the match blocks of a printed patch, gutter off — what the pattern holds. */
@@ -169,7 +169,7 @@ function pinnedToEnd(md: string): boolean {
   });
 }
 
-const apply = (source: string, file: HatchFile, adapter: LanguageAdapter): string =>
+const apply = (source: string, file: SirFile, adapter: LanguageAdapter): string =>
   applyAll(source, file, adapter).source;
 
 const refuses = (run: () => unknown, kind: typeof MatchError | typeof AmbiguityError, why: string): void => {
@@ -288,7 +288,7 @@ export function runMatrix(f: Fixture): void {
     // 7.9: a drift at the end a hunk is pinned to moves the hunk with it, as it must
     assert.ok(!(pinnedToEnd(md) && s.bottom !== undefined && s.bottom !== ''), 'setup: the drift touches the end a hunk is pinned to');
     const [baseOld, baseNew] = pair(edit, s);
-    return { a, md, patch: parseHatchFile(md), base: map(baseOld), expected: map(baseNew) };
+    return { a, md, patch: parseSirFile(md), base: map(baseOld), expected: map(baseNew) };
   };
 
   // ── К: must land ───────────────────────────────────────────────────────────────
@@ -343,7 +343,7 @@ export function runMatrix(f: Fixture): void {
     const anchor = body.findIndex((l) => l.includes('count'));
     assert.ok(anchor > 0, 'precondition: the pattern holds the anchor line');
     const base = render({ edit: `${note}\n${one}` });
-    const got = outcome(() => apply(base, parseHatchFile(md), a));
+    const got = outcome(() => apply(base, parseSirFile(md), a));
     if (body[anchor - 1] === '...') assert.equal(got, render({ edit: `${note}\n${one}\n${added}` }), 'a `...` before the anchor steps over the comment');
     else assert.equal(got, 'MatchError', 'the line above the anchor is spelled: the comment breaks it');
   });
@@ -371,9 +371,9 @@ export function runMatrix(f: Fixture): void {
     const [oldText, newText] = pair(insert);
     // a pattern pinned to the first line: no `...` before it, so the BOM is in its way
     const first = oldText.split('\n', 1)[0]!;
-    const md = hatchMd([{ match: `${first}\n...\n${one}\n>>>\n...`, patch: `\n${added}` }], a.name);
+    const md = sirMd([{ match: `${first}\n...\n${one}\n>>>\n...`, patch: `\n${added}` }], a.name);
     assert.equal(matchLines(md).find((l) => l.trim() !== ''), first, 'precondition: the pattern opens with the first line');
-    const file = parseHatchFile(md);
+    const file = parseSirFile(md);
     assert.equal(apply(oldText, file, a), newText);
     const bom = '\uFEFF';
     assert.equal(apply(bom + oldText, file, a), bom + newText);
@@ -432,7 +432,7 @@ export function runMatrix(f: Fixture): void {
     const md = patchText(oldText, oldText + tail, a, true);
     assert.ok(pinnedToEnd(md), 'precondition: an append is pinned to the end of the file');
     const [above] = pair(insert, { ...drift, bottom: '' });
-    assert.equal(apply(above, parseHatchFile(md), a), above + tail);
+    assert.equal(apply(above, parseSirFile(md), a), above + tail);
   });
 
   test(`matrix ${L} К8 строка 5 КБ; минифицированный файл`, async () => {
@@ -464,9 +464,9 @@ export function runMatrix(f: Fixture): void {
 
   test(`matrix ${L} К10 опаковая строка: "a  b" в файле не совпадает с "a b" в шаблоне`, async () => {
     const a = await adapterOf(L);
-    const md = hatchMd([{ match: `...\n${f.indent}${f.str('a b')}\n>>>\n...`, patch: `\n${added}` }], a.name);
+    const md = sirMd([{ match: `...\n${f.indent}${f.str('a b')}\n>>>\n...`, patch: `\n${added}` }], a.name);
     assert.ok(matchLines(md).some((l) => l.includes('a b')), 'precondition: the pattern holds the string');
-    const file = parseHatchFile(md);
+    const file = parseSirFile(md);
     const at = (text: string): string => render({ inner: line(f.str(text)), edit: one });
     assert.equal(apply(at('a b'), file, a), render({ inner: `${line(f.str('a b'))}\n${added}`, edit: one }));
     if (f.noStrings === true) {
@@ -493,7 +493,7 @@ export function runMatrix(f: Fixture): void {
     assert.equal(oldText.split(one).length - 1, 51, 'precondition: the anchor line stands 51 times');
     const md = patchText(oldText, newText, a);
     const [base, expected] = pair(insert, { ...drift, below, bottom: pinnedToEnd(md) ? '' : drift.bottom! });
-    assert.equal(apply(base, parseHatchFile(md), a), expected);
+    assert.equal(apply(base, parseSirFile(md), a), expected);
   });
 
   // К11 (скобки языка) and К12 (round-trip) are held by the goldens of the language and
@@ -515,7 +515,7 @@ export function runMatrix(f: Fixture): void {
       const [baseOld] = pair(insert, { ...drift, twice: true });
       const kb = baseOld.lastIndexOf(one);
       const baseNew = baseOld.slice(0, kb + one.length) + '\n' + added + baseOld.slice(kb + one.length);
-      assert.equal(apply(baseOld, parseHatchFile(md), a), baseNew);
+      assert.equal(apply(baseOld, parseSirFile(md), a), baseNew);
       return;
     }
     // held as it stands in every language of blocks (cpp/57 is KNOWN-GAP): a change here is seen
@@ -536,11 +536,11 @@ export function runMatrix(f: Fixture): void {
     test(`matrix ${L} С3 пробелы внутри многострочного литерала не значимы (ограничение)`, async () => {
       const a = await adapterOf(L);
       const lines = lit('a b');
-      const md = hatchMd([{ match: `...\n${lines.join('\n')}\n>>>\n...`, patch: `\n${added}` }], a.name);
+      const md = sirMd([{ match: `...\n${lines.join('\n')}\n>>>\n...`, patch: `\n${added}` }], a.name);
       assert.ok(matchLines(md).some((l) => l.includes('a b')), 'precondition: the pattern holds the literal');
       const base = render({ inner: lit('a  b').join('\n'), edit: one });
       // held as it stands: README says so; a change here is a change of the format
-      assert.equal(apply(base, parseHatchFile(md), a), render({ inner: [...lit('a  b'), added].join('\n'), edit: one }));
+      assert.equal(apply(base, parseSirFile(md), a), render({ inner: [...lit('a  b'), added].join('\n'), edit: one }));
     });
   }
 
@@ -558,8 +558,8 @@ export function runMatrix(f: Fixture): void {
       // the second line of a call over two lines: inside the parentheses the grammar
       // reads any indentation the same, so only the anchor can tell the shift
       const call = (pad: string): string => `${line('first(')}\n${pad}${line('    x)')}`;
-      const md = hatchMd([{ match: `...\n${call('')}\n>>>\n...`, patch: `\n${added}` }], a.name);
-      const file = parseHatchFile(md);
+      const md = sirMd([{ match: `...\n${call('')}\n>>>\n...`, patch: `\n${added}` }], a.name);
+      const file = parseSirFile(md);
       const at = (pad: string): string => render({ edit: `${call(pad)}\n${one}` });
       assert.equal(apply(at(''), file, a), render({ edit: `${call('')}\n${added}\n${one}` }));
       const map = (t: string): number => a.buildMap(t).blocksWithin(0, a.buildMap(t).eof).length;
@@ -569,8 +569,8 @@ export function runMatrix(f: Fixture): void {
     }
     const first = f.stmt('first', 'x');
     const second = f.stmt('second', 'x');
-    const md = hatchMd([{ match: `...\n${f.indent}${first}\n${f.indent}${second}\n>>>\n...`, patch: `\n${added}` }], a.name);
-    const file = parseHatchFile(md);
+    const md = sirMd([{ match: `...\n${f.indent}${first}\n${f.indent}${second}\n>>>\n...`, patch: `\n${added}` }], a.name);
+    const file = parseSirFile(md);
     const at = (pad: string): string => render({ edit: `${line(first)}\n${pad}${line(second)}\n${one}` });
     assert.equal(apply(at(''), file, a), render({ edit: `${line(first)}\n${line(second)}\n${added}\n${one}` }));
     // spaces between literals are free in a language of brackets — README
@@ -595,7 +595,7 @@ export function runMatrix(f: Fixture): void {
     const [oldText, newText] = pair(insert, { inner });
     const md = patchText(oldText, newText, a);
     const [b, e] = pair(insert, { ...drift, inner });
-    assert.equal(outcome(() => apply(b, parseHatchFile(md), a)), e);
+    assert.equal(outcome(() => apply(b, parseSirFile(md), a)), e);
     void patch; void base; void expected;
   });
 }

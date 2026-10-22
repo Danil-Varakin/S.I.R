@@ -1,0 +1,24 @@
+Sir: 2
+Target: test/golden/rust/generate/test17.new.rs
+Grammar: tree-sitter-rust@0.24.0
+
+# match rust
+    ...
+    impl Handler<Request> for Router {
+    ...
+        fn handle(
+    ...
+    ) -> u32 {
+    ...
+    >>>
+            self.count()
+    <<<
+    ...
+    }
+    ...
+    }
+    ...
+# end
+# patch
+    self.count() + 1
+# end

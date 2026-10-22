@@ -1,0 +1,25 @@
+# match cpp
+    ...
+    const char kHelp[] = R"(
+    usage: sir apply
+    >>>
+    )";
+    ...
+# end
+# patch
+
+    usage: sir generate
+# end
+
+# match cpp
+    ...
+    void PrintHelp() {
+    Print(kHelp);
+    >>>
+    }
+    ...
+# end
+# patch
+
+      Flush();
+# end

@@ -1,0 +1,24 @@
+Sir: 2
+Target: test/golden/c/apply/test12.c
+Grammar: tree-sitter-c@0.24.1
+
+# match c
+    ...
+    size_t ring_push(
+    ...
+    ) {
+    ...
+      }
+    >>>
+    ...
+      memcpy(
+    ...
+    );
+    ...
+    }
+    ...
+# end
+# patch
+
+      if (n == 0) return 0;
+# end

@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/c/generate/test4.new.c
+Grammar: tree-sitter-c@0.24.1
+
+# match c
+    ...
+    >>>
+      X(BUSY, 1)      \
+    <<<
+    ...
+# end
+# patch
+    X(BUSY, 5)      \
+# end

@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/typescript/generate/test3.new.ts
+Grammar: tree-sitter-typescript@0.23.2
+
+# match typescript
+    ...
+    >>>
+        ? E
+    <<<
+    ...
+# end
+# patch
+    ? E | undefined
+# end

@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/java/generate/test16.new.java
+Grammar: tree-sitter-java@0.23.5
+
+# match java
+    ...
+    static String doc() {
+    ...
+    >>>
+        return DOC.strip();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    return DOC.stripLeading();
+# end

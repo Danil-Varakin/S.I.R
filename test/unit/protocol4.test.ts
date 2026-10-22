@@ -18,7 +18,7 @@ import { buildRepo, version } from '../git-repo.ts';
 // `config`, `pair`, `resolve.baseText`, `warningsAt`, `NoChanges`, `baseGit.eol` and
 // the header's Target.
 
-const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'src', 'bin', 'hatch.ts');
+const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'src', 'bin', 'sir.ts');
 
 function ok(response: ResponseMessage): Record<string, unknown> {
   assert.equal(response.ok, true, JSON.stringify(response));
@@ -55,16 +55,16 @@ function commitAll(dir: string): void {
 
 const CONFIGS: Record<string, string | undefined> = {
   none: undefined,
-  v2: JSON.stringify({ version: 2, generate: { bridgeGap: 2, base: { head: true, eol: 'worktree' } } }),
-  'v2 upstream': JSON.stringify({ version: 2, upstream: '.', generate: { out: 'patches', base: { branch: 'trunk' } } }),
+  v2: JSON.stringify({ version: 3, generate: { bridgeGap: 2, base: { head: true, eol: 'worktree' } } }),
+  'v2 upstream': JSON.stringify({ version: 3, upstream: '.', generate: { out: 'patches', base: { branch: 'trunk' } } }),
 };
 
 for (const [name, text] of Object.entries(CONFIGS)) {
   test(`config ≡ generate: the settings, origins and file generate applies — ${name}`, async () => {
-    const R = buildRepo('hatch-p4-config-');
+    const R = buildRepo('sir-p4-config-');
     try {
       git(R.dir, 'branch', 'trunk', R.b);
-      if (text !== undefined) writeFileSync(join(R.dir, 'hatch.config.json'), text);
+      if (text !== undefined) writeFileSync(join(R.dir, 'sir.config.json'), text);
       const requests: { generate: object; overrides: object }[] = [
         { generate: { baseText: version(2) }, overrides: { base: 'text' } },
         { generate: { baseGit: { commit: R.a } }, overrides: { baseGit: { commit: R.a } } },
@@ -94,14 +94,14 @@ for (const [name, text] of Object.entries(CONFIGS)) {
 }
 
 test('config: the base out of git is resolved — spec as baseSpec, the full sha; watch names what could change it', async () => {
-  const R = buildRepo('hatch-p4-base-');
+  const R = buildRepo('sir-p4-base-');
   try {
     const c = ok(await call('config', { path: R.inPath, overrides: { baseGit: {} } }));
     assert.deepEqual(c['base'], { kind: 'git', spec: 'HEAD:src/core/f.cc', sha: R.b, eol: 'repository' });
     const watch = c['watch'] as string[];
     const root = R.dir;
-    assert.ok(watch.includes(join(root, 'src', 'core', 'hatch.config.json')), 'the nearest place a config could be made');
-    assert.ok(watch.includes(join(root, 'hatch.config.json')), 'the repository root');
+    assert.ok(watch.includes(join(root, 'src', 'core', 'sir.config.json')), 'the nearest place a config could be made');
+    assert.ok(watch.includes(join(root, 'sir.config.json')), 'the repository root');
     assert.ok(watch.includes(join(root, '.git', 'HEAD')));
     assert.ok(watch.includes(join(root, '.git', 'packed-refs')));
     assert.ok(watch.includes(join(root, '.git', 'refs', 'heads', R.branch)), 'the branch HEAD is on');
@@ -124,7 +124,7 @@ test('config: the base out of git is resolved — spec as baseSpec, the full sha
 });
 
 test('config: a file git does not know yet — settings answered, the base unavailable, the next commit watched', async () => {
-  const dir = tempRepo('hatch-p4-untracked-');
+  const dir = tempRepo('sir-p4-untracked-');
   try {
     const file = join(dir, 'new.cc');
     writeFileSync(file, 'int f() { return 1; }\n');
@@ -151,7 +151,7 @@ test('config: a file git does not know yet — settings answered, the base unava
 });
 
 test('config: a linked worktree watches its own HEAD and the common refs', async () => {
-  const R = buildRepo('hatch-p4-wt-');
+  const R = buildRepo('sir-p4-wt-');
   const wt = `${R.dir}-wt`;
   try {
     git(R.dir, 'worktree', 'add', '-q', '-b', 'wtb', wt, R.b);
@@ -170,12 +170,12 @@ test('config: a linked worktree watches its own HEAD and the common refs', async
 });
 
 test('config: a ConfigError as the loader gives it (C5)', async () => {
-  const R = buildRepo('hatch-p4-cfgerr-');
+  const R = buildRepo('sir-p4-cfgerr-');
   try {
-    writeFileSync(join(R.dir, 'hatch.config.json'), JSON.stringify({ version: 99 }));
+    writeFileSync(join(R.dir, 'sir.config.json'), JSON.stringify({ version: 99 }));
     const error = failed(await call('config', { path: R.inPath }));
     assert.equal(error.kind, 'ConfigError');
-    assert.match(error.message, /update hatch/);
+    assert.match(error.message, /update sir/);
   } finally {
     rmSync(R.dir, { recursive: true, force: true });
   }
@@ -184,9 +184,9 @@ test('config: a ConfigError as the loader gives it (C5)', async () => {
 // ── pair ─────────────────────────────────────────────────────────────────────────
 
 test('pair: code → patch → code, beside, out and upstream — the same outPath generate names', async () => {
-  const R = buildRepo('hatch-p4-pair-');
+  const R = buildRepo('sir-p4-pair-');
   try {
-    const one: Project = { configFile: join(R.dir, 'hatch.config.json'), projectRoot: R.dir, upstreamRoot: R.dir };
+    const one: Project = { configFile: join(R.dir, 'sir.config.json'), projectRoot: R.dir, upstreamRoot: R.dir };
     const layouts = [
       { settings: { out: null }, how: 'beside' },
       { settings: { out: 'patches', project: one }, how: 'upstream' },
@@ -200,35 +200,35 @@ test('pair: code → patch → code, beside, out and upstream — the same outPa
       const back = pairOf(code.patchPath!, settings, '');
       assert.deepEqual(back, { kind: 'patch', code: R.inPath, exists: true, how });
     }
-    const flat = pairOf(join(R.dir, 'out', 'f.cc.hatch'), { out: 'out/' }, '');
+    const flat = pairOf(join(R.dir, 'out', 'f.cc.sirp'), { out: 'out/' }, '');
     assert.deepEqual(flat, { kind: 'patch', code: null, exists: false, how: null, reason: 'flat-out' });
     assert.equal(pairOf(R.inPath, { out: 'out/' }).kind, 'code');
     assert.equal((pairOf(R.inPath, { out: '-' }) as { reason: string }).reason, 'no-out');
-    const astray = pairOf(join(R.dir, 'elsewhere', 'f.cc.hatch'), { out: 'patches', project: one }, '');
+    const astray = pairOf(join(R.dir, 'elsewhere', 'f.cc.sirp'), { out: 'patches', project: one }, '');
     assert.equal((astray as { reason: string }).reason, 'outside-out');
 
     // over the wire, with the project's config
-    writeFileSync(join(R.dir, 'hatch.config.json'), JSON.stringify({ version: 2, upstream: '.', generate: { out: 'patches' } }));
+    writeFileSync(join(R.dir, 'sir.config.json'), JSON.stringify({ version: 3, upstream: '.', generate: { out: 'patches' } }));
     const wire = ok(await call('pair', { path: R.inPath }));
-    assert.equal(wire['patchPath'], join(R.dir, 'patches', 'src', 'core', 'f.cc.hatch'));
+    assert.equal(wire['patchPath'], join(R.dir, 'patches', 'src', 'core', 'f.cc.sirp'));
     const g = ok(await call('generate', { path: R.inPath, newText: version(9), baseText: version(2) }));
     assert.equal(wire['patchPath'], g['outPath']);
-    assert.match(String(g['patch']), /^Hatch: 1\nTarget: src\/core\/f\.cc\n/);
+    assert.match(String(g['patch']), /^Sir: 2\nTarget: src\/core\/f\.cc\n/);
   } finally {
     rmSync(R.dir, { recursive: true, force: true });
   }
 });
 
 test('pair: one file, one patch — a patch beside the file and one in the tree are both named', () => {
-  const R = buildRepo('hatch-p4-two-');
+  const R = buildRepo('sir-p4-two-');
   try {
-    const one: Project = { configFile: join(R.dir, 'hatch.config.json'), projectRoot: R.dir, upstreamRoot: R.dir };
-    const tree = join(R.dir, 'patches', 'src', 'core', 'f.cc.hatch');
+    const one: Project = { configFile: join(R.dir, 'sir.config.json'), projectRoot: R.dir, upstreamRoot: R.dir };
+    const tree = join(R.dir, 'patches', 'src', 'core', 'f.cc.sirp');
     mkdirSync(dirname(tree), { recursive: true });
     writeFileSync(tree, '');
-    writeFileSync(`${R.inPath}.hatch`, '');
+    writeFileSync(`${R.inPath}.sirp`, '');
     assert.deepEqual(pairOf(R.inPath, { out: 'patches', project: one }), {
-      kind: 'code', patchPath: null, exists: false, how: null, reason: 'two-patches', patchPaths: [tree, `${R.inPath}.hatch`],
+      kind: 'code', patchPath: null, exists: false, how: null, reason: 'two-patches', patchPaths: [tree, `${R.inPath}.sirp`],
     });
     const outside: Project = { ...one, upstreamRoot: join(R.dir, 'src', 'other') };
     mkdirSync(outside.upstreamRoot!, { recursive: true });
@@ -239,10 +239,10 @@ test('pair: one file, one patch — a patch beside the file and one in the tree 
 });
 
 test('pair: Target comes first, measured from the repository root; a path out of it is refused', async () => {
-  const R = buildRepo('hatch-p4-target-');
+  const R = buildRepo('sir-p4-target-');
   try {
-    const patch = join(R.dir, 'anywhere', 'x.hatch');
-    const headed = (target: string): string => `Hatch: 1\nTarget: ${target}\n\n# match cpp\n    a\n# end\n# patch\n    b\n# end\n`;
+    const patch = join(R.dir, 'anywhere', 'x.sirp');
+    const headed = (target: string): string => `Sir: 2\nTarget: ${target}\n\n# match cpp\n    a\n# end\n# patch\n    b\n# end\n`;
     assert.deepEqual(pairOf(patch, { out: null }, headed('src/core/f.cc')), {
       kind: 'patch', code: R.inPath, exists: true, how: 'target',
     });
@@ -264,14 +264,14 @@ test('pair: Target comes first, measured from the repository root; a path out of
 });
 
 test('pair: a header that names no file says why — a newer or older format, a header that does not read, an unsafe Target', () => {
-  const patch = join(tmpdir(), 'hatch-p4-reasons', 'x.hatch');
+  const patch = join(tmpdir(), 'sir-p4-reasons', 'x.sirp');
   const body = '\n# match cpp\n    a\n# end\n# patch\n    b\n# end\n';
   const reason = (text: string): unknown => (pairOf(patch, { out: null }, text) as { reason?: string }).reason;
-  assert.equal(reason(`Hatch: 2\nTarget: a.cc\n${body}`), 'newer-format', 'update hatch, not "unsafe"');
-  assert.equal(reason(`Hatch: 0\nTarget: a.cc\n${body}`), 'older-format');
-  assert.equal(reason(`Hatch: x\n${body}`), 'bad-header');
-  assert.equal(reason(`Hatch: 1\nTarget: a.cc\nTarget: b.cc\n${body}`), 'bad-header');
-  assert.equal(reason(`Hatch: 1\nTarget: ../a.cc\n${body}`), 'unsafe-target');
+  assert.equal(reason(`Sir: 3\nTarget: a.cc\n${body}`), 'newer-format', 'update sir, not "unsafe"');
+  assert.equal(reason(`Sir: 0\nTarget: a.cc\n${body}`), 'older-format');
+  assert.equal(reason(`Sir: x\n${body}`), 'bad-header');
+  assert.equal(reason(`Sir: 2\nTarget: a.cc\nTarget: b.cc\n${body}`), 'bad-header');
+  assert.equal(reason(`Sir: 2\nTarget: ../a.cc\n${body}`), 'unsafe-target');
   assert.equal(patchAt(patch).target, null, 'nothing there yet');
 });
 
@@ -284,27 +284,27 @@ test('Target: contained paths only', () => {
 // ── generate: the header, warningsAt, NoChanges ─────────────────────────────────
 
 test('generate writes the header: Target from the repository root, Base-Blob for a git base', async () => {
-  const R = buildRepo('hatch-p4-gen-');
+  const R = buildRepo('sir-p4-gen-');
   try {
     const g = ok(await call('generate', { path: R.inPath, newText: version(9), baseText: version(2) }));
     const md = String(g['patch']);
-    assert.match(md, /^Hatch: 1\nTarget: src\/core\/f\.cc\nHatch-Version: \d\S*\nGrammar: tree-sitter-cpp@\S+\n\n# match cpp\n/, md);
+    assert.match(md, /^Sir: 2\nTarget: src\/core\/f\.cc\nSir-Version: \d\S*\nGrammar: tree-sitter-cpp@\S+\n\n# match cpp\n/, md);
     assert.deepEqual((g['hunks'] as { mdSpan: number[] }[])[0]!.mdSpan[0], 6, 'mdSpan counts the header lines');
     assert.equal(targetFor(String(g['outPath']), R.inPath), 'src/core/f.cc');
 
     const fromGit = ok(await call('generate', { path: R.inPath, newText: version(9), baseGit: {} }));
     const blob = git(R.dir, 'rev-parse', 'HEAD:src/core/f.cc');
-    assert.match(String(fromGit['patch']), new RegExp(`^Hatch: 1\nTarget: src/core/f\\.cc\nBase-Blob: ${blob}\n`));
+    assert.match(String(fromGit['patch']), new RegExp(`^Sir: 2\nTarget: src/core/f\\.cc\nBase-Blob: ${blob}\n`));
 
     const noPath = ok(await call('generate', { language: 'cpp', newText: version(9), baseText: version(2) }));
-    assert.match(String(noPath['patch']), /^Hatch: 1\nHatch-Version: /, 'no path, no file to name');
+    assert.match(String(noPath['patch']), /^Sir: 2\nSir-Version: /, 'no path, no file to name');
   } finally {
     rmSync(R.dir, { recursive: true, force: true });
   }
 });
 
 test('generate: warningsAt places each hunk warning on its .md line, with the text of warnings', async () => {
-  const R = buildRepo('hatch-p4-warn-');
+  const R = buildRepo('sir-p4-warn-');
   try {
     const g = ok(
       await call('generate', { path: R.inPath, baseText: version(2), newText: 'void f() {\n  int a = 3;   \n}\n' }),
@@ -322,7 +322,7 @@ test('generate: warningsAt places each hunk warning on its .md line, with the te
 });
 
 test('NoChanges: the same after normalization, from text and from git; exact compares bytes', async () => {
-  const R = buildRepo('hatch-p4-same-');
+  const R = buildRepo('sir-p4-same-');
   try {
     const spaced = 'void f() {\n\n    int  a = 2;\n\n}\n';
     const fromText = failed(await call('generate', { path: R.inPath, baseText: version(2), newText: spaced }));
@@ -342,7 +342,7 @@ test('NoChanges: the same after normalization, from text and from git; exact com
 });
 
 test('CLI: no changes — exit 7, a message, and no patch written', () => {
-  const R = buildRepo('hatch-p4-cli-');
+  const R = buildRepo('sir-p4-cli-');
   try {
     writeFileSync(R.inPath, version(2));
     const run = spawnSync(process.execPath, ['--experimental-strip-types', CLI, 'generate', '--in', R.inPath, '--head', '--no-config'], {
@@ -350,21 +350,21 @@ test('CLI: no changes — exit 7, a message, and no patch written', () => {
     });
     assert.equal(run.status, 7, run.stderr);
     assert.match(run.stderr, /NoChanges: the new version is the base/);
-    assert.equal(existsSync(`${R.inPath}.hatch`), false);
+    assert.equal(existsSync(`${R.inPath}.sirp`), false);
   } finally {
     rmSync(R.dir, { recursive: true, force: true });
   }
 });
 
 test('CLI: generate writes the header; --no-marker is gone', () => {
-  const R = buildRepo('hatch-p4-clihead-');
+  const R = buildRepo('sir-p4-clihead-');
   try {
     const args = ['--experimental-strip-types', CLI, 'generate', '--in', R.inPath, '--head', '--no-config'];
     const gen = (...extra: string[]): string =>
       execFileSync(process.execPath, [...args, ...extra], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
     gen();
-    assert.match(readFileSync(`${R.inPath}.hatch`, 'utf8'), /^Hatch: 1\nTarget: src\/core\/f\.cc\nBase-Blob: [0-9a-f]{40}\n/);
-    assert.match(gen('--out', '-'), /^Hatch: 1\nBase-Blob: /, 'stdout: no patch location, no Target');
+    assert.match(readFileSync(`${R.inPath}.sirp`, 'utf8'), /^Sir: 2\nTarget: src\/core\/f\.cc\nBase-Blob: [0-9a-f]{40}\n/);
+    assert.match(gen('--out', '-'), /^Sir: 2\nBase-Blob: /, 'stdout: no patch location, no Target');
     assert.equal(spawnSync(process.execPath, [...args, '--no-marker'], { encoding: 'utf8' }).status, 1);
   } finally {
     rmSync(R.dir, { recursive: true, force: true });
@@ -374,7 +374,7 @@ test('CLI: generate writes the header; --no-marker is gone', () => {
 // ── resolve / apply: baseText, the config's base ────────────────────────────────
 
 test('resolve: baseText when the base came out of git, none when it was sent', async () => {
-  const R = buildRepo('hatch-p4-resolve-');
+  const R = buildRepo('sir-p4-resolve-');
   try {
     const g = ok(await call('generate', { path: R.inPath, baseGit: {}, newText: version(9) }));
     const fromGit = ok(await call('resolve', { path: R.inPath, patch: g['patch'], baseGit: {} }));
@@ -405,11 +405,11 @@ test('resolve/apply: a hunk with a `# note` carries `note` and `noteSpan`; one w
 });
 
 test('resolve/apply with no base take the config\'s generate.base, as generate does; none is refused as before', async () => {
-  const R = buildRepo('hatch-p4-cfgbase-');
+  const R = buildRepo('sir-p4-cfgbase-');
   try {
     const md = String(ok(await call('generate', { path: R.inPath, baseGit: { commit: R.a }, newText: version(9) }))['patch']);
     assert.equal(failed(await call('apply', { path: R.inPath, patch: md })).kind, 'BadRequest');
-    writeFileSync(join(R.dir, 'hatch.config.json'), JSON.stringify({ version: 2, generate: { base: { commit: R.a } } }));
+    writeFileSync(join(R.dir, 'sir.config.json'), JSON.stringify({ version: 3, generate: { base: { commit: R.a } } }));
     const applied = ok(await call('apply', { path: R.inPath, patch: md }));
     assert.equal(applied['text'], version(9));
     assert.equal(applied['baseSpec'], `${R.a}:src/core/f.cc`);
@@ -423,7 +423,7 @@ test('resolve/apply with no base take the config\'s generate.base, as generate d
 // ── baseGit.eol ──────────────────────────────────────────────────────────────────
 
 test('baseGit.eol: with core.autocrlf the base comes as the file on disk has it — "worktree" — or as stored', async () => {
-  const dir = tempRepo('hatch-p4-crlf-');
+  const dir = tempRepo('sir-p4-crlf-');
   try {
     git(dir, 'config', 'core.autocrlf', 'true');
     const file = join(dir, 'a.cc');
@@ -445,7 +445,7 @@ test('baseGit.eol: with core.autocrlf the base comes as the file on disk has it 
     assert.equal(failed(await call('generate', { path: file, newText: crlf, baseGit: { eol: 'worktree' }, exact: true })).kind, 'NoChanges');
 
     // the config names it once for the project
-    writeFileSync(join(dir, 'hatch.config.json'), JSON.stringify({ version: 2, generate: { base: { head: true, eol: 'worktree' } } }));
+    writeFileSync(join(dir, 'sir.config.json'), JSON.stringify({ version: 3, generate: { base: { head: true, eol: 'worktree' } } }));
     const c = ok(await call('config', { path: file }));
     assert.equal((c['base'] as { eol: string }).eol, 'worktree');
     assert.equal(ok(await call('resolve', { path: file, patch: md }))['baseText'], crlf);
@@ -457,7 +457,7 @@ test('baseGit.eol: with core.autocrlf the base comes as the file on disk has it 
 });
 
 test('CLI --eol worktree: generate --head --exact on an unchanged autocrlf file is no change', () => {
-  const dir = tempRepo('hatch-p4-crlf-cli-');
+  const dir = tempRepo('sir-p4-crlf-cli-');
   try {
     git(dir, 'config', 'core.autocrlf', 'true');
     const file = join(dir, 'a.cc');
@@ -489,27 +489,27 @@ test('generate: a change no pattern anchors fails with SynthesisError (exit 8), 
 });
 
 test('generate: a place the .md cannot go is refused before synthesis — before NoChanges too', async () => {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'hatch-p4-blocked-')));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'sir-p4-blocked-')));
   try {
     writeFileSync(join(dir, 'blocker'), 'a file where a directory should be');
     const path = join(dir, 'a.cc');
-    const error = failed(await call('generate', { path, baseText: 'int a;\n', newText: 'int a;\n', out: join(dir, 'blocker', 'x.hatch') }));
+    const error = failed(await call('generate', { path, baseText: 'int a;\n', newText: 'int a;\n', out: join(dir, 'blocker', 'x.sirp') }));
     assert.equal(error.kind, 'PathError');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test('generate: --out naming a file that is not .hatch is refused before anything is read', async () => {
-  const R = buildRepo('hatch-p4-outext-');
+test('generate: --out naming a file that is not .sirp is refused before anything is read', async () => {
+  const R = buildRepo('sir-p4-outext-');
   try {
     // --in-old does not exist: the refusal comes first all the same
     const run = spawnSync(process.execPath, ['--experimental-strip-types', CLI, 'generate', '--in', R.inPath, '--in-old', 'nope.cc', '--no-config', '--out', 'p.md'], { encoding: 'utf8' });
     assert.equal(run.status, 5, run.stderr);
-    assert.match(run.stderr, /a patch is a \.hatch file — name it p\.hatch/);
+    assert.match(run.stderr, /a patch is a \.sirp file — name it p\.sirp/);
     assert.equal(existsSync(join(R.dir, 'p.md')), false);
     // a directory is fine, with or without an extension-less name
-    assert.equal(resolveOutPath({ inPath: R.inPath, out: 'patches' }).path, join(R.dir, 'patches', 'f.cc.hatch'));
+    assert.equal(resolveOutPath({ inPath: R.inPath, out: 'patches' }).path, join(R.dir, 'patches', 'f.cc.sirp'));
 
     const wire = failed(await call('generate', { path: R.inPath, newText: version(9), baseGit: { branch: 'nope' }, out: join(R.dir, 'x.txt') }));
     assert.equal(wire.kind, 'ConfigError', 'refused before the base is looked for');

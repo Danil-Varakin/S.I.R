@@ -1,0 +1,17 @@
+Sir: 2
+Target: test/golden/json5/apply/test3.json5
+Grammar: tree-sitter-javascript@0.25.0
+
+# match json5
+    ...
+        {
+          name: "AIPromptAPI",
+    >>>
+    ...
+    }
+    ...
+# end
+# patch
+
+          base_feature_status: "disabled",
+# end

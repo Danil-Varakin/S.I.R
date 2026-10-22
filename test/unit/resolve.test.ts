@@ -1,20 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { parseHatchFile } from '../../src/core/hatch-parser.ts';
+import { parseSirFile } from '../../src/core/sir-parser.ts';
 import { resolveHunks } from '../../src/core/resolve.ts';
 import { cppAdapter } from '../../src/lang/cpp/index.ts';
-import { hatchMd } from '../helpers.ts';
+import { sirMd } from '../helpers.ts';
 
 const BASE = ['namespace f {', 'void a() {', '  one();', '}', '}', ''].join('\n');
 
 async function resolve(md: string, baseline = BASE) {
   await cppAdapter.init();
-  return resolveHunks(baseline, parseHatchFile(md), cppAdapter);
+  return resolveHunks(baseline, parseSirFile(md), cppAdapter);
 }
 
 test('resolve: an insertion is empty in the baseline and carries the text in the result', async () => {
-  const md = hatchMd([{ match: '... one(); >>> ...', patch: 'two();' }]);
+  const md = sirMd([{ match: '... one(); >>> ...', patch: 'two();' }]);
   const { links, applied } = await resolve(md);
 
   const link = links[0]!;
@@ -27,7 +27,7 @@ test('resolve: an insertion is empty in the baseline and carries the text in the
 });
 
 test('resolve: a replacement spans exactly the text it replaces in the baseline', async () => {
-  const md = hatchMd([{ match: '... >>> one(); <<< ...', patch: 'two();' }]);
+  const md = sirMd([{ match: '... >>> one(); <<< ...', patch: 'two();' }]);
   const { links } = await resolve(md);
 
   const link = links[0]!;
@@ -37,7 +37,7 @@ test('resolve: a replacement spans exactly the text it replaces in the baseline'
 });
 
 test('resolve: the mdSpan of a hunk points at its own lines in the .md', async () => {
-  const md = hatchMd([
+  const md = sirMd([
     { match: '... one(); >>> ...', patch: 'two();' },
     { match: '... two(); >>> ...', patch: 'three();' },
   ]);
@@ -53,7 +53,7 @@ test('resolve: the mdSpan of a hunk points at its own lines in the .md', async (
 });
 
 test('resolve: a hunk leaning on an earlier insertion is marked dependsOnEarlier', async () => {
-  const md = hatchMd([
+  const md = sirMd([
     { match: '... one(); >>> ...', patch: 'two();' },
     { match: '... two(); >>> ...', patch: 'three();' },
   ]);
@@ -67,7 +67,7 @@ test('resolve: a hunk leaning on an earlier insertion is marked dependsOnEarlier
 });
 
 test('resolve: an earlier hunk shifts final, while base stays in baseline coordinates', async () => {
-  const md = hatchMd([
+  const md = sirMd([
     { match: '... namespace f { >>> ...', patch: '\nint counter;' },
     { match: '... >>> one(); <<< ...', patch: 'two();' },
   ]);
@@ -84,7 +84,7 @@ test('resolve: an earlier hunk shifts final, while base stays in baseline coordi
 });
 
 test('resolve: one hunk failing does not cancel the others', async () => {
-  const md = hatchMd([
+  const md = sirMd([
     { match: '... one(); >>> ...', patch: 'two();' },
     { match: '... nosuchcall(); >>> ...', patch: 'three();' },
   ]);
@@ -99,7 +99,7 @@ test('resolve: one hunk failing does not cancel the others', async () => {
 });
 
 test('resolve: the mdLine of a failure points at the anchor that did not fit', async () => {
-  const md = hatchMd([{ match: ['...', 'one();', '...', 'nosuchcall();', '>>>', '...'].join('\n'), patch: 'X();' }]);
+  const md = sirMd([{ match: ['...', 'one();', '...', 'nosuchcall();', '>>>', '...'].join('\n'), patch: 'X();' }]);
   const { links } = await resolve(md);
 
   const failure = links[0]!.failure!;
@@ -110,7 +110,7 @@ test('resolve: the mdLine of a failure points at the anchor that did not fit', a
 
 test('resolve: an ambiguous pattern reports the status and every candidate place', async () => {
   const baseline = ['void a() { one(); }', 'void b() { one(); }', ''].join('\n');
-  const md = hatchMd([{ match: '... one(); >>> ...', patch: 'X();' }]);
+  const md = sirMd([{ match: '... one(); >>> ...', patch: 'X();' }]);
   const { links } = await resolve(md, baseline);
 
   const link = links[0]!;
@@ -130,7 +130,7 @@ const TWO = 'void a() { one(); }\nvoid b() { six(); }\n';
 type Seen = [status: string, base: string | undefined, finalText: string | undefined, dependsOnEarlier: boolean];
 
 async function seen(hunks: { match: string; patch: string }[], baseline = TWO): Promise<{ links: Seen[]; applied: string }> {
-  const { links, applied } = await resolve(hatchMd(hunks), baseline);
+  const { links, applied } = await resolve(sirMd(hunks), baseline);
   for (const l of links) {
     if (l.final !== undefined) assert.equal(applied.slice(l.final.start, l.final.end), l.finalText, 'finalText is the text at final');
   }
@@ -141,7 +141,7 @@ async function seen(hunks: { match: string; patch: string }[], baseline = TWO): 
 }
 
 test('resolve: a later hunk earlier in the file moves final of the first, not its base', async () => {
-  const md = hatchMd([
+  const md = sirMd([
     { match: '... six(); >>> ...', patch: ' seven();' },
     { match: '... >>> one(); <<< ...', patch: 'zero(); one();' },
   ]);
@@ -166,7 +166,7 @@ test('resolve: a hunk after a failed one is placed as if the failed one were not
 });
 
 test('resolve: hunks on both sides of a failed one keep their own coordinates', async () => {
-  const md = hatchMd([
+  const md = sirMd([
     { match: '... >>> one(); <<< ...', patch: 'uno();;' },
     { match: '... nosuch(); >>> ...', patch: 'X();' },
     { match: '... >>> six(); <<< ...', patch: 'seis();' },
@@ -179,7 +179,7 @@ test('resolve: hunks on both sides of a failed one keep their own coordinates', 
 });
 
 test('resolve: a hunk right after what an earlier one replaced is based at the end of the replaced text', async () => {
-  const md = hatchMd([
+  const md = sirMd([
     { match: '... >>> one(); <<< ...', patch: 'uno();;' },
     { match: '... uno();; >>> ...', patch: ' dos();' },
   ]);
@@ -190,7 +190,7 @@ test('resolve: a hunk right after what an earlier one replaced is based at the e
 });
 
 test('resolve: a hunk inside what an earlier one wrote is based where the earlier one writes', async () => {
-  const md = hatchMd([
+  const md = sirMd([
     { match: '... one(); >>> ...', patch: ' two();' },
     { match: '... two( >>> ); ...', patch: 'x' },
   ]);
@@ -249,7 +249,7 @@ test('resolve: a later replacement over the end of what a hunk wrote leaves it t
 
 test('resolve: what a later hunk replaces whole leaves the earlier one an empty final where it stood', async () => {
   const { links, applied } = await resolve(
-    hatchMd([
+    sirMd([
       { match: '... one(); >>> ...', patch: ' two();' },
       { match: '... a() { >>> one(); two(); <<< } ...', patch: ' three();' },
     ]),
@@ -269,11 +269,11 @@ test('resolve: an error of another kind is status error with the class as kind, 
   function raise(): never {
     throw new RangeError('the normalizer gave up');
   }
-  const md = hatchMd([
+  const md = sirMd([
     { match: '... boom(); >>> ...', patch: 'X();' },
     { match: '... one(); >>> ...', patch: ' two();' },
   ]);
-  const { links } = resolveHunks(BASE, parseHatchFile(md), boom);
+  const { links } = resolveHunks(BASE, parseSirFile(md), boom);
   assert.equal(links[0]!.status, 'error');
   assert.deepEqual(links[0]!.failure, { kind: 'RangeError', message: 'the normalizer gave up' });
   assert.equal(links[0]!.dependsOnEarlier, false);
@@ -284,7 +284,7 @@ test('resolve: an error of another kind is status error with the class as kind, 
 test('resolve: a thrown value that is no Error is status error, kind Error, its text as the message', async () => {
   await cppAdapter.init();
   const odd = { ...cppAdapter, normalize: (raw: string) => { if (raw.includes('odd')) throw 'not an Error'; return cppAdapter.normalize(raw); } };
-  const { links } = resolveHunks(BASE, parseHatchFile(hatchMd([{ match: '... odd(); >>> ...', patch: 'X();' }])), odd);
+  const { links } = resolveHunks(BASE, parseSirFile(sirMd([{ match: '... odd(); >>> ...', patch: 'X();' }])), odd);
   assert.equal(links[0]!.status, 'error');
   assert.deepEqual(links[0]!.failure, { kind: 'Error', message: 'not an Error' });
 });
@@ -292,7 +292,7 @@ test('resolve: a thrown value that is no Error is status error, kind Error, its 
 // ── the machine fields of a failure ─────────────────────────────────────────────
 
 test('resolve: a no-match carries the step, the steps, how far it got and the anchor', async () => {
-  const md = hatchMd([{ match: ['...', 'one();', '...', 'nosuchcall();', '>>>', '...'].join('\n'), patch: 'X();' }]);
+  const md = sirMd([{ match: ['...', 'one();', '...', 'nosuchcall();', '>>>', '...'].join('\n'), patch: 'X();' }]);
   const { links } = await resolve(md);
   const { mdLine, ...rest } = links[0]!.failure!;
   assert.deepEqual(rest, {
@@ -307,7 +307,7 @@ test('resolve: a no-match carries the step, the steps, how far it got and the an
 });
 
 test('resolve: a pattern that runs out before the file does has no anchor line to underline', async () => {
-  const { links } = await resolve(hatchMd([{ match: '... one(); >>>', patch: 'X();' }]));
+  const { links } = await resolve(sirMd([{ match: '... one(); >>>', patch: 'X();' }]));
   const failure = links[0]!.failure!;
   assert.equal(failure.kind, 'MatchError');
   assert.equal(failure.failedStepIndex, failure.totalSteps, 'it failed past its last step');
@@ -317,7 +317,7 @@ test('resolve: a pattern that runs out before the file does has no anchor line t
 
 test('resolve: an ambiguity carries exactly the candidate places', async () => {
   const baseline = 'void a() { one(); }\nvoid b() { one(); }\n';
-  const { links } = await resolve(hatchMd([{ match: '... one(); >>> ...', patch: 'X();' }]), baseline);
+  const { links } = await resolve(sirMd([{ match: '... one(); >>> ...', patch: 'X();' }]), baseline);
   assert.deepEqual(links[0]!.failure, {
     kind: 'AmbiguityError',
     message: 'ambiguous match: the pattern fits in more than one place — add context',
@@ -346,7 +346,7 @@ test('resolve: a hunk right after text an earlier one deleted is based on its ow
 test('resolve: an insertion where an earlier hunk deleted is based where the deletion began', async () => {
   const baseline = 'int x = f(one(),two());\n';
   const { links } = await resolve(
-    hatchMd([
+    sirMd([
       { match: '... f( >>> one(), <<< ...', patch: '' },
       { match: '... f( >>> two() ...', patch: 'z,' },
     ]),

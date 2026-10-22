@@ -1,0 +1,17 @@
+Sir: 2
+Target: test/golden/shell/apply/test3.sh
+
+# match shell
+    ...
+    remove_udev_symlinks() {
+    ...
+        rm "/usr/lib/libudev.so.0"
+    >>>
+    ...
+    }
+    ...
+# end
+# patch
+
+        rm -f "/usr/lib/brave/libudev.so.0"
+# end

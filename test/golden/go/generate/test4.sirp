@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/go/generate/test4.new.go
+Grammar: tree-sitter-go@0.25.0
+
+# match go
+    ...
+    func pump(
+    ...
+    ) {
+    ...
+    >>>
+    		handle(v)
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    handle(v * 2)
+# end

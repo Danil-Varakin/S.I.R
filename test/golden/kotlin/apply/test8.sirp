@@ -1,0 +1,22 @@
+Sir: 2
+Target: test/golden/kotlin/apply/test8.kt
+Grammar: @tree-sitter-grammars/tree-sitter-kotlin@1.1.0
+
+# match kotlin
+    ...
+    class Repository(
+    ...
+    ) {
+    ...
+            key.isBlank() -> Result.Fail(
+    ...
+    )
+    >>>
+    ...
+    }
+    ...
+# end
+# patch
+
+            key.length > 64 -> Result.Fail("key too long")
+# end

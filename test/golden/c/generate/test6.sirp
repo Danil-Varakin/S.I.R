@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/c/generate/test6.new.c
+Grammar: tree-sitter-c@0.24.1
+
+# match c
+    ...
+    struct Flags {
+    ...
+    >>>
+      unsigned int level : 3;
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    unsigned int level : 2;
+# end

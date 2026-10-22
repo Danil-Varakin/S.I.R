@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/go/generate/test13.new.go
+Grammar: tree-sitter-go@0.25.0
+
+# match go
+    ...
+    	if err := step(); err != nil {
+    ...
+    >>>
+    		return fmt.Errorf("step a: %w", err)
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    return fmt.Errorf("stage a failed: %w", err)
+# end

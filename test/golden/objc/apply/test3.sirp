@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/objc/apply/test3.m
+
+# match objc
+    ...
+    - (void)start:(NSURLRequest *)request {
+    ...
+    >>>
+                          [self handleData:data error:error];
+    <<<
+    ...
+# end
+# patch
+    [self handleData:data response:response error:error];
+# end

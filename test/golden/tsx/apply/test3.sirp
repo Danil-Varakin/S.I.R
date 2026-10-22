@@ -1,0 +1,13 @@
+Sir: 2
+Target: test/golden/tsx/apply/test3.tsx
+
+# match tsx
+    ...
+    >>>
+          {items.length === 0 && <Empty hint="nothing here" />}
+    <<<
+    ...
+# end
+# patch
+    {items.length === 0 && <Empty hint="no tasks yet" />}
+# end

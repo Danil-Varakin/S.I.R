@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { anchorFailure, moreInformative, synthesize } from '../../src/generate/synth.ts';
 import type { PartialLimits } from '../../src/generate/synth.ts';
-import { printPattern } from '../../src/core/hatch-printer.ts';
+import { printPattern } from '../../src/core/sir-printer.ts';
 import { adapterForLanguage } from '../../src/lang/adapter.ts';
 import type { LanguageAdapter } from '../../src/lang/source-map.ts';
 import type { MatchPattern } from '../../src/core/ast.ts';

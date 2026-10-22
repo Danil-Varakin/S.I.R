@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/typescript/generate/test20.new.ts
+Grammar: tree-sitter-typescript@0.23.2
+
+# match typescript
+    ...
+    >>>
+    export const bucket = (hash: number): number => hash \>>> 24;
+    <<<
+    ...
+# end
+# patch
+    export const bucket = (hash: number): number => hash >>> 20;
+# end

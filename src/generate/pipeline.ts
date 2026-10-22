@@ -2,10 +2,10 @@ import type { Hunk } from '../core/ast.ts';
 import type { HunkLink } from '../core/resolve.ts';
 import type { MapCache } from '../lang/source-map.ts';
 import type { PartialLimits, Tracer } from './synth.ts';
-import { parseHatchFile } from '../core/hatch-parser.ts';
+import { parseSirFile } from '../core/sir-parser.ts';
 import { resolveHunks } from '../core/resolve.ts';
 import { checkHeading, pickAdapter } from '../lang/adapter.ts';
-import { printHatchFile, trailingSpaceWarnings, trailingSpaceWarningsAt } from './printer.ts';
+import { printSirFile, trailingSpaceWarnings, trailingSpaceWarningsAt } from './printer.ts';
 import type { HunkWarning } from './printer.ts';
 import { NoChanges, SynthesisError } from '../core/errors.ts';
 import type { SynthesisDraft } from '../core/errors.ts';
@@ -43,7 +43,7 @@ export interface GenerateRequest {
   /** Stops the run between two changes, throwing the signal's reason. A person steering
    *  stops it at the terminal instead. */
   readonly signal?: AbortSignal | undefined;
-  /** A `.hatch` whose hunks are settled — a draft a person finished (`SynthesisError`'s
+  /** A `.sirp` whose hunks are settled — a draft a person finished (`SynthesisError`'s
    *  `draft`): checked, then synthesis goes on from them, with no one to steer. Its hunks
    *  open the patch byte for byte, as written. */
   readonly keep?: string | undefined;
@@ -100,7 +100,7 @@ export async function generatePatch(request: GenerateRequest): Promise<GenerateO
   if (request.provenance !== true) return { md, language: label, hunkCount: hunks.length, warnings, warningsAt };
   request.signal?.throwIfAborted();
 
-  const resolved = resolveHunks(request.oldText, parseHatchFile(md), adapter, maps);
+  const resolved = resolveHunks(request.oldText, parseSirFile(md), adapter, maps);
   return {
     md,
     language: label,
@@ -154,20 +154,20 @@ async function synthesized(
   return request.review !== undefined ? request.review(made) : made;
 }
 
-/** The hunks as a `.hatch` body. With `keep` — it stood, so its hunks are the first ones
+/** The hunks as a `.sirp` body. With `keep` — it stood, so its hunks are the first ones
  *  — they are its own text, from the first heading on, byte for byte; the hunks made
  *  after them are printed below. */
 function printPatch(hunks: readonly Hunk[], label: string, keep: string | undefined): string {
-  if (keep === undefined) return printHatchFile(hunks, label);
-  const kept = parseHatchFile(keep).hunks.length;
+  if (keep === undefined) return printSirFile(hunks, label);
+  const kept = parseSirFile(keep).hunks.length;
   const own = hunksOf(keep).replace(/\s+$/, '');
-  return kept < hunks.length ? `${own}\n\n${printHatchFile(hunks.slice(kept), label)}` : `${own}\n`;
+  return kept < hunks.length ? `${own}\n\n${printSirFile(hunks.slice(kept), label)}` : `${own}\n`;
 }
 
 /** The draft printed as `generate` would print the patch, and where its last hunk is. */
 function printedDraft(e: SynthesisError, draft: SynthesisDraft, print: (hunks: readonly Hunk[]) => string): SynthesisError {
   const text = print(draft.hunks);
-  const line = parseHatchFile(text).hunks[draft.hunks.length - 1]!.mdSpan![0];
+  const line = parseSirFile(text).hunks[draft.hunks.length - 1]!.mdSpan![0];
   return new SynthesisError(e.message, e.reason, e.because, e.newLine, { ...draft, printed: { text, line } });
 }
 
@@ -196,7 +196,7 @@ export function patchHeader(fields: {
   return printHeader({
     target: fields.target,
     baseBlob: fields.baseBlob,
-    hatchVersion: packageIdentity().version,
+    sirVersion: packageIdentity().version,
     grammar: fields.adapter?.grammar !== undefined ? grammarName(fields.adapter.grammar) : undefined,
   });
 }

@@ -1,6 +1,6 @@
 {
-  "name": "hatch.config.json",
-  "description": "Configuration of hatch, a tool that writes and applies structural patches to source code",
-  "fileMatch": ["hatch.config.json"],
-  "url": "https://raw.githubusercontent.com/Danil-Varakin/hatchTs/main/hatch.config.schema.json"
+  "name": "sir.config.json",
+  "description": "Configuration of sir, a tool that writes and applies structural patches to source code",
+  "fileMatch": ["sir.config.json"],
+  "url": "https://raw.githubusercontent.com/Danil-Varakin/S.I.R/main/sir.config.schema.json"
 }

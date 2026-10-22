@@ -8,8 +8,8 @@ import { loadGrammar, parse } from '../../../src/lang/treesitter.ts';
 import type { Node } from '../../../src/lang/treesitter.ts';
 import { resolveGrammar } from '../../../src/infra/grammar-store.ts';
 import { synthesize } from '../../../src/generate/synth.ts';
-import { printHatchFile } from '../../../src/generate/printer.ts';
-import { parseHatchFile } from '../../../src/core/hatch-parser.ts';
+import { printSirFile } from '../../../src/generate/printer.ts';
+import { parseSirFile } from '../../../src/core/sir-parser.ts';
 import { applyAll } from '../../../src/core/apply.ts';
 
 // The numbers of Р4 (docs/10-brave-languages.md, stage 4): every mixed .mm and every
@@ -97,7 +97,7 @@ for (const language of ['objc', 'cpp']) {
       const err = errors(tree.rootNode, oldText.length);
       tree.delete();
 
-      const patch = parseHatchFile(printHatchFile(synthesize(oldText, newText, adapter), adapter.name));
+      const patch = parseSirFile(printSirFile(synthesize(oldText, newText, adapter), adapter.name));
       const drift = (t: string): string => {
         const lines = t.split('\n');
         lines.splice(1, 0, '#include "upstream/added.h"');

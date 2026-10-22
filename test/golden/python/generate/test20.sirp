@@ -1,0 +1,16 @@
+Sir: 2
+Target: test/golden/python/generate/test20.new.py
+Grammar: tree-sitter-python@0.25.0
+
+# match python
+    ...
+    class Proto:
+    ...
+    >>>
+        def write(self, data: bytes) -> None: \...
+    <<<
+    ...
+# end
+# patch
+    def write(self, data: bytes) -> int: ...
+# end

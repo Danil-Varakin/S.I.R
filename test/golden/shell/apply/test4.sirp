@@ -1,0 +1,16 @@
+Sir: 2
+Target: test/golden/shell/apply/test4.sh
+
+# match shell
+    ...
+      abort-upgrade)
+        ;;
+    >>>
+    ...
+# end
+# patch
+
+      remove)
+        cleanup_brave
+        ;;
+# end

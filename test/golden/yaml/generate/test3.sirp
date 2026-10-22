@@ -1,0 +1,13 @@
+Sir: 2
+Target: test/golden/yaml/generate/test3.new.yaml
+
+# match yaml
+    ...
+    >>>
+    tags: ['google-sharing']
+    <<<
+    ...
+# end
+# patch
+    tags: []
+# end

@@ -9,10 +9,10 @@ import { adapterOf, driftCases, patchOf } from '../matrix.ts';
 import type { Fixture } from '../matrix.ts';
 import { applyAll } from '../../src/core/apply.ts';
 
-// docs/10-brave-languages.md, 7.11: the drift of the matrix, through hatch and through
+// docs/10-brave-languages.md, 7.11: the drift of the matrix, through sir and through
 // `git apply` — a unified diff with three lines of context, the form a fork keeps its
-// patches in today. Per row: in how many languages each lands right. hatch must never
-// land wrong; a row where `git apply` lands and hatch does not is a regression to see.
+// patches in today. Per row: in how many languages each lands right. sir must never
+// land wrong; a row where `git apply` lands and sir does not is a regression to see.
 
 const UNIT = import.meta.dirname;
 
@@ -53,49 +53,49 @@ function gitApply(dir: string, oldText: string, newText: string, base: string, e
   return readFileSync(join(dir, 'f'), 'utf8') === expected ? 'lands' : 'WRONG';
 }
 
-test('7.11: the drift of the matrix through hatch and through git apply', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'hatch-vs-git-'));
-  const table = new Map<string, { git: number; hatch: number; languages: number; gitOnly: string[] }>();
+test('7.11: the drift of the matrix through sir and through git apply', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sir-vs-git-'));
+  const table = new Map<string, { git: number; sir: number; languages: number; gitOnly: string[] }>();
   try {
     for (const f of await fixtures()) {
       const a = await adapterOf(f.language);
       for (const c of driftCases(f)) {
-        let hatch: Outcome;
+        let sir: Outcome;
         try {
-          hatch = applyAll(c.base, patchOf(c.oldText, c.newText, a), a).source === c.expected ? 'lands' : 'WRONG';
+          sir = applyAll(c.base, patchOf(c.oldText, c.newText, a), a).source === c.expected ? 'lands' : 'WRONG';
         } catch {
-          hatch = 'refuses';
+          sir = 'refuses';
         }
         const git = gitApply(dir, c.oldText, c.newText, c.base, c.expected);
-        assert.notEqual(hatch, 'WRONG', `${f.language} ${c.row}: hatch landed wrong`);
-        const row = table.get(c.row) ?? { git: 0, hatch: 0, languages: 0, gitOnly: [] };
+        assert.notEqual(sir, 'WRONG', `${f.language} ${c.row}: sir landed wrong`);
+        const row = table.get(c.row) ?? { git: 0, sir: 0, languages: 0, gitOnly: [] };
         row.languages++;
         if (git === 'lands') row.git++;
-        if (hatch === 'lands') row.hatch++;
-        if (git === 'lands' && hatch !== 'lands') row.gitOnly.push(f.language);
+        if (sir === 'lands') row.sir++;
+        if (git === 'lands' && sir !== 'lands') row.gitOnly.push(f.language);
         table.set(c.row, row);
       }
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-  const got = Object.fromEntries([...table].map(([row, r]) => [row, `git ${r.git}/${r.languages} · hatch ${r.hatch}/${r.languages}${r.gitOnly.length ? ` · только git: ${r.gitOnly.join(', ')}` : ''}`]));
-  if (process.env['HATCH_PRINT'] === '1') console.log(got);
+  const got = Object.fromEntries([...table].map(([row, r]) => [row, `git ${r.git}/${r.languages} · sir ${r.sir}/${r.languages}${r.gitOnly.length ? ` · только git: ${r.gitOnly.join(', ')}` : ''}`]));
+  if (process.env['SIR_PRINT'] === '1') console.log(got);
   assert.deepEqual(got, EXPECTED);
 });
 
-// hatch is behind `git apply` in one row — Н1 (07-findings): when the author decides Р6,
+// sir is behind `git apply` in one row — Н1 (07-findings): when the author decides Р6,
 // this line changes with it
 const EXPECTED: Record<string, string> = {
-  'К0 без дрейфа': 'git 23/23 · hatch 23/23',
-  'К1в вставка, дрейф далеко от правки': 'git 23/23 · hatch 23/23',
-  'К1 вставка, дрейф': 'git 3/23 · hatch 23/23',
-  'К1 замена, дрейф': 'git 3/23 · hatch 23/23',
-  'К2 замена, внешний блок переименован': 'git 23/23 · hatch 23/23',
-  'К2 вставка, внешний блок переименован': 'git 23/23 · hatch 4/23 · только git: c, cpp, css, go, html, idl, java, javascript, json, json5, kotlin, mojom, proto, python, rust, shell, tsx, typescript, xml',
-  'К4 CRLF': 'git 0/23 · hatch 23/23',
-  'К5 BOM': 'git 3/23 · hatch 23/23',
-  'К9 20 ханков, дрейф': 'git 3/23 · hatch 23/23',
-  'К3 комментарий над якорем': 'git 0/23 · hatch 23/23',
-  'К1б строка upstream прямо над правкой': 'git 0/23 · hatch 23/23',
+  'К0 без дрейфа': 'git 23/23 · sir 23/23',
+  'К1в вставка, дрейф далеко от правки': 'git 23/23 · sir 23/23',
+  'К1 вставка, дрейф': 'git 3/23 · sir 23/23',
+  'К1 замена, дрейф': 'git 3/23 · sir 23/23',
+  'К2 замена, внешний блок переименован': 'git 23/23 · sir 23/23',
+  'К2 вставка, внешний блок переименован': 'git 23/23 · sir 4/23 · только git: c, cpp, css, go, html, idl, java, javascript, json, json5, kotlin, mojom, proto, python, rust, shell, tsx, typescript, xml',
+  'К4 CRLF': 'git 0/23 · sir 23/23',
+  'К5 BOM': 'git 3/23 · sir 23/23',
+  'К9 20 ханков, дрейф': 'git 3/23 · sir 23/23',
+  'К3 комментарий над якорем': 'git 0/23 · sir 23/23',
+  'К1б строка upstream прямо над правкой': 'git 0/23 · sir 23/23',
 };

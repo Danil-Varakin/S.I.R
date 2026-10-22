@@ -1,6 +1,6 @@
 import type { Hunk } from '../core/ast.ts';
-import { HatchError, SynthesisError, firstLineOf } from '../core/errors.ts';
-import { MATCH_HEADING, NOTE_HEADING, parseHatchFile } from '../core/hatch-parser.ts';
+import { SirError, SynthesisError, firstLineOf } from '../core/errors.ts';
+import { MATCH_HEADING, NOTE_HEADING, parseSirFile } from '../core/sir-parser.ts';
 import { resolveHunks, spanThrough } from '../core/resolve.ts';
 import { planHunk } from '../core/apply.ts';
 import { applyEdit } from '../core/patcher.ts';
@@ -12,7 +12,7 @@ import { InputClosed } from '../infra/ask.ts';
 import { setImmediate as nextTurn } from 'node:timers/promises';
 import { changeSegments } from './diff.ts';
 import type { ChangeSegment } from './diff.ts';
-import { printHatchFile } from './printer.ts';
+import { printSirFile } from './printer.ts';
 import { template, withDraft } from './draft.ts';
 import { getLineStartOffsets, sameIgnoringSpace, synthesizeOne } from './synth.ts';
 import type { PartialLimits, Tracer } from './synth.ts';
@@ -57,7 +57,7 @@ export interface SteerRequest {
   readonly limits?: PartialLimits | undefined;
   readonly trace?: Tracer | undefined;
   readonly maps?: MapCache | undefined;
-  /** A `.hatch` whose hunks are settled before the run starts, as if the editor had just
+  /** A `.sirp` whose hunks are settled before the run starts, as if the editor had just
    *  given them back (the service's `keep`): checked as an edit is, and the run goes on
    *  from them. One that does not stand is thrown — there is no one to ask again. */
   readonly keep?: string | undefined;
@@ -179,7 +179,7 @@ async function editUntilItStands(
   request: SteerRequest,
   steering: Steering,
 ): Promise<readonly Hunk[]> {
-  let body = printHatchFile(hunks, request.label);
+  let body = printSirFile(hunks, request.label);
   let reason = why;
   for (;;) {
     const edited = await steering.edit(`${note(reason, segment)}${body}`);
@@ -214,7 +214,7 @@ type Standing =
 function standing(text: string, request: SteerRequest): Standing {
   let file;
   try {
-    file = parseHatchFile(text);
+    file = parseSirFile(text);
   } catch (e) {
     return { why: `the edited patch does not parse: ${firstLineOf(e)}`, error: e };
   }
@@ -237,7 +237,7 @@ function standing(text: string, request: SteerRequest): Standing {
  *  make — with its number and line on it. A hunk that lands on the old version by itself
  *  anchors on text a hunk before it rewrote: that hunk is named, the first after which it
  *  no longer lands. */
-function landingError(hunks: readonly Hunk[], index: number, mdLine: number | undefined, request: SteerRequest): HatchError {
+function landingError(hunks: readonly Hunk[], index: number, mdLine: number | undefined, request: SteerRequest): SirError {
   const { adapter, maps } = request;
   const after = (count: number): string =>
     count === 0 ? request.oldText : resolveHunks(request.oldText, { hunks: [...hunks.slice(0, count)] }, adapter, maps).applied;
@@ -249,10 +249,10 @@ function landingError(hunks: readonly Hunk[], index: number, mdLine: number | un
       return e;
     }
   };
-  // resolveHunks did not lay it on this text, so laying it here throws — a HatchError,
-  // anything else is a fault of hatch and goes on up
+  // resolveHunks did not lay it on this text, so laying it here throws — a SirError,
+  // anything else is a fault of sir and goes on up
   const error = failure(after(index));
-  if (!(error instanceof HatchError)) throw error;
+  if (!(error instanceof SirError)) throw error;
   let because = error.message;
   if (index > 0 && failure(request.oldText) === undefined) {
     let culprit = 1;
@@ -271,7 +271,7 @@ const NOTE_WIDTH = 80;
 function note(reason: string, segment: ChangeSegment): string {
   const quote = (lines: readonly string[], mark: string): string[] => lines.map((l) => `  ${mark} ${l}`);
   return [
-    'Hatch — edit the hunks below, then save and close the editor. The hunks are applied',
+    'Sir — edit the hunks below, then save and close the editor. The hunks are applied',
     'in order to the OLD version, and everything above the first "# match" is ignored.',
     '',
     ...reason.split('\n').map((l) => `  ${l}`),
@@ -285,7 +285,7 @@ function note(reason: string, segment: ChangeSegment): string {
   ].join('\n');
 }
 
-/** The hunks of a `.hatch` as written, from the first heading on — its header and any
+/** The hunks of a `.sirp` as written, from the first heading on — its header and any
  *  prose before them left out, every byte after kept. */
 export function hunksOf(text: string): string {
   let at = 0;

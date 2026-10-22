@@ -1,0 +1,22 @@
+Sir: 2
+Target: test/golden/rust/generate/test5.new.rs
+Grammar: tree-sitter-rust@0.24.0
+
+# match rust
+    ...
+    fn totals(
+    ...
+    ) -> Vec<
+    ...
+    > {
+    ...
+    >>>
+            .map(|row| row.width * row.height)
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    .map(|row| row.width * row.height * 2)
+# end

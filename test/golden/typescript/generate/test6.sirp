@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/typescript/generate/test6.new.ts
+Grammar: tree-sitter-typescript@0.23.2
+
+# match typescript
+    ...
+    interface Store {
+    ...
+    >>>
+      set(key: string, value: string): void;
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    set(key: string, value: string, ttl?: number): void;
+# end

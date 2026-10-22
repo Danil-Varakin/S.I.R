@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/java/generate/test4.new.java
+Grammar: tree-sitter-java@0.23.5
+
+# match java
+    ...
+        static {
+    ...
+    >>>
+            LIMITS.put("default", 10);
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    LIMITS.put("default", 25);
+# end

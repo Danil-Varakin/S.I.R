@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/html/apply/test3.html
+Grammar: tree-sitter-html@0.23.2
+
+# match html
+    ...
+          <div class="settings-box first">
+    ...
+    >>>
+            <cr-link-row id="cookies" label="$i18n{cookiesLabel}"
+    <<<
+    ...
+    </div>
+    ...
+# end
+# patch
+    <cr-link-row id="cookies" label="$i18n{braveCookiesLabel}"
+# end

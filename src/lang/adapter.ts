@@ -75,7 +75,7 @@ const NAMES: ReadonlyMap<string, LanguageAdapter> = new Map([
 const REGISTRY: readonly LanguageAdapter[] = [...new Set(NAMES.values())];
 
 // ...and every extension a language claims in its own folder, spelled without the dot:
-// hatch 0.2.0 and earlier wrote that word into `# match` (`in.mm` → `# match mm`), and
+// sir 0.2.0 and earlier wrote that word into `# match` (`in.mm` → `# match mm`), and
 // every such patch has to apply the same forever, so `apply` reads each one back as the
 // same language. Derived, not listed: a language that claims an extension gets its name
 // with it, and the two cannot drift apart. The map stays static — built from the

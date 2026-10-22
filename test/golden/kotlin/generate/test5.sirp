@@ -1,0 +1,18 @@
+Sir: 2
+Target: test/golden/kotlin/generate/test5.new.kt
+Grammar: @tree-sitter-grammars/tree-sitter-kotlin@1.1.0
+
+# match kotlin
+    ...
+    fun String.squeeze(): String {
+    ...
+    >>>
+        return trim().replace(Regex("\s+"), " ")
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    return trim().replace(Regex("\s+"), "_")
+# end

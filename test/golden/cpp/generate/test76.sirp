@@ -1,0 +1,303 @@
+Sir: 2
+Target: test/golden/cpp/generate/test76.new.cc
+Grammar: tree-sitter-cpp@0.23.4
+
+# match cpp
+    ...
+    void f() {
+    ...
+    >>>
+      step_0();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    step_0(changed);
+# end
+
+# match cpp
+    ...
+    void f() {
+    ...
+    >>>
+      step_2();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    step_2(changed);
+# end
+
+# match cpp
+    ...
+    void f() {
+    ...
+    >>>
+      step_4();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    step_4(changed);
+# end
+
+# match cpp
+    ...
+    void f() {
+    ...
+    >>>
+      step_6();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    step_6(changed);
+# end
+
+# match cpp
+    ...
+    void f() {
+    ...
+    >>>
+      step_8();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    step_8(changed);
+# end
+
+# match cpp
+    ...
+    void f() {
+    ...
+    >>>
+      step_10();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    step_10(changed);
+# end
+
+# match cpp
+    ...
+    void f() {
+    ...
+    >>>
+      step_12();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    step_12(changed);
+# end
+
+# match cpp
+    ...
+    void f() {
+    ...
+    >>>
+      step_14();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    step_14(changed);
+# end
+
+# match cpp
+    ...
+    void f() {
+    ...
+    >>>
+      step_16();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    step_16(changed);
+# end
+
+# match cpp
+    ...
+    void f() {
+    ...
+    >>>
+      step_18();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    step_18(changed);
+# end
+
+# match cpp
+    ...
+    void f() {
+    ...
+    >>>
+      step_20();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    step_20(changed);
+# end
+
+# match cpp
+    ...
+    void f() {
+    ...
+    >>>
+      step_22();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    step_22(changed);
+# end
+
+# match cpp
+    ...
+    void f() {
+    ...
+    >>>
+      step_24();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    step_24(changed);
+# end
+
+# match cpp
+    ...
+    void f() {
+    ...
+    >>>
+      step_26();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    step_26(changed);
+# end
+
+# match cpp
+    ...
+    void f() {
+    ...
+    >>>
+      step_28();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    step_28(changed);
+# end
+
+# match cpp
+    ...
+    void f() {
+    ...
+    >>>
+      step_30();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    step_30(changed);
+# end
+
+# match cpp
+    ...
+    void f() {
+    ...
+    >>>
+      step_32();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    step_32(changed);
+# end
+
+# match cpp
+    ...
+    void f() {
+    ...
+    >>>
+      step_34();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    step_34(changed);
+# end
+
+# match cpp
+    ...
+    void f() {
+    ...
+    >>>
+      step_36();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    step_36(changed);
+# end
+
+# match cpp
+    ...
+    void f() {
+    ...
+    >>>
+      step_38();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    step_38(changed);
+# end

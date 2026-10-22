@@ -43,7 +43,7 @@ export function mapFor(adapter: LanguageAdapter, source: string, cache?: MapCach
 }
 
 export interface LanguageAdapter {
-  /** Loads the grammar (WASM), once. Nothing to choose: grammars ship inside hatch and
+  /** Loads the grammar (WASM), once. Nothing to choose: grammars ship inside sir and
    *  are never downloaded (`infra/grammar-store.ts`). */
   init(): Promise<void>;
 

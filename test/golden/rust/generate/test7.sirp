@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/rust/generate/test7.new.rs
+Grammar: tree-sitter-rust@0.24.0
+
+# match rust
+    ...
+    >>>
+    #[derive(Debug, Clone, PartialEq)]
+    <<<
+    ...
+# end
+# patch
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+# end

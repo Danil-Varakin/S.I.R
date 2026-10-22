@@ -1,7 +1,7 @@
 import { matchPattern } from './matcher.ts';
 import { applyEdit, planEdit } from './patcher.ts';
 import type { Edit } from './patcher.ts';
-import type { HatchFile, Hunk } from './ast.ts';
+import type { SirFile, Hunk } from './ast.ts';
 import type { LanguageAdapter, SourceMap } from '../lang/source-map.ts';
 
 export interface AppliedEdit {
@@ -14,7 +14,7 @@ export interface ApplyResult {
   edits: AppliedEdit[];
 }
 
-export function applyAll(source: string, file: HatchFile, adapter: LanguageAdapter): ApplyResult {
+export function applyAll(source: string, file: SirFile, adapter: LanguageAdapter): ApplyResult {
   let current = source;
   const edits: AppliedEdit[] = [];
   for (const hunk of file.hunks) {

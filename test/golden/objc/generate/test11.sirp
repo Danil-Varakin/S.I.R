@@ -1,0 +1,20 @@
+Sir: 2
+Target: test/golden/objc/generate/test11.new.mm
+Grammar: tree-sitter-objc@3.0.2
+
+# match objc
+    ...
+    - (
+    ...
+    )play {
+    ...
+    >>>
+      decoder_ = media::MakeDecoder();
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    decoder_ = media::MakeDecoder(nullptr);
+# end

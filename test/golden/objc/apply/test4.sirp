@@ -1,0 +1,15 @@
+Sir: 2
+Target: test/golden/objc/apply/test4.m
+
+# match objc
+    ...
+      @try {
+    ...
+    >>>
+        [self report:e];
+    <<<
+    ...
+# end
+# patch
+    [self reportFatal:e];
+# end

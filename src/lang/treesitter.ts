@@ -10,7 +10,7 @@ const grammars = new Map<string, Promise<Language>>();
 
 function ensureInit(): Promise<void> {
   if (initOnce === null) {
-    // inside hatch-apply the runtime's own .wasm is an asset, not a file beside the JS
+    // inside sir-apply the runtime's own .wasm is an asset, not a file beside the JS
     const wasmBinary = embeddedAsset('web-tree-sitter.wasm');
     const p = wasmBinary !== null ? Parser.init({ wasmBinary }) : Parser.init();
     p.catch(() => {

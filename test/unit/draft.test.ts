@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { template, withDraft } from '../../src/generate/draft.ts';
 import type { ChangeSegment } from '../../src/generate/diff.ts';
-import { printHatchFile } from '../../src/generate/printer.ts';
+import { printSirFile } from '../../src/generate/printer.ts';
 import { applyAll } from '../../src/core/apply.ts';
 import { SynthesisError } from '../../src/core/errors.ts';
 import type { Hunk } from '../../src/core/ast.ts';
@@ -23,7 +23,7 @@ function segment(oldStart: number, removed: string[], added: string[]): ChangeSe
 
 /** The draft hunk, as `generate` prints it into the draft. */
 function printed(seg: ChangeSegment, current = CURRENT): string {
-  return printHatchFile([template(seg, current)], 'cpp');
+  return printSirFile([template(seg, current)], 'cpp');
 }
 
 /** `current` with the change made — what the draft is for. */

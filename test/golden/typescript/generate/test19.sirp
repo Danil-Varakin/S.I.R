@@ -1,0 +1,14 @@
+Sir: 2
+Target: test/golden/typescript/generate/test19.new.ts
+Grammar: tree-sitter-typescript@0.23.2
+
+# match typescript
+    ...
+    >>>
+    const index: Map<string, Array<Set<number>>> = new Map();
+    <<<
+    ...
+# end
+# patch
+    const index: Map<string, Array<Set<bigint>>> = new Map();
+# end
