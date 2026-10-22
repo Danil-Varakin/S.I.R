@@ -1,0 +1,5 @@
+/* [COMMENT] KNOWN-GAP: однострочная закомментированная копия правила рядом с настоящим — 07-findings Н3 */
+/* .hidden { display: none; } */
+.hidden {
+  display: none;
+}

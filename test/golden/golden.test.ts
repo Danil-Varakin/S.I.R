@@ -16,12 +16,19 @@ import type { LanguageAdapter } from '../../src/lang/source-map.ts';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const UPDATE = process.env['UPDATE_GOLDEN'] === '1';
 
-const mustRefuse = (text: string): boolean => (text.split('\n', 1)[0] ?? '').includes('MUST-REFUSE');
+/** The line a golden describes itself in: the first — the second after a `#!` line, which
+ *  a script must keep on top. */
+const headLine = (text: string): string => {
+  const [first = '', second = ''] = text.split('\n', 2);
+  return first.startsWith('#!') ? second : first;
+};
+
+const mustRefuse = (text: string): boolean => headLine(text).includes('MUST-REFUSE');
 
 const knownGap = (text: string): boolean => text.slice(0, 400).includes('KNOWN-GAP');
 
 function describe(text: string): string {
-  const m = /^(?:\/\/|#)\s*(\[.*)$/.exec((text.split('\n', 1)[0] ?? '').replace(/\r$/, ''));
+  const m = /^(?:\/\/|#|<!--|\/\*)\s*(\[.*?)(?:\s*(?:-->|\*\/))?$/.exec(headLine(text).replace(/\r$/, ''));
   return m === null ? '' : ` ${m[1]!.trim()}`;
 }
 
@@ -83,11 +90,11 @@ for (const language of languages) {
         }
 
         // what `generate` writes: the header, then the heading in the language's own name.
-        // Not `Generated-By` — it would change every golden on every release — and no
-        // `Generated-From`: the old version is a file here, not a git blob.
+        // Not `Hatch-Version` — it would change every golden on every release — and no
+        // `Base-Blob`: the old version is a file here, not a git blob.
         const header = printHeader({
           target: `test/golden/${language}/generate/${newFile}`,
-          grammar: `${adapter.grammar.package}@${adapter.grammar.version}`,
+          grammar: adapter.grammar === undefined ? undefined : `${adapter.grammar.package}@${adapter.grammar.version}`,
         });
         const md = header + printHatchFile(synthesize(oldStr, newStr, adapter), adapter.name);
 

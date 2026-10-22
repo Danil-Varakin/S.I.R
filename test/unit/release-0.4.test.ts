@@ -93,9 +93,9 @@ async function withEnv(vars: Record<string, string | undefined>, fn: () => Promi
 test('stage 1: printHeader writes the fields in HEADER_FIELDS order, leaves out the missing ones, and parses back', () => {
   const all = printHeader({
     grammar: 'tree-sitter-c@1',
-    generatedBy: 'hatch 0.4.0',
+    hatchVersion: '0.5.0',
     target: 'a/b.c',
-    generatedFrom: 'f'.repeat(40),
+    baseBlob: 'f'.repeat(40),
   });
   assert.deepEqual(
     all.trimEnd().split('\n').map((l) => l.split(':')[0]),
@@ -113,8 +113,8 @@ test('stage 1: printHeader writes the fields in HEADER_FIELDS order, leaves out 
 });
 
 test('stage 1: blank lines before the header are skipped; CRLF reads alike; a value keeps its inner spaces', () => {
-  const file = parseHatchFile('\n\nHatch: 1\r\nGenerated-By: hatch 0.4.0 (dev build)  \r\n\r\n# match c\r\n    a\r\n    >>>\r\n# end\r\n# patch\r\n    b\r\n# end\r\n');
-  assert.deepEqual(file.header, { format: 1, generatedBy: 'hatch 0.4.0 (dev build)' });
+  const file = parseHatchFile('\n\nHatch: 1\r\nHatch-Version: 0.5.0 (dev build)  \r\n\r\n# match c\r\n    a\r\n    >>>\r\n# end\r\n# patch\r\n    b\r\n# end\r\n');
+  assert.deepEqual(file.header, { format: 1, hatchVersion: '0.5.0 (dev build)', generatedBy: 'hatch 0.5.0 (dev build)' });
 });
 
 test('stage 1: a patch with no Target still applies — apply is told the file by --in', () => {

@@ -1,0 +1,19 @@
+Hatch: 1
+Target: test/golden/json/generate/test3.new.json
+Grammar: tree-sitter-json@0.24.8
+
+# match json
+    ...
+      "storage": {
+    ...
+    >>>
+    }
+    ...
+# end
+# patch
+    },
+      "braveShields": {
+        "dependencies": ["permission:braveShields"],
+        "contexts": ["privileged_extension"]
+      
+# end

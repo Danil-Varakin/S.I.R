@@ -30,7 +30,9 @@ for (const language of readdirSync(HERE).sort()) {
       continue;
     }
     const text = readFileSync(join(dir, source), 'utf8');
-    const mustRefuse = (text.split('\n', 1)[0] ?? '').includes('MUST-REFUSE');
+    // the line a golden describes itself in: the first, the second after a `#!` line
+    const [first = '', second = ''] = text.split('\n', 2);
+    const mustRefuse = (first.startsWith('#!') ? second : first).includes('MUST-REFUSE');
     const r = spawnSync(
       resolve(binary),
       ['apply', '--match', patch, '--in', source, '--out', '-', '--base-from-disk', '--no-config'],

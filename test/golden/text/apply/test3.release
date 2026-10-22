@@ -1,0 +1,7 @@
+[NEAR] upstream добавил строку в секцию прямо над правкой
+[GENERAL]
+chrome.exe: %(ChromeDir)s\
+chrome_proxy.exe: %(ChromeDir)s\
+chrome.dll: %(VersionDir)s\
+
+[HIDPI]

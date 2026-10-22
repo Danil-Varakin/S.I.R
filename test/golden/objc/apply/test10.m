@@ -1,0 +1,52 @@
+// [DRIFT] upstream поменял wire: и инициализатор — строка в start: ложится как прежде
+#import "Downloader.h"
+
+@interface Downloader () <NSURLSessionDelegate>
+@property(nonatomic, copy) NSString *endpoint;
+@property(nonatomic, assign) NSInteger retries;
+@property(nonatomic, strong) NSMutableArray *queue;
+@end
+
+@implementation Downloader {
+  NSInteger _inFlight;
+  NSString *_token;
+}
+
+- (instancetype)initWithEndpoint:(NSString *)endpoint {
+  self = [super init];
+  if (self) {
+    _endpoint = [endpoint copy];
+    _retries = 3;
+    _queue = [NSMutableArray array];
+    _token = nil;
+  }
+  return self;
+}
+
+- (void)start:(NSURLRequest *)request {
+  _inFlight += 1;
+  [[self session] dataTaskWithRequest:request
+                    completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+                      [self handleData:data error:error];
+                    }];
+}
+
+- (void)handleData:(NSData *)data error:(NSError *)error {
+  @try {
+    [self.delegate downloader:self didLoad:data];
+  } @catch (NSException *e) {
+    [self report:e];
+  } @finally {
+    _inFlight -= 1;
+  }
+}
+
+- (void)wire:(UIButton *)button {
+  [button addTarget:self action:@selector(tap:withEvent:) forControlEvents:UIControlEventPrimaryActionTriggered];
+}
+
+@end
+
+@interface NSString (Downloader)
+- (NSString *)dl_trimmed;
+@end

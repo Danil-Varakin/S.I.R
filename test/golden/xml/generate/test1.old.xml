@@ -1,0 +1,6 @@
+<!-- [STRING] новая строка в strings.xml между соседями с похожими именами -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="menu_settings">Settings</string>
+    <string name="menu_history">History</string>
+    <string name="menu_downloads">Downloads</string>
+</resources>

@@ -1,0 +1,8 @@
+# [TOMLTABLE] ключ в таблицу — у соседней таблицы тот же ключ
+[package]
+name = "brave_rust"
+publish = false
+edition = "2021"
+
+[lib]
+edition = "2021"

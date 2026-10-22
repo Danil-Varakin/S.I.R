@@ -75,7 +75,7 @@ test('extensions of the Chromium set do not overlap and hit the right adapter', 
 });
 
 test('unknown extension → error', () => {
-  assert.throws(() => adapterForFile('notes.txt'), /no adapter for file extension/);
+  assert.throws(() => adapterForFile('notes.xyz'), /no adapter for file extension/);
 });
 
 test('the extension is read from the file name, never from a directory', () => {

@@ -125,6 +125,17 @@ test('API: applyAll "throws MatchError or AmbiguityError on the first hunk that 
   );
 });
 
+// README "Known limitations": "already applied" is not recognized. Laid on its own result a
+// patch finds its place again and writes again, exit 0 — the clean base is what rules it out.
+test('known limitation: a patch laid a second time on its own result inserts again', async () => {
+  await cppAdapter.init();
+  const patch = hatchMd([{ match: '...\nvoid g() {\n...\n>>>\n}\n...', patch: 'X();' }]);
+  const once = applyText('void g() {\n  a();\n}\n', patch);
+  const twice = applyText(once, patch);
+  assert.equal(once.split('X();').length - 1, 1);
+  assert.equal(twice.split('X();').length - 1, 2, 'no error, and the insertion is there twice');
+});
+
 // ── generate → apply round-trips: the edges of the input ─────────────────────────────
 
 test('round trip: "applying a generated patch to the old file reproduces the new file" — from and to an EMPTY file', async () => {

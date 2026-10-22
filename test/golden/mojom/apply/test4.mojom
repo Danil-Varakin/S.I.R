@@ -1,0 +1,9 @@
+// [EOL] CRLF-база
+module blink.mojom;
+
+struct FrameReplicationState {
+  // The origin (see [url::Origin]) of the frame.
+  url.mojom.Origin origin;
+  string name;
+  bool has_active_user_gesture = false;
+};

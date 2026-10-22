@@ -1,0 +1,17 @@
+Hatch: 1
+Target: test/golden/typescript/apply/test7.ts
+
+# note
+`>>>` between two words with no `...`: `return >>> value` — the one space between
+`return` and `value` belongs to neither literal; the insertion lands right after
+`return`, before that space. Up to 0.4.1 such a pattern fit nowhere.
+# end
+# match ts
+    ...
+    export function shift(value: number): number {
+      return >>> value
+    ...
+# end
+# patch
+     -
+# end

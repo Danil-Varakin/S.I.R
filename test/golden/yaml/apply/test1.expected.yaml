@@ -1,0 +1,8 @@
+# [DRIFT] upstream добавил ключи — удаление ложится
+caption: DNS-over-HTTPS mode
+supported_on:
+- chrome.*:80-
+default: 0
+features:
+  dynamic_refresh: true
+  per_profile: false

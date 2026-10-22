@@ -1,0 +1,5 @@
+<!-- [COMMENT] закомментированная копия элемента рядом с настоящим -->
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- <Preference android:key="homepage" android:title="@string/options_homepage_title" /> -->
+    <Preference android:key="homepage" android:title="@string/options_homepage_title" />
+</PreferenceScreen>

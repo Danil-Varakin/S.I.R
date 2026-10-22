@@ -1,0 +1,24 @@
+Hatch: 1
+target: test/golden/cpp/apply/test12.cc
+Generated-From: 0123456789abcdef0123456789abcdef01234567
+X-Origin: myfork
+Generated-By: hatch 0.4.1
+Grammar: tree-sitter-cpp@0.23.4
+
+Free prose before the first hunk is read past.
+
+# note
+WAIT: without it the driver hangs on a full buffer.
+# end
+# match cc
+    ...
+    void Drain(Buffer* buf) {
+    ...
+    >>>
+    }
+    ...
+# end
+# patch
+      buf->Wait();
+
+# end

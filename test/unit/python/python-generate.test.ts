@@ -5,6 +5,7 @@ import { synthesize } from '../../../src/generate/synth.ts';
 import { printHatchFile } from '../../../src/generate/printer.ts';
 import { parseHatchFile } from '../../../src/core/hatch-parser.ts';
 import { applyAll } from '../../../src/core/apply.ts';
+import { SynthesisError } from '../../../src/core/errors.ts';
 import { pythonAdapter } from '../../../src/lang/python/index.ts';
 
 async function roundtrip(oldStr: string, newStr: string): Promise<string> {
@@ -61,4 +62,33 @@ test('round-trip: a nested block three levels deep', async () => {
     'class C:\n    def m(self):\n        for i in r:\n            work(i)\n        return 0\n',
     'class C:\n    def m(self):\n        for i in r:\n            work(i, fast=True)\n        return 0\n',
   );
+});
+
+// Found by test/unit/property.test.ts. synthesize built an anchor holding a blank line
+// (`tick()⏎⏎tick()`) and verified it as written; a blank line in a match block is no part
+// of a literal, so the .hatch read back as `tick()⏎tick()`, which the Python canon (it
+// keeps blank lines) no longer finds: `generate` exited 0 with a patch `apply` refused on
+// the very old file. Anchors are now built as they read back. Here no anchor without the
+// blank line tells the third `tick()` from the second, so synthesis says so — exit 8, the
+// editor at a terminal — instead of writing a patch that does not apply.
+test('twin lines split by blank lines: an anchor is verified as it reads back — no patch that does not apply', async () => {
+  await pythonAdapter.init();
+  const oldStr = 'def a():\n    tick()\n\n    tick()\n\n    tick()\n';
+  const newStr = 'def a():\n    tick()\n\n    tick()\n\n    x = 1\n    tick()\n';
+  assert.throws(
+    () => synthesize(oldStr, newStr, pythonAdapter),
+    (e: unknown) => e instanceof SynthesisError && e.reason === 'ambiguous',
+  );
+});
+
+test('a blank line inside an anchor never reaches the .hatch: what is printed is what is verified', async () => {
+  await pythonAdapter.init();
+  const oldStr = 'def a():\n    one()\n\n    two()\n    tail()\n\ndef b():\n    one()\n    two()\n    tail()\n';
+  const newStr = oldStr.replace('    two()\n    tail()\n\ndef b', '    two()\n    added()\n    tail()\n\ndef b');
+  const md = await roundtrip(oldStr, newStr);
+  for (const hunk of parseHatchFile(md).hunks) {
+    for (const step of hunk.match.steps) {
+      if (step.anchor.target === 'literal') assert.ok(!/\n\s*\n/.test(step.anchor.literal.raw), md);
+    }
+  }
 });

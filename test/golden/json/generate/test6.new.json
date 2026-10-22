@@ -1,0 +1,7 @@
+// [ESCAPE] экранированные кавычки и скобки внутри строк
+{
+  "messages": {
+    "title": "Say \"hello\" {name}",
+    "body": "[final] ok"
+  }
+}

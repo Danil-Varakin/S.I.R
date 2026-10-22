@@ -1,0 +1,18 @@
+Hatch: 1
+Target: test/golden/html/generate/test3.new.html
+Grammar: tree-sitter-html@0.23.2
+
+# match html
+    ...
+    <div id="header">
+    ...
+    >>>
+      <span class="title">$i18n{incognitoTitle}</span>
+    <<<
+    ...
+    </div>
+    ...
+# end
+# patch
+    <span class="title">$i18n{braveIncognitoTitle}</span>
+# end

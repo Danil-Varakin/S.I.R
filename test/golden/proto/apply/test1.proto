@@ -1,0 +1,17 @@
+// [DRIFT] upstream добавил поля до и после — новое поле встаёт за sync_user_agent
+syntax = "proto2";
+
+package sync_pb;
+
+message DeviceInfoSpecifics {
+  optional string cache_guid = 1;
+  optional string client_name = 2;
+  optional int64 last_updated = 3;
+  optional string sync_user_agent = 4;
+}
+
+message Extra {}
+
+message FeatureSpecificFields {
+  optional string client_name = 1;
+}

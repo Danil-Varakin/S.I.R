@@ -1,0 +1,16 @@
+Hatch: 1
+Target: test/golden/html/generate/test10.new.html
+Grammar: tree-sitter-html@0.23.2
+
+# match html
+    ...
+    <div id="toolbar">
+    ...
+    >>>
+    </div>
+    ...
+# end
+# patch
+      <cr-icon-button iron-icon="brave:rewards" on-click="onRewardsClick_"></cr-icon-button>
+
+# end

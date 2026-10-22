@@ -1,0 +1,22 @@
+<!-- [DRIFT] upstream добавил разрешение, action и сервис — новая category встаёт за LAUNCHER -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="org.chromium.chrome">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <application android:name="org.chromium.chrome.browser.ChromeApplication"
+        android:icon="@drawable/ic_launcher">
+        <activity android:name="org.chromium.chrome.browser.ChromeTabbedActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <service android:name="org.chromium.chrome.browser.DownloadService"
+            android:exported="false" />
+        <service android:name="org.chromium.chrome.browser.MediaService" />
+        <meta-data android:name="channel" android:value="stable" />
+    </application>
+</manifest>

@@ -1,0 +1,30 @@
+Hatch: 1
+Target: test/golden/java/apply/test9.java
+Grammar: tree-sitter-java@0.23.5
+
+# match java
+    ...
+    public final class Cache<
+    ...
+    > {
+    ...
+        public V get(
+    ...
+    ) {
+    ...
+            V created = loader.apply(
+    ...
+    );
+    >>>
+    ...
+    }
+    ...
+    }
+    ...
+# end
+# patch
+
+            if (store.size() >= capacity) {
+                store.clear();
+            }
+# end

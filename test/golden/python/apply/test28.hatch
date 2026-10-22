@@ -1,0 +1,18 @@
+Hatch: 1
+Target: test/golden/python/apply/test28.DEPS
+Grammar: tree-sitter-python@0.25.0
+
+# match python
+    ...
+    vars = {
+    ...
+      'checkout_nacl': True,
+    >>>
+    ...
+    }
+    ...
+# end
+# patch
+
+      'checkout_brave': True,
+# end

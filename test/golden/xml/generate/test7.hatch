@@ -1,0 +1,18 @@
+Hatch: 1
+Target: test/golden/xml/generate/test7.new.xml
+Grammar: @tree-sitter-grammars/tree-sitter-xml@0.7.0
+
+# match xml
+    ...
+    <resources>
+    ...
+    >>>
+        <string name="about_title">About</string>
+    <<<
+    ...
+    </resources>
+    ...
+# end
+# patch
+    <string name="about_title">About Brave</string>
+# end

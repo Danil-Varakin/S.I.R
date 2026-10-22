@@ -1,0 +1,23 @@
+Hatch: 1
+Target: test/golden/xml/generate/test5.new.plist
+Grammar: @tree-sitter-grammars/tree-sitter-xml@0.7.0
+
+# match xml
+    ...
+    <plist version="1.0">
+    ...
+    <dict>
+    ...
+    	<string>${CHROMIUM_BUNDLE_ID}</string>
+    >>>
+    ...
+    </dict>
+    ...
+    </plist>
+    ...
+# end
+# patch
+
+    	<key>BraveFeedURL</key>
+    	<string>https://updates.bravesoftware.com/sparkle/</string>
+# end

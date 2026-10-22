@@ -1,0 +1,5 @@
+# [ZONE] MUST-REFUSE: upstream поменял пробелы внутри кавычек в заменяемой строке
+owners:
+- file://components/policy/OWNERS
+default: false
+tags: ['google-sharing ']

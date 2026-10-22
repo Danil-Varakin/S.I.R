@@ -1,0 +1,7 @@
+# [TOMLARRAY] строка в многострочный массив
+edition = "2024"
+ignore = [
+  "third_party/**",
+  "third_party/rust/chromium_crates_io/vendor/**",
+  "brave/third_party/",
+]

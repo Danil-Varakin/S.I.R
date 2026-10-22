@@ -1,0 +1,13 @@
+<!-- [NEST] вставка в глубоко вложенную PreferenceCategory -->
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory android:key="basics" android:title="@string/prefs_section_basics">
+        <PreferenceCategory android:key="search">
+            <Preference android:key="search_engine" />
+        </PreferenceCategory>
+    </PreferenceCategory>
+    <PreferenceCategory android:key="advanced" android:title="@string/prefs_section_advanced">
+        <PreferenceCategory android:key="search">
+            <Preference android:key="search_engine" />
+        </PreferenceCategory>
+    </PreferenceCategory>
+</PreferenceScreen>

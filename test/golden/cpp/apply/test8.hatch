@@ -1,0 +1,19 @@
+Hatch: 1
+Target: test/golden/cpp/apply/test8.cc
+Generated-By: hatch 0.4.1
+Grammar: tree-sitter-cpp@0.23.4
+
+# match cpp
+    ...
+    void RegisterFeatures(
+    ...
+    ) {
+    ...
+    >>>
+    }
+    ...
+# end
+# patch
+      list->Add(kNewPath);
+
+# end

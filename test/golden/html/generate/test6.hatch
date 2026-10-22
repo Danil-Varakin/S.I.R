@@ -1,0 +1,24 @@
+Hatch: 1
+Target: test/golden/html/generate/test6.new.html
+Grammar: tree-sitter-html@0.23.2
+
+# match html
+    ...
+    <template is="dom-if" if="[[showAdvanced_]]" restamp>
+    ...
+      <div class="advanced">
+    ...
+    >>>
+            menu-options="[[secureDnsOptions_]]">
+    <<<
+    ...
+        </settings-dropdown-menu>
+    ...
+    </div>
+    ...
+    </template>
+    ...
+# end
+# patch
+    menu-options="[[secureDnsOptions_]]" disabled="[[isManaged_]]">
+# end

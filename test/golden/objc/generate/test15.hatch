@@ -1,0 +1,14 @@
+Hatch: 1
+Target: test/golden/objc/generate/test15.new.mm
+Grammar: tree-sitter-objc@3.0.2
+
+# match objc
+    ...
+          counter->Reset();
+    >>>
+    ...
+# end
+# patch
+
+          counter->Record(url.host());
+# end

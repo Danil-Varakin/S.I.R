@@ -1,0 +1,31 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "testRunner": "tap",
+  "plugins": ["@stryker-mutator/tap-runner"],
+  "tap": {
+    "testFiles": [
+      "test/unit/!(hygiene).test.ts",
+      "test/unit/*/*.test.ts",
+      "test/roundtrip/*.test.ts",
+      "test/golden/golden.test.ts"
+    ],
+    "nodeArgs": ["-r", "{{hookFile}}", "--experimental-strip-types", "--no-warnings", "--test-reporter=tap", "{{testFile}}"],
+    "forceBail": true
+  },
+  "mutate": [
+    "src/core/*.ts",
+    "src/generate/synth.ts",
+    "src/generate/pipeline.ts",
+    "src/generate/steer.ts",
+    "src/generate/draft.ts"
+  ],
+  "coverageAnalysis": "perTest",
+  "disableTypeChecks": false,
+  "concurrency": 6,
+  "timeoutMS": 30000,
+  "incremental": true,
+  "incrementalFile": "reports/stryker-incremental.json",
+  "reporters": ["clear-text", "html", "json"],
+  "htmlReporter": { "fileName": "reports/mutation/mutation.html" },
+  "jsonReporter": { "fileName": "reports/mutation/mutation.json" }
+}

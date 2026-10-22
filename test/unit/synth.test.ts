@@ -116,7 +116,9 @@ test('special cases: a BOF insertion, an EOF append, and replacing the whole fil
   await roundtrip('int a = 1;\n', 'int a = 1;\nint z = 9;\n');
 
   const whole = synthesize('int old = 1;\n', 'int a = 2;\nint b = 3;\n', cppAdapter);
-  assert.equal(printPattern(whole[0]!.match).replace(/\s/g, ''), '>>>...<<<');
+  // the whole file spells what it replaces: `>>> ... <<<` would fit every file and write
+  // over whatever upstream added to it (07-findings Н5)
+  assert.equal(printPattern(whole[0]!.match).replace(/\s/g, ''), '...>>>intold=1;<<<...');
   await roundtrip('int old = 1;\n', 'int a = 2;\nint b = 3;\n');
 });
 

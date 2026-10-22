@@ -1,0 +1,13 @@
+Hatch: 1
+Target: test/golden/yaml/apply/test3.yaml
+
+# match yaml
+    ...
+    >>>
+    tags: ['google-sharing']
+    <<<
+    ...
+# end
+# patch
+    tags: []
+# end

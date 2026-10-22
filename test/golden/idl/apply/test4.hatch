@@ -1,0 +1,17 @@
+Hatch: 1
+Target: test/golden/idl/apply/test4.idl
+
+# match idl
+    ...
+    dictionary CanvasRenderingContext2DSettings {
+    ...
+        boolean desynchronized = false;
+    >>>
+    ...
+    }
+    ...
+# end
+# patch
+
+        boolean braveFarbling = true;
+# end

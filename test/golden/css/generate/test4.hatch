@@ -1,0 +1,18 @@
+Hatch: 1
+Target: test/golden/css/generate/test4.new.css
+Grammar: tree-sitter-css@0.25.0
+
+# match css
+    ...
+    .menu.item {
+    ...
+    >>>
+      color: black;
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    color: gray;
+# end

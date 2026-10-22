@@ -1,0 +1,9 @@
+# [TABLE] upstream добавил ключ в [package] — publish встаёт за name
+[package]
+name = "brave_rust"
+publish = false
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+edition = "2021"

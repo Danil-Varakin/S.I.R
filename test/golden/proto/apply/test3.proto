@@ -1,0 +1,10 @@
+// [TWICE] MUST-REFUSE: upstream переименовал message B в A — два одинаковых блока
+syntax = "proto2";
+
+message A {
+  optional int32 retries = 1 [default = 3];
+}
+
+message A {
+  optional int32 retries = 1 [default = 3];
+}

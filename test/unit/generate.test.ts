@@ -12,7 +12,9 @@ import { parseHatchFile } from '../../src/core/hatch-parser.ts';
 import { applyAll } from '../../src/core/apply.ts';
 import { cppAdapter } from '../../src/lang/cpp/index.ts';
 import { pythonAdapter } from '../../src/lang/python/index.ts';
-import { generatePatch } from '../../src/generate/pipeline.ts';
+import { generatePatch, patchHeader } from '../../src/generate/pipeline.ts';
+import { NoChanges, SynthesisError } from '../../src/core/errors.ts';
+import { hunksOf } from '../../src/generate/steer.ts';
 import type { LanguageAdapter } from '../../src/lang/source-map.ts';
 import { buildRepo, version } from '../git-repo.ts';
 import type { Repo } from '../git-repo.ts';
@@ -562,6 +564,26 @@ test('CLI generate --head outside a repository fails with a named error', () => 
   }
 });
 
+test('README "The file format": generate never writes notes — rerun over a .hatch, the notes go with the rest', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'hatch-gen-note-'));
+  try {
+    const oldF = join(dir, 'old.cc');
+    const newF = join(dir, 'a.cc');
+    const out = join(dir, 'a.cc.hatch');
+    writeFileSync(oldF, 'void f() {\n  int a = 1;\n}\n');
+    writeFileSync(newF, 'void f() {\n  int a = 2;\n}\n');
+    const first = runCli(GEN_CLI, ['--in', newF, '--in-old', oldF, '--out', out, '--no-config']);
+    assert.equal(first.status, 0, first.stderr);
+    const noted = readFileSync(out, 'utf8').replace('# match', '# note\nwhy: a person wrote this\n# end\n# match');
+    writeFileSync(out, noted);
+    const again = runCli(GEN_CLI, ['--in', newF, '--in-old', oldF, '--out', out, '--no-config']);
+    assert.equal(again.status, 0, again.stderr);
+    assert.doesNotMatch(readFileSync(out, 'utf8'), /# note/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('CLI generate with "upstream": ".": the patch tree repeats the path inside the repository; --mirror is gone', () => {
   const root = mkdtempSync(join(tmpdir(), 'hatch-gen-tree-'));
   try {
@@ -607,4 +629,106 @@ test('CLI generate: a plain refusal for a missing input and for a directory', ()
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// ── generatePatch: what it passes on, and how it prints `keep` ─────────────────────
+
+const HEAD = (s: string): string => s.slice(s.indexOf('# match'));
+const F_OLD = 'void f() {\n  a();\n}\n';
+const F_NEW = 'void f() {\n  a2();\n}\n';
+const KEEP_F = '# match cpp\n    ...\n    void f() {\n    ...\n    >>>\n      a();\n    <<<\n    ...\n# end\n# patch\n    a2();\n# end\n';
+
+test('generatePatch: no change says which comparison found none — normalized, or byte for byte', async () => {
+  await assert.rejects(
+    generatePatch({ oldText: 'int a;\n', newText: 'int  a;\n', language: 'cpp' }),
+    (e) => e instanceof NoChanges && e.message === 'the new version is the base once normalized (spacing, blank lines) — no patch to write',
+  );
+  await assert.rejects(
+    generatePatch({ oldText: 'int a;\n', newText: 'int a;\n', language: 'cpp', exact: true }),
+    (e) => e instanceof NoChanges && e.message === 'the new version is the base, byte for byte — no patch to write',
+  );
+  const spacing = await generatePatch({ oldText: 'int a;\n', newText: 'int  a;\n', language: 'cpp', exact: true });
+  assert.equal(spacing.hunkCount, 1, 'with exact, spacing alone is a change');
+});
+
+test('generatePatch: blank lines alone are no change in Python either, though its canon keeps them inside a line', async () => {
+  await assert.rejects(generatePatch({ oldText: 'x = 1\n\ny = 2\n', newText: 'x = 1\ny = 2\n', language: 'python' }), NoChanges);
+});
+
+test('generatePatch: bridgeGap is passed on — two changes one line apart become one hunk', async () => {
+  const oldText = 'void f() {\n  a();\n  k();\n  b();\n}\n';
+  const newText = 'void f() {\n  a2();\n  k();\n  b2();\n}\n';
+  assert.equal((await generatePatch({ oldText, newText, language: 'cpp' })).hunkCount, 2);
+  assert.equal((await generatePatch({ oldText, newText, language: 'cpp', bridgeGap: 1 })).hunkCount, 1);
+});
+
+// a CRLF base, and a new line ending in LF: a patch writes the base's endings, so only a
+// normalized comparison is met
+const CR_OLD = 'void f() {\r\n  a();\r\n  b();\r\n}\r\n';
+const CR_NEW = 'void f() {\r\n  a();\n  x();\r\n  b();\r\n}\r\n';
+
+test('generatePatch: exact is passed on to synthesis — what cannot be written byte for byte is refused, with no draft', async () => {
+  assert.equal((await generatePatch({ oldText: CR_OLD, newText: CR_NEW, language: 'cpp' })).hunkCount, 1);
+  await assert.rejects(
+    generatePatch({ oldText: CR_OLD, newText: CR_NEW, language: 'cpp', exact: true }),
+    (e) => e instanceof SynthesisError && e.reason === 'unreproduced' && e.draft === undefined && !('draft' in e.detail()),
+  );
+});
+
+test('generatePatch: review is handed the hunks synthesis made, and what it returns is printed', async () => {
+  const seen: number[] = [];
+  const out = await generatePatch({
+    oldText: F_OLD,
+    newText: F_NEW,
+    language: 'cpp',
+    review: async (hunks) => (seen.push(hunks.length), []),
+  });
+  assert.deepEqual(seen, [1]);
+  assert.equal(out.hunkCount, 0);
+  assert.ok(!out.md.includes('# match'));
+});
+
+test('generatePatch with keep: a keep that gives the new version warns of nothing', async () => {
+  const out = await generatePatch({ oldText: F_OLD, newText: F_NEW, language: 'cpp', keep: KEEP_F, provenance: true });
+  assert.deepEqual(out.warnings, []);
+  assert.equal(out.reproducesNew, true);
+});
+
+test('generatePatch with keep: exact is passed on — a keep met only once normalized warns', async () => {
+  const oldText = 'void f() {\r\n  a();\r\n}\r\n';
+  const newText = 'void f() {\r\n  a2();\n}\r\n';
+  assert.deepEqual((await generatePatch({ oldText, newText, language: 'cpp', keep: KEEP_F })).warnings, []);
+  assert.deepEqual((await generatePatch({ oldText, newText, language: 'cpp', keep: KEEP_F, exact: true })).warnings, [
+    'the patch does not give the new version: changes were left out, or hunks edited by hand make it differ',
+  ]);
+});
+
+test('generatePatch with keep: its hunks are printed as written — the blank lines between them too — and end in one newline', async () => {
+  const oldText = 'void f() {\n  a();\n}\nvoid g() {\n  b();\n}\n';
+  const newText = 'void f() {\n  a2();\n}\nvoid g() {\n  b2();\n}\n';
+  const second = KEEP_F.replace('void f()', 'void g()').replace('  a();', '  b();').replace('a2();', 'b2();');
+  const keep = `prose a person left\n\n${KEEP_F}\n\n\n${second}\n\n\n`;
+  const out = await generatePatch({ oldText, newText, language: 'cpp', keep });
+  assert.equal(HEAD(out.md), `${KEEP_F}\n\n\n${second}`);
+});
+
+test('generatePatch with keep: the hunks made after it follow one blank line below, however keep ended', async () => {
+  const oldText = 'void f() {\n  a();\n}\nvoid g() {\n  b();\n}\n';
+  const newText = 'void f() {\n  a2();\n}\nvoid g() {\n  b2();\n}\n';
+  const out = await generatePatch({ oldText, newText, language: 'cpp', keep: `${KEEP_F}\n\n\n` });
+  assert.ok(HEAD(out.md).startsWith(`${KEEP_F}\n# match cpp\n    ...\n    void g() {`), HEAD(out.md));
+});
+
+test('patchHeader: Grammar is <package>@<version>; a grammar with no package, or no version, is named by its file', () => {
+  const header = (grammar: object): string => patchHeader({ adapter: { grammar } as never });
+  assert.match(header({ file: 'a.wasm', package: 'tree-sitter-a', version: '1.2.3' }), /^Grammar: tree-sitter-a@1\.2\.3$/m);
+  assert.match(header({ file: 'b.wasm' }), /^Grammar: b\.wasm$/m);
+  assert.match(header({ file: 'c.wasm', package: 'tree-sitter-c' }), /^Grammar: c\.wasm$/m);
+  assert.match(header({ file: 'd.wasm', version: '1.0.0' }), /^Grammar: d\.wasm$/m);
+});
+
+test('hunksOf: a .hatch from its first heading on — header and prose dropped, every byte after kept', () => {
+  assert.equal(hunksOf('Hatch: 1\n\nprose\n# match cpp\n    x\n# end\n\n\n'), '# match cpp\n    x\n# end\n\n\n');
+  assert.equal(hunksOf('Hatch: 1\r\n\r\n# note\r\nwhy\r\n# end\r\n# match cpp\r\n'), '# note\r\nwhy\r\n# end\r\n# match cpp\r\n');
+  assert.equal(hunksOf('no heading at all\n  # match cpp\n'), 'no heading at all\n  # match cpp\n', 'a heading not at column 0 is none');
 });

@@ -1,0 +1,5 @@
+[CONFLICT] MUST-REFUSE: upstream сам поменял середину строки Maintainer
+Package: @@PACKAGE@@
+Maintainer: @@MAINTNAME@@ (Chromium) <@@MAINTMAIL@@>
+Description: @@SHORTDESC@@
+ @@FULLDESC@@

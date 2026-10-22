@@ -1,0 +1,20 @@
+Hatch: 1
+Target: test/golden/html/generate/test9.new.html
+Grammar: tree-sitter-html@0.23.2
+
+# match html
+    ...
+    <div class="row" id="extensions">
+    ...
+      <span class="label">
+    ...
+    </span>
+    >>>
+    ...
+    </div>
+    ...
+# end
+# patch
+
+      <span class="badge">$i18n{beta}</span>
+# end

@@ -1,0 +1,13 @@
+Hatch: 1
+Target: test/golden/yaml/generate/test2.new.yaml
+
+# match yaml
+    ...
+      value: 'off'
+    >>>
+    ...
+# end
+# patch
+
+      supported_on: brave
+# end

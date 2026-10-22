@@ -1,0 +1,14 @@
+Hatch: 1
+Target: test/golden/yaml/generate/test1.new.yaml
+
+# match yaml
+    ...
+      per_profile: false
+    >>>
+    ...
+      can_be_recommended: true
+    <<<
+    ...
+# end
+# patch
+# end

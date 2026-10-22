@@ -1,0 +1,7 @@
+/* [VAR] новая переменная в :host среди переменных Chromium */
+:host {
+  --cr-card-background-color: white;
+  --cr-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --brave-card-radius: 8px;
+  --cr-section-padding: 20px;
+}

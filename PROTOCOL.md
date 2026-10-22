@@ -35,8 +35,8 @@ downloaded.
   text, never the end of a line (protocol 4).
 - **stdout carries the protocol and nothing else.** Diagnostics (grammar loading and
   the like) go to stderr.
-- Every request is answered **when it is done, not in the order it came** (protocol 4;
-  before, one at a time, in order). Match replies to requests by `id`. `generate`
+- Every request is answered **when it is done, not in the order it came** (protocol 4).
+  Match replies to requests by `id`. `generate`
   hands the service back after each change, so a `pair` or a `config` sent while it
   runs is answered first.
 - **To cancel**, send `cancel` with the request's `id` (protocol 4, below): `generate`
@@ -81,15 +81,15 @@ landed.
 | kind | `detail` |
 |---|---|
 | `ParseError` | `mdLine`, `hint?` |
-| `MatchError` | `failedStepIndex`, `totalSteps?`, `origPos?`, `anchorText?` |
-| `AmbiguityError` | `positions` |
+| `MatchError` | `failedStepIndex`, `totalSteps?`, `origPos?`, `anchorText?`; `hunk`, `mdLine` for a hunk of `generate`'s `keep` that does not land (protocol 5) |
+| `AmbiguityError` | `positions`; `hunk`, `mdLine` as for `MatchError` (protocol 5) |
 | `PathError` | `path`, `blocker` |
 | `LanguageError` | `language?`, `extension?` |
 | `GitError` | `reason` (protocol 4) — `no-such-file` (not in that revision: deleted or renamed upstream), `not-a-file` (a directory there), `no-such-branch` (no fetch yet?), `not-a-branch` (a tag or a sha named as the branch), `no-such-commit`, `not-on-branch` (the commit is not on the branch named beside it), `no-commits` (the repository has none), `no-repository`, `outside-repository` (the path leaves the repository), `bad-coordinate` (a value starting with `-`), `no-git` (git cannot be run); `revision?`. The list is part of the contract |
 | `GrammarError` | `grammar?` |
 | `ConfigError` | `file?`; `version`, `keys` for keys outside a schema (`configTemplate`) |
 | `NoChanges` | `baseSpec` — what the base was, `null` for text (protocol 4) |
-| `SynthesisError` | `reason` — `no-match` (no pattern fitted — or none could be built around the change), `ambiguous` (the last pattern tried fitted in more than one place) or `unreproduced` (the hunks do not give `newText`: a fault of synthesis); `newLine?` — the line of `newText` the change starts on, from 1 (protocol 4) |
+| `SynthesisError` | `reason` — `no-match` (no pattern fitted — or none could be built around the change), `ambiguous` (the last pattern tried fitted in more than one place) or `unreproduced` (the hunks do not give `newText`: a fault of synthesis); `newLine?` — the line of `newText` the change starts on, from 1 (protocol 4); for `no-match` and `ambiguous`, the draft to write the change by hand (protocol 5): `draft` — the `.hatch` to finish and send back as `generate`'s `keep`, `draftHunk` — its last hunk, the one to write, from 1, `draftLine` — the line of that hunk's `# match` in `draft`, `change` — `{ line, removed, added }`: its line in the text the hunks so far make of the base, the lines it takes out and puts in |
 
 ## Versions: a range on each side
 
@@ -118,7 +118,7 @@ Params shared by methods that look at a language:
 |---|---|
 | `language` | a language name — any of `version().languages` |
 | `path` | the file this is about, **absolute**: the service has no meaningful current directory. Gives the language by extension when neither `language` nor the `.hatch` heading names one, and anchors `baseGit` and the config search |
-| `allowDownload` | accepted and ignored since protocol 4: the grammars ship inside hatch, nothing is downloaded (before: `true` let the call fetch a missing grammar) |
+| `allowDownload` | accepted and ignored (protocol 4): the grammars ship inside hatch, nothing is downloaded |
 
 The language is taken from `language`, else the `# match` heading of the `.hatch`
 (`resolve`, `apply`), else the extension of `path`. An empty `language` is the same as
@@ -157,9 +157,9 @@ for `generate`, the one to patch for `resolve`/`apply`. Send **exactly one** of:
 
 `generate`, `resolve` and `apply` may send neither (protocol 4) when they send a `path`:
 then the base is the one the project's config names in `generate.base` — `{ head?,
-branch?, commit?, eol? }`, read as `baseGit` with those fields. No `generate.base`
-either is the same refusal as before. `resolve`/`apply` read the config only then: a
-request that sends its base is served exactly as it was.
+branch?, commit?, eol? }`, read as `baseGit` with those fields. With no `generate.base`
+either, the request is refused. `resolve`/`apply` read the config for the base only
+then: a request that sends its base does not depend on the config.
 
 **Nothing is asked over a pipe.** Where the CLI asks before going on (a commit off the
 named branch, a tag given as the branch), there is no one to answer, so the service
@@ -175,8 +175,8 @@ a base out of git, `null` for one sent as text.
 No params.
 
 ```jsonc
-{ "hatch": "0.4.0", "protocol": 4, "protocolMin": 2,
-  "configSchema": 1, "configSchemaMin": 1, "languages": ["cpp", "c++", …] }
+{ "hatch": "0.5.0", "protocol": 5, "protocolMin": 4,
+  "configSchema": 2, "configSchemaMin": 2, "languages": ["cpp", "c++", …] }
 ```
 
 `configSchema`/`configSchemaMin` is the range of `hatch.config.json` versions this
@@ -197,6 +197,7 @@ The `.hatch` that turns the base into `newText`.
 | `limits` | anchoring limits: `minParents`, `maxParents` (a number or `"all"`), `parentDetailBase`, `minSiblings`, `maxSiblings`, `siblingDetailBase`, `parentsRequired` |
 | `out` | where the `.hatch` belongs, as `generate.out` — only reported back, nothing is written |
 | `configPath` | absolute: the config to use, no search — for a project beside its upstream (protocol 4) |
+| `keep` | a `.hatch` whose hunks are settled — typically `SynthesisError`'s `detail.draft`, finished by hand (below). Not a config setting (protocol 5) |
 
 **The config** (protocol 4). With `configPath` that file. Else, with a `path` to a file
 of code: `hatch.config.json` upward from the file's directory to its repository root;
@@ -233,23 +234,46 @@ While it works, `generate` sends `progress` notifications: `done` of `total`, wh
 **No changes** (protocol 4). When `newText` is the base — line for line as the language
 normalizes it, blank lines not counted; with `exact`, byte for byte — there is no `.hatch`
 to write, and the call fails with `NoChanges` (`exitCode` 7, `detail.baseSpec`). It is
-the first thing `generate` checks, for a base sent as text and out of git alike. Before
-protocol 4 the same request failed with `ParseError` ("no match/patch pairs"), a line
-of a `.hatch` the client never sent.
+the first thing `generate` checks, for a base sent as text and out of git alike.
 
 **A change it cannot anchor** (protocol 4). When no pattern made of the text around a
 change lands there and only there, the call fails with `SynthesisError` (`exitCode` 8,
-`detail.reason`, `detail.newLine`). Before protocol 4 the same request failed with the
-`MatchError` or `AmbiguityError` of the last pattern tried — the kinds of a `.hatch` that
-does not apply, with positions in a text the client never saw.
+`detail.reason`, `detail.newLine`).
 
-**The header** (protocol 4). `patch` is a `.hatch`, and starts with
+**Writing that hunk by hand** (protocol 5) — the CLI's editor round trip, with no
+session: all the state is in the text that goes back and forth. The `SynthesisError`
+carries `detail.draft`, the `.hatch` the CLI would hand the editor, without the comment
+lines the CLI puts on top: the header `generate` writes, every hunk so far, and last a hunk to start the change from —
+the change with the lines above it, most likely ambiguous as it stands; laid as it is,
+it makes the change, blank lines between it and those lines included. `draftHunk` and
+`draftLine` say where that hunk is; `change` is the change itself, for the client to
+show. The client lets the person finish the draft — any hunk of it, pattern and body —
+and sends the result back as `keep`, with the same base and `newText`:
+
+1. `keep` is checked as the CLI checks an edit: it parses (else `ParseError`, `mdLine` in
+   `keep`), its heading is the language's (else `LanguageError`), and every hunk lands on
+   the base, in order — else the error of the first that does not (`MatchError`,
+   `AmbiguityError`), its message opening `hunk N (line L) does not land:`, and
+   `detail.hunk`, `detail.mdLine` in `keep`.
+2. Its hunks are settled: what they wrote is not offered again. Synthesis goes on with
+   the changes still between the text they make and `newText`.
+3. The next change it cannot anchor is a `SynthesisError` again, its `draft` holding the
+   hunks of `keep` as they were written — and the client goes round once more.
+4. Otherwise the result is the patch: the hunks of `keep` first, byte for byte as sent,
+   `# note` included, then the hunks synthesized after them. A body written to differ
+   from `newText` stays: `reproducesNew` is `false`, and `warnings` says so.
+
+The header of `keep` is not kept: `patch` opens with the header `generate` writes now.
+`cancel` stops the run between two changes, as without `keep`.
+
+**The header** (protocol 4; `Base-Blob`, `Hatch-Version`: protocol 5). `patch` is a
+`.hatch`, and starts with
 
 ```
 Hatch: 1
 Target: src/a.cc
-Generated-From: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
-Generated-By: hatch 0.4.0
+Base-Blob: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
+Hatch-Version: 0.5.0
 Grammar: tree-sitter-cpp@0.23.4
 
 # match cpp
@@ -258,9 +282,9 @@ Grammar: tree-sitter-cpp@0.23.4
 `Hatch` is the format number, always first. `Target` is the file the patch is for,
 relative with `/`, measured from the repository root around the patch (at `outPath`),
 outside a repository from the patch's directory; without a `path`, or when the file is
-not under that root, there is none. `Generated-From` is the id of the git blob the base
-was read from, only for a base out of git. `Generated-By` and `Grammar` are always
-there. `mdSpan` and `mdLine` count the header lines. `pair` reads `Target` back. A
+not under that root, there is none. `Base-Blob` is the id of the git blob the base was
+read from, only for a base out of git. `Hatch-Version` (the bare version) and `Grammar`
+are always there. `mdSpan` and `mdLine` count the header lines. `pair` reads `Target` back. A
 reader ignores fields it does not know.
 
 ### `resolve`
@@ -280,7 +304,8 @@ Where the hunks of a `.hatch` land — without the text.
 → { "hunks": [ … ], "baseSpec": "HEAD:src/ui/window.cc", "baseText": "…",
     "code": "/work/src/ui/window.cc",
     "header": { "format": 1, "target": "src/ui/window.cc",
-                "generatedFrom": "3b18…", "generatedBy": "hatch 0.4.0", "grammar": "tree-sitter-cpp@0.23.4" },
+                "baseBlob": "3b18…", "hatchVersion": "0.5.0", "grammar": "tree-sitter-cpp@0.23.4",
+                "generatedFrom": "3b18…", "generatedBy": "hatch 0.5.0" },
     "warningsAt": [] }
 ```
 
@@ -292,7 +317,7 @@ back. Protocol 4 adds:
 | field | |
 |---|---|
 | `code` | the file the patch was laid on, absolute — `path`, or the file `Target` names; `null` without a `path` |
-| `header` | the patch's header as read: `format`, and `target`, `generatedFrom`, `generatedBy`, `grammar` when present. A patch with no header is `{ "format": 1 }` |
+| `header` | the patch's header as read: `format`, and `target`, `baseBlob`, `hatchVersion`, `grammar` when present (`baseBlob`, `hatchVersion`: protocol 5). `generatedFrom` (= `baseBlob`) and `generatedBy` (= `hatch <hatchVersion>`) are kept as protocol 4 had them. A patch with no header is `{ "format": 1 }` |
 | `warningsAt` | as in `generate`, computed on the patch as it is now — a patch edited by hand keeps its marks; headings spelled `## patch:` are found as well |
 
 A `path` to a patch that names no file (no `Target`, and no place in the layout to undo)
@@ -307,7 +332,7 @@ method only so that `resolve`, called often, does not send the whole file back e
 time.
 
 A patch takes the line endings of the base: in a CRLF base every line it writes ends in
-CRLF (protocol 3; before, such lines ended in LF).
+CRLF (protocol 3).
 
 ### `configTemplate`
 
@@ -322,11 +347,11 @@ are the client's.
 | `settings` | initial values in the paths of the config, nested (`{"generate": {"out": "patches/"}}`) or dotted (`{"generate.out": "patches/"}`); checked as the loader checks a file |
 
 ```jsonc
-{ "text": "{\n  \"$schema\": \"…/schemas/hatch.config.v1.schema.json\",\n  \"version\": 1\n}\n",
-  "version": 1,
+{ "text": "{\n  \"$schema\": \"…/schemas/hatch.config.v2.schema.json\",\n  \"version\": 2\n}\n",
+  "version": 2,
   "suggestedPath": "/work/repo/hatch.config.json",
   "exists": false,
-  "versions": [{ "version": 1, "summary": "v2: upstream; generate: out, language, …" }] }
+  "versions": [{ "version": 2, "summary": "v2: upstream; generate: out, language, …" }] }
 ```
 
 `text` holds `$schema`, `version`, then only the settings sent, in schema order: a
@@ -368,6 +393,9 @@ and those params applies: the same code reads both.
   "projectRoot": "/work/repo",               // the config's directory; or null
   "upstreamRoot": null,                      // the config's upstream, absolute; or null
   "target": "src/a.cc",                      // the pair's Target; or null
+  "language": "cpp",                         // the word of `# match`; or null (protocol 5)
+  "header": "Hatch: 1\nTarget: src/a.cc\nBase-Blob: 9d2b…41\nHatch-Version: 0.5.0\nGrammar: tree-sitter-cpp@0.23.4\n\n",
+                                             // the header generate would write; or null (protocol 5)
   "base": { "kind": "git", "spec": "HEAD:src/a.cc",
             "sha": "4f1c…e2", "eol": "worktree" },
   "watch": ["/work/repo/src/hatch.config.json", "/work/repo/hatch.config.json",
@@ -378,6 +406,8 @@ and those params applies: the same code reads both.
 | field | |
 |---|---|
 | `target` | the `Target` of the pair: what the patch of this file would name — or, for a `.hatch`, what it names; `null` when there is none (outside the upstream, no place) |
+| `language` | the language `generate` would name in `# match` for this file — its own name, picked as `generate` picks it: `overrides.language`, else the config's `generate.language`, else the extension (`cpp` for `.cc`, `objc` for `.mm`); for a `.hatch`, that of the file `pair` names for it. No grammar is loaded. `null` when none is picked — an extension no language has, a name no language answers to, a `.hatch` with no pair; `config` does not fail for it (protocol 5) |
+| `header` | the header `generate` would write for this file now, with the same `overrides` — the same code, its blank line after it, ready to open a patch written by hand: `Hatch`, then `Target` (as `target`), `Base-Blob` (the git blob of the file in the base revision), `Hatch-Version`, `Grammar` (the grammar of `language`). A field with no value is left out, not an error: no `Base-Blob` when the base is text, none, or `unavailable`; no `Grammar` when `language` is `null`; no `Target` when `target` is `null`. For a `.hatch`, the header of the file `pair` names for it; `null` when there is none. The blob is named by git, not read; no grammar is loaded. A client writes it as it comes and keeps no list of fields of its own (protocol 5) |
 | `base` | `{ "kind": "text" }` — the client sends it; `{ "kind": "git", spec, sha, eol }` — the revision resolved now: `spec` as `baseSpec`, `sha` the full hash of the commit; `{ "kind": "unavailable", error }` — a git base is named but cannot be read now (the file is not in that revision yet, no such branch): `error` is what `generate` would fail with, as an error object; `null` — `generate` would refuse for want of a base |
 | `watch` | absolute paths whose change may change this answer: every place from `path`'s directory up where a `hatch.config.json` would be found — up to the one found, else to the repository root — and the config found by its claim, then, for a git base, `HEAD`, `packed-refs` and the ref the revision goes through, where git keeps them (a linked worktree has its own `HEAD` and shares the refs) |
 
@@ -601,3 +631,36 @@ below is additive.
   `bad-header` beside `unsafe-target` (which they all were before).
 - `SynthesisError` answers `reason: "no-match"` when no candidate could be built around
   the change (it said `ambiguous`).
+
+### Protocol 5
+
+`protocolMin` 4 — a client written for protocol 4 works unchanged (R4).
+
+- `generate` writes fields 3 and 4 of the header as `Base-Blob` (the git blob of the
+  base, was `Generated-From`) and `Hatch-Version` (the bare version, `0.5.0`; was
+  `Generated-By: hatch 0.4.1`), in the same places. A patch with the old names reads
+  as before.
+- `header` in `resolve`/`apply` answers `baseBlob` and `hatchVersion` beside
+  `generatedFrom` and `generatedBy`, which keep their protocol-4 values.
+- `config` answers `language`: the word `generate` writes in `# match` for the same
+  `path` and `overrides` (`cpp` for `.cc`), or `null` when no language is picked. A
+  client making a patch by hand needs no table of extensions of its own.
+- `config` answers `header`: the header `generate` would write for the same `path` and
+  `overrides`, blank line included — `Base-Blob` only for a git base that can be read,
+  `Grammar` only when a language is picked, `Target` only when there is one; for a
+  `.hatch`, its pair's; `null` with no pair. A patch made by hand opens with it.
+- `SynthesisError` for `no-match` and `ambiguous` answers `detail.draft`, `draftHunk`,
+  `draftLine` and `change`: the `.hatch` to finish by hand and where its hunk to write is.
+- `generate` takes `keep`: a `.hatch` of settled hunks — typically that draft, finished.
+  Every hunk must land on the base, in order; synthesis goes on from them; they open
+  `patch` byte for byte. A hunk that does not land answers its error kind with
+  `detail.hunk` and `detail.mdLine`. Without `keep`, `generate` is as in protocol 4.
+- `languages` grows by `html` and `htm` (HTML), `xml` and `plist` (XML), `css` (CSS),
+  `json` (JSON), `json5` (JSON5) and `star` (Starlark, read as Python): `language`,
+  `# match` and the file's extension accept them in every method. A file named `DEPS`,
+  with no extension, is Python.
+- `languages` grows by formats read as text, with no grammar: `idl` (and `webidl`),
+  `mojom`, `proto` (and `protobuf`), `shell` (and `sh`, `bash`), `yaml` (and `yml`),
+  `toml`, `text` (and `txt`). A block there is a pair of `()`, `[]` or `{}` that balances
+  outside the format's strings and comments. A `.hatch` for such a file has no
+  `Grammar` in its header, and `config` answers a `header` without it.

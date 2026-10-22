@@ -1,0 +1,11 @@
+<!-- [DUP] два стиля с одинаковыми item, различает только заголовок стиля — правка во втором -->
+<resources>
+    <style name="Theme.Chromium" parent="Theme.AppCompat">
+        <item name="colorPrimary">@color/default_primary</item>
+        <item name="windowActionBar">false</item>
+    </style>
+    <style name="Theme.Chromium.Incognito" parent="Theme.Chromium">
+        <item name="colorPrimary">@color/default_primary</item>
+        <item name="windowActionBar">false</item>
+    </style>
+</resources>

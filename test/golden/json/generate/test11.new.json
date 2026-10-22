@@ -1,0 +1,12 @@
+// [DUPARRAY] два массива с одинаковым содержимым — правка во втором, различитель — ключ
+{
+  "allow": [
+    "https://a.example",
+    "https://b.example"
+  ],
+  "block": [
+    "https://a.example",
+    "https://ads.example",
+    "https://b.example"
+  ]
+}

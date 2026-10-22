@@ -1,0 +1,14 @@
+# match python
+    ...
+    ROUTES = {
+    ...
+    "admin": {"get": dashboard
+    >>>
+    },
+    ...
+    }
+    ...
+# end
+# patch
+    , "post": reset
+# end

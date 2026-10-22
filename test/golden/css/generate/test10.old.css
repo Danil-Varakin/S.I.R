@@ -1,0 +1,10 @@
+/* [NEST] вложенные правила (CSS nesting) — правка на третьем уровне */
+.card {
+  padding: 8px;
+  & .title {
+    font-size: 14px;
+    &:hover {
+      color: blue;
+    }
+  }
+}

@@ -325,7 +325,7 @@ async function generate(
     limits: settings,
     trace: opts.debug || log.logPath !== undefined ? makeTracer(log) : undefined,
     target,
-    generatedFrom: old.blob,
+    baseBlob: old.blob,
   };
   const session = editSession();
   let outcome: GenerateOutcome;

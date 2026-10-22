@@ -1,0 +1,18 @@
+Hatch: 1
+Target: test/golden/xml/generate/test4.new.xml
+Grammar: @tree-sitter-grammars/tree-sitter-xml@0.7.0
+
+# match xml
+    ...
+    <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.chromium.chrome">
+    ...
+    >>>
+        <uses-permission android:name="android.permission.CAMERA" />
+    <<<
+    ...
+    </manifest>
+    ...
+# end
+# patch
+    <uses-permission android:name="android.permission.CAMERA" tools:node="remove" />
+# end

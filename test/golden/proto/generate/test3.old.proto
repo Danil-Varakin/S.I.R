@@ -1,0 +1,12 @@
+// [PROTOENUM] значение во вложенном enum — строка опции в одинарных кавычках
+syntax = "proto2";
+
+message Entry {
+  enum State {
+    NEW = 0;
+    ACTIVE = 1;
+    PAUSED = 2;
+  }
+  optional State state = 1 [default = NEW];
+  optional string guid = 2 [default = ''];
+}

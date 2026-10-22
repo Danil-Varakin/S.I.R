@@ -1,0 +1,19 @@
+Hatch: 1
+Target: test/golden/idl/apply/test3.idl
+
+# match idl
+    ...
+    interface AudioBuffer {
+    ...
+    >>>
+        [Measure, RaisesException] Float32Array getChannelData(
+    <<<
+    ...
+            unsigned long channelIndex);
+    ...
+    }
+    ...
+# end
+# patch
+    [CallWith=ScriptState, Measure, RaisesException] Float32Array getChannelData(
+# end

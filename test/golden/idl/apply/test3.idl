@@ -1,0 +1,12 @@
+// [CONFLICT] MUST-REFUSE: upstream сам поменял атрибуты метода
+[
+    Exposed=Window
+] interface AudioBuffer {
+    constructor(AudioBufferOptions options);
+    readonly attribute float sampleRate;
+    [Measure, RaisesException, NewObject] Float32Array getChannelData(
+        unsigned long channelIndex);
+    [Measure, RaisesException] void copyFromChannel(
+        Float32Array destination,
+        unsigned long channelNumber);
+};

@@ -59,16 +59,13 @@ payload line carries a four-space gutter** that is stripped on read. The heading
 are recognized in column 0 only, so a payload line can never reach column 0: a
 ` ``` ` fence, a `# patch` heading or a `# end` inside a raw string is text.
 
-This is a correction, not an original design. Until 2026-08-04 blocks were
-delimited by Markdown fences — and chromium raw strings contain fences (embedded
-documentation, markdown in test data). A bare fence inside a patch body closed the
-block early, the file parsed and applied without complaint, and one line silently
-vanished from the output. Lengthening the fence when the payload contains one was
-rejected: it repairs only what *our* printer emits, while a hand-written `.hatch` —
-the primary input — keeps the trap.
+Why not Markdown fences: Chromium raw strings contain fences (embedded documentation,
+markdown in test data), and a bare fence inside a patch body would close the block
+early — the file parses, applies, and one line silently vanishes from the output.
+Lengthening the fence when the payload holds one repairs only what hatch's own printer
+emits; a hand-written `.hatch` keeps the trap.
 
-The rule that replaced it is checkable in one sentence, which is the point. Its
-consequences are load-bearing elsewhere: a payload line that forgets the gutter is
+The gutter rule is checkable in one sentence. Its consequences are load-bearing elsewhere: a payload line that forgets the gutter is
 a parse error rather than a silent loss; `# end` bounds the block, so blank lines
 inside it (trailing ones included) are payload and the patch body round-trips byte
 for byte; and the gutter is stripped by exactly four characters, so relative
@@ -97,17 +94,16 @@ never a dynamic `import()` of a name taken from an untrusted `.hatch`).
 
 ```ts
 interface BlockSpan {          // canonical coordinates
-  open: number;                // opening token (Python: start of the body)
-  close: number;               // its pair    (Python: end of the body)
+  open: number;                // opening token (Python block: its `:`)
+  close: number;               // its pair    (Python block: end of the body)
   headerStart?: number;        // start of the construct's header — synth only
   closeEnd?: number;           // end of the closing token       — synth only
 }
 
 interface SourceMap {                          // ALL positions are CANONICAL
   matchesAt(norm, pos): boolean;               // match here? (respects token boundaries)
-  occurrences(norm, from, to): number[];       // purely textual anchor occurrences
-  enclosingEnd(pos): number;                   // end of the block containing pos
-  depthAt(pos): number;                        // nesting depth (diagnostics)
+  occurrences(norm, from, to): Iterable<number>; // purely textual anchor occurrences, lazily
+  countOccurrences(norm, from, to): number;    // how many, without listing them
   enclosing(pos): BlockSpan[];                 // enclosing blocks, innermost first
   blocksWithin(from, to): BlockSpan[];         // blocks fully inside a range — synth only
   readonly eof: number;                        // canonical length
@@ -119,15 +115,17 @@ interface LanguageAdapter {
   init(): Promise<void>;                       // load tree-sitter grammar (WASM), once
   buildMap(source): SourceMap;                 // synchronous after init
   normalize(raw): string;                      // how to canonicalize literal text
+  readonly name: string;                       // the language's own name: `# match cpp`
   extensions: readonly string[];
+  readonly grammar: GrammarSource;             // file, package, version, sha256 pin
 }
 ```
 
-|                | C++ implements as                          | Python would implement as              |
+|                | C++ implements as                          | Python implements as                   |
 |----------------|--------------------------------------------|----------------------------------------|
-| `BlockSpan`    | `{ }` pair from the tree-sitter tree       | block by indentation                   |
-| `headerStart`  | start of the owning node (`void foo(…)`)   | start of the `def`/`class` line        |
-| `closeEnd`     | just past `}`                              | absent — there is no closing token     |
+| `BlockSpan`    | `{ }` pair from the tree-sitter tree       | an indented block: from its `:` to the end of the body; brackets as in C++ |
+| `headerStart`  | start of the owning node (`void foo(…)`)   | start of the `def`/`class`/`if` line   |
+| `closeEnd`     | just past `}`                              | absent for an indented block — there is no closing token |
 | `occurrences`  | textual search over the canonical string   | same                                   |
 | `normalize`    | indentation dropped                        | leading indentation **preserved**      |
 
@@ -171,11 +169,13 @@ interface Gap { mode: GapMode; insert?: PlacedMark; replaceEnd?: PlacedMark; }
 type Anchor = { target: 'literal'; literal: Literal } | { target: 'eof' };
 interface Step { gap: Gap; anchor: Anchor; }
 interface MatchPattern { steps: Step[]; }
-interface Hunk { match: MatchPattern; patch: string; mdSpan?: [number, number]; }
+interface Note { text: string; mdSpan: [number, number]; }    // `# note` … `# end`
+interface Hunk { match: MatchPattern; patch: string; mdSpan?: [number, number]; note?: Note; }
 ```
 
 `mdSpan` is where the literal came from in the `.hatch`, used for error messages. It
-is optional on `Hunk` because a synthesized hunk has no `.hatch` origin.
+is optional on `Hunk` because a synthesized hunk has no `.hatch` origin. `note` is the
+author's comment on the hunk; the matcher never reads it.
 
 **Marks anchor to "symbol + side."** A mark sits between characters, with a side
 that binds it to one non-whitespace character:
@@ -291,7 +291,7 @@ generate: (old,new) ─diff→ segments ─synth→ Hunk[] ─printer→ .hatch
 `generate` queries the *same* `SourceMap` that `apply` uses. One source of truth
 about file structure feeds both pipelines, so they cannot drift apart.
 
-The header of a `.hatch` (`Hatch`, `Target`, `Generated-From`, `Generated-By`,
+The header of a `.hatch` (`Hatch`, `Target`, `Base-Blob`, `Hatch-Version`,
 `Grammar`) lives in `src/core/header.ts`: one table of the fields in their order — the
 reader, the writer and the `HeaderFields` type are all made of it, so a field is added
 in one line, at the end (VERSIONING.md H4) — `readHeader` (the lines as written),
@@ -375,6 +375,13 @@ its hunk: the printer writes it before the `# match` it is about. The person com
 from outside (`Steering`: review, offer the editor, edit), which keeps the loop testable
 without a terminal.
 
+The service runs the same loop with no one at it (`unattended`), because the state is
+only text: a change synthesis cannot anchor ends the run with a `SynthesisError` whose
+draft is what the editor would get — every hunk so far and a hunk to start from
+(`generate/draft.ts`, which the batch synthesis uses too) — and the client sends it back,
+finished, as `keep`. `keep` is checked as an edit is, replayed as the first state, and
+printed byte for byte ahead of the hunks made after it. Nothing is held between requests.
+
 ### Line endings belong to the file
 
 A `.hatch` carries no line endings of its own: the parser reads `\r\n` and `\n` alike, and
@@ -402,12 +409,13 @@ The line, not the file: a file of mixed endings keeps what each place has.
 Errors carry their CI exit code (`src/core/errors.ts`): `ParseError`→2,
 `MatchError`→3, `AmbiguityError`→4, `ConfigError`→5, `GrammarError`→6, `NoChanges`→7,
 `SynthesisError`→8 — `generate` could not anchor a change, told apart from a `.hatch` that
-does not apply; the base `HatchError` is abstract, and anything else exits 1.
+does not apply; `GitError`, `LanguageError`, `PathError`→1. The base `HatchError` is
+abstract, and anything else exits 1.
 
 ## tree-sitter is the default structure provider
 
 `buildMap` parses the source with tree-sitter and reads block spans straight from
-the syntax tree, giving `enclosing`/`blocksWithin`/`depthAt`. This replaces a
+the syntax tree, giving `enclosing`/`blocksWithin`. This replaces a
 hand-written character scanner and bracket matcher — precisely the parts that are
 buggiest to hand-roll (raw strings, the C++14 digit separator `'`, string
 prefixes, preprocessor imbalance), all of which tree-sitter handles. We keep our

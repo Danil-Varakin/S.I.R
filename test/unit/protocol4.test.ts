@@ -283,21 +283,21 @@ test('Target: contained paths only', () => {
 
 // ── generate: the header, warningsAt, NoChanges ─────────────────────────────────
 
-test('generate writes the header: Target from the repository root, Generated-From for a git base', async () => {
+test('generate writes the header: Target from the repository root, Base-Blob for a git base', async () => {
   const R = buildRepo('hatch-p4-gen-');
   try {
     const g = ok(await call('generate', { path: R.inPath, newText: version(9), baseText: version(2) }));
     const md = String(g['patch']);
-    assert.match(md, /^Hatch: 1\nTarget: src\/core\/f\.cc\nGenerated-By: hatch \S+\nGrammar: tree-sitter-cpp@\S+\n\n# match cpp\n/, md);
+    assert.match(md, /^Hatch: 1\nTarget: src\/core\/f\.cc\nHatch-Version: \d\S*\nGrammar: tree-sitter-cpp@\S+\n\n# match cpp\n/, md);
     assert.deepEqual((g['hunks'] as { mdSpan: number[] }[])[0]!.mdSpan[0], 6, 'mdSpan counts the header lines');
     assert.equal(targetFor(String(g['outPath']), R.inPath), 'src/core/f.cc');
 
     const fromGit = ok(await call('generate', { path: R.inPath, newText: version(9), baseGit: {} }));
     const blob = git(R.dir, 'rev-parse', 'HEAD:src/core/f.cc');
-    assert.match(String(fromGit['patch']), new RegExp(`^Hatch: 1\nTarget: src/core/f\\.cc\nGenerated-From: ${blob}\n`));
+    assert.match(String(fromGit['patch']), new RegExp(`^Hatch: 1\nTarget: src/core/f\\.cc\nBase-Blob: ${blob}\n`));
 
     const noPath = ok(await call('generate', { language: 'cpp', newText: version(9), baseText: version(2) }));
-    assert.match(String(noPath['patch']), /^Hatch: 1\nGenerated-By: /, 'no path, no file to name');
+    assert.match(String(noPath['patch']), /^Hatch: 1\nHatch-Version: /, 'no path, no file to name');
   } finally {
     rmSync(R.dir, { recursive: true, force: true });
   }
@@ -363,8 +363,8 @@ test('CLI: generate writes the header; --no-marker is gone', () => {
     const gen = (...extra: string[]): string =>
       execFileSync(process.execPath, [...args, ...extra], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
     gen();
-    assert.match(readFileSync(`${R.inPath}.hatch`, 'utf8'), /^Hatch: 1\nTarget: src\/core\/f\.cc\nGenerated-From: [0-9a-f]{40}\n/);
-    assert.match(gen('--out', '-'), /^Hatch: 1\nGenerated-From: /, 'stdout: no patch location, no Target');
+    assert.match(readFileSync(`${R.inPath}.hatch`, 'utf8'), /^Hatch: 1\nTarget: src\/core\/f\.cc\nBase-Blob: [0-9a-f]{40}\n/);
+    assert.match(gen('--out', '-'), /^Hatch: 1\nBase-Blob: /, 'stdout: no patch location, no Target');
     assert.equal(spawnSync(process.execPath, [...args, '--no-marker'], { encoding: 'utf8' }).status, 1);
   } finally {
     rmSync(R.dir, { recursive: true, force: true });
@@ -483,7 +483,8 @@ test('generate: a change no pattern anchors fails with SynthesisError (exit 8), 
   const error = failed(await call('generate', { baseText: old, newText: neu, language: 'cpp' }));
   assert.equal(error.kind, 'SynthesisError');
   assert.equal(error.exitCode, 8);
-  assert.deepEqual(error.detail, { reason: 'ambiguous', newLine: 8 });
+  // the fields of protocol 4; protocol 5 adds `draft` and the rest beside them (R4)
+  assert.deepEqual({ reason: error.detail?.['reason'], newLine: error.detail?.['newLine'] }, { reason: 'ambiguous', newLine: 8 });
   assert.match(error.message, /could not anchor the change at line 8 of the new version/);
 });
 

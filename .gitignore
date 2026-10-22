@@ -43,16 +43,8 @@ yarn-error.log*
 # the archive npm pack produces
 *.tgz
 
-# local assistant files: instructions, settings, caches — kept on this machine only
-CLAUDE.md
-CLAUDE.local.md
-.claude/
-.mcp.json
-AGENTS.md
-GEMINI.md
-.cursor/
-.cursorrules
-.windsurfrules
-.aider*
-.continue/
-.github/copilot-instructions.md
+# Stryker: its sandbox and its reports, the incremental file among them (kept between runs
+# on this machine; CI keeps its own in a cache)
+/.stryker-tmp/
+/reports/
+lcov.info

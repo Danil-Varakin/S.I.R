@@ -94,14 +94,14 @@ test('L1 Brave: generate puts the patch in src/brave/patches, Target from src, b
     assert.equal(r.status, 0, r.stderr);
     const patch = join(L.braveDir, 'patches', 'chrome', 'browser', 'ui', 'browser.h.hatch');
     const blob = git(L.src, 'rev-parse', 'HEAD:chrome/browser/ui/browser.h');
-    assert.match(readFileSync(patch, 'utf8'), new RegExp(`^Hatch: 1\nTarget: chrome/browser/ui/browser\\.h\nGenerated-From: ${blob}\n`));
+    assert.match(readFileSync(patch, 'utf8'), new RegExp(`^Hatch: 1\nTarget: chrome/browser/ui/browser\\.h\nBase-Blob: ${blob}\n`));
 
     // v8: the patch in Brave's tree, the base out of the v8 repository
     const v8 = hatch(L.src, 'generate', '--in', L.v8File);
     assert.equal(v8.status, 0, v8.stderr);
     const v8Patch = join(L.braveDir, 'patches', 'v8', 'src', 'objects', 'js-objects.cc.hatch');
     assert.match(readFileSync(v8Patch, 'utf8'), /^Hatch: 1\nTarget: v8\/src\/objects\/js-objects\.cc\n/);
-    assert.match(readFileSync(v8Patch, 'utf8'), new RegExp(`Generated-From: ${git(join(L.src, 'v8'), 'rev-parse', 'HEAD:src/objects/js-objects.cc')}`));
+    assert.match(readFileSync(v8Patch, 'utf8'), new RegExp(`Base-Blob: ${git(join(L.src, 'v8'), 'rev-parse', 'HEAD:src/objects/js-objects.cc')}`));
 
     // apply --verify with only the patch: the file from Target, the base from generate.base
     const verify = hatch(L.braveDir, 'apply', '--verify', '--match', 'patches/chrome/browser/ui/browser.h.hatch');
@@ -285,7 +285,8 @@ test('3.2/3.3 Brave: config answers the project and the Target; resolve and appl
     const header = r['header'] as Record<string, unknown>;
     assert.equal(header['format'], 1);
     assert.equal(header['target'], 'chrome/browser/ui/browser.h');
-    assert.match(String(header['generatedBy']), /^hatch /);
+    assert.match(String(header['generatedBy']), /^hatch /, 'protocol 4 keeps its spelling');
+    assert.match(String(header['hatchVersion']), /^\d/);
     assert.deepEqual(r['warningsAt'], []);
     const a = ok(await call('apply', { path: patchPath }));
     assert.equal(a['text'], NEW);

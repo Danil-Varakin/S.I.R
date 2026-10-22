@@ -28,9 +28,13 @@
     "service": "node --experimental-strip-types src/bin/service.ts",
     "build:apply-bin": "node scripts/build-apply-bin.mjs",
     "smoke:apply-bin": "node test/golden/run-binary.mjs",
-    "bench": "node --experimental-strip-types --no-warnings bench/main.ts"
+    "smoke:install": "node test/install-smoke.mjs",
+    "bench": "node --experimental-strip-types --no-warnings bench/main.ts",
+    "mutation": "stryker run"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "10.0.0",
+    "@stryker-mutator/tap-runner": "10.0.0",
     "@types/node": "^26.0.0",
     "esbuild": "^0.28.2",
     "postject": "^1.0.0-alpha.6",
@@ -38,7 +42,7 @@
   },
   "dependencies": {
     "diff": "^8.0.4",
-    "simple-git": "^3.36.0",
+    "simple-git": "^4.0.2",
     "web-tree-sitter": "^0.26.10"
   },
   "bin": {

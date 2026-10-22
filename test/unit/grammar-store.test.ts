@@ -37,6 +37,7 @@ async function withEnv(vars: Record<string, string | undefined>, fn: () => Promi
 test('every pinned grammar is in grammars/ of the package, with its pinned bytes', async () => {
   await withEnv({ HATCH_GRAMMAR_DIR: undefined }, async () => {
     for (const adapter of new Set(adaptersByName().values())) {
+      if (adapter.grammar === undefined) continue; // read as text: nothing pinned
       assert.ok(existsSync(join(packageGrammarDir(), adapter.grammar.file)), adapter.name);
       // resolveGrammar refuses bytes that are not the pin: reading it is the check
       assert.ok((await resolveGrammar(adapter.grammar)).byteLength > 0, adapter.name);

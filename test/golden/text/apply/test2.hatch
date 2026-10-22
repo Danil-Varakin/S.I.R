@@ -1,0 +1,13 @@
+Hatch: 1
+Target: test/golden/text/apply/test2.template
+
+# match text
+    ...
+    >>>
+    Maintainer: @@MAINTNAME@@ <@@MAINTMAIL@@>
+    <<<
+    ...
+# end
+# patch
+    Maintainer: Brave Software <support@brave.com>
+# end

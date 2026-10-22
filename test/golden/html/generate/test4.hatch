@@ -1,0 +1,18 @@
+Hatch: 1
+Target: test/golden/html/generate/test4.new.html
+Grammar: tree-sitter-html@0.23.2
+
+# match html
+    ...
+    <form id="search">
+    ...
+      <input id="q" type="search" autocomplete="off">
+    >>>
+    ...
+    </form>
+    ...
+# end
+# patch
+
+      <input id="engine" type="hidden" value="brave">
+# end

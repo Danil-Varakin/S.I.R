@@ -1,0 +1,18 @@
+Hatch: 1
+Target: test/golden/rust/apply/test7.rs
+Grammar: tree-sitter-rust@0.24.0
+
+# match rust
+    ...
+            match hits {
+    ...
+    >>>
+                n if n < 10 => "warm",
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    n if n < 100 => "warm",
+# end

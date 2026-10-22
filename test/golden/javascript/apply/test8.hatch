@@ -1,0 +1,16 @@
+Hatch: 1
+Target: test/golden/javascript/apply/test8.js
+Grammar: tree-sitter-javascript@0.25.0
+
+# match javascript
+    ...
+        try {
+    >>>
+    ...
+    }
+    ...
+# end
+# patch
+
+          if (this.#depth > 8) return false;
+# end

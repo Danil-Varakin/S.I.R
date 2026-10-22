@@ -1,0 +1,17 @@
+Hatch: 1
+Target: test/golden/shell/generate/test5.new.sh
+
+# match shell
+    ...
+    remove_udev_symlinks() {
+    ...
+        rm "/usr/lib/libudev.so.0"
+    >>>
+    ...
+    }
+    ...
+# end
+# patch
+
+        rm -f "/usr/lib/brave/libudev.so.0"
+# end

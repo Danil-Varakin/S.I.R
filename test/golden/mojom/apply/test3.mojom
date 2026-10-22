@@ -1,0 +1,11 @@
+// [REORDER] upstream добавил значения перед SESSION_ONLY — новое встаёт за своим
+module content_settings.mojom;
+
+enum ContentSetting {
+  DEFAULT = 0,
+  ALLOW,
+  BLOCK,
+  ASK,
+  DETECT,
+  [MinVersion=1] SESSION_ONLY,
+};

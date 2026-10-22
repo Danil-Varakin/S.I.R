@@ -1,0 +1,11 @@
+<!-- [TEMPLATE] правка внутри <template is="dom-if"> с выражением [[…]] -->
+<template is="dom-if" if="[[showAdvanced_]]" restamp>
+  <div class="advanced">
+    <settings-dropdown-menu pref="{{prefs.dns_over_https.mode}}"
+        menu-options="[[secureDnsOptions_]]" disabled="[[isManaged_]]">
+    </settings-dropdown-menu>
+  </div>
+</template>
+<template is="dom-if" if="[[!showAdvanced_]]" restamp>
+  <div class="basic"></div>
+</template>

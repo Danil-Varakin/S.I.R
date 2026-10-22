@@ -1,0 +1,26 @@
+Hatch: 1
+Target: test/golden/python/generate/test45.new.py
+Grammar: tree-sitter-python@0.25.0
+
+# match python
+    ...
+    class Handler2:
+    ...
+        def register(
+    ...
+    ):
+    ...
+            if opts.enabled:
+    ...
+    >>>
+                for item in opts.items:
+    <<<
+    ...
+    def size(self):
+    ...
+    class Handler3:
+    ...
+# end
+# patch
+    for item in opts.values:
+# end

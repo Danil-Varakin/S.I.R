@@ -1,0 +1,12 @@
+// [RENAMED] MUST-REFUSE: upstream переименовал интерфейс — заголовок блока не совпал
+[
+    Exposed=Window
+] interface AudioBufferV2 {
+    constructor(AudioBufferOptions options);
+    readonly attribute float sampleRate;
+    [Measure, RaisesException] Float32Array getChannelData(
+        unsigned long channelIndex);
+    [Measure, RaisesException] void copyFromChannel(
+        Float32Array destination,
+        unsigned long channelNumber);
+};

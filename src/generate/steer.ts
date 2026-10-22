@@ -1,5 +1,5 @@
-import type { Hunk, MatchPattern, Step } from '../core/ast.ts';
-import { SynthesisError, firstLineOf } from '../core/errors.ts';
+import type { Hunk } from '../core/ast.ts';
+import { HatchError, SynthesisError, firstLineOf } from '../core/errors.ts';
 import { MATCH_HEADING, NOTE_HEADING, parseHatchFile } from '../core/hatch-parser.ts';
 import { resolveHunks, spanThrough } from '../core/resolve.ts';
 import { planHunk } from '../core/apply.ts';
@@ -9,9 +9,11 @@ import type { Span } from '../core/resolve.ts';
 import { checkHeading } from '../lang/adapter.ts';
 import type { LanguageAdapter, MapCache } from '../lang/source-map.ts';
 import { InputClosed } from '../infra/ask.ts';
+import { setImmediate as nextTurn } from 'node:timers/promises';
 import { changeSegments } from './diff.ts';
 import type { ChangeSegment } from './diff.ts';
 import { printHatchFile } from './printer.ts';
+import { template, withDraft } from './draft.ts';
 import { getLineStartOffsets, sameIgnoringSpace, synthesizeOne } from './synth.ts';
 import type { PartialLimits, Tracer } from './synth.ts';
 
@@ -55,7 +57,22 @@ export interface SteerRequest {
   readonly limits?: PartialLimits | undefined;
   readonly trace?: Tracer | undefined;
   readonly maps?: MapCache | undefined;
+  /** A `.hatch` whose hunks are settled before the run starts, as if the editor had just
+   *  given them back (the service's `keep`): checked as an edit is, and the run goes on
+   *  from them. One that does not stand is thrown — there is no one to ask again. */
+  readonly keep?: string | undefined;
+  /** Stops the run between two changes, throwing the signal's reason. */
+  readonly signal?: AbortSignal | undefined;
 }
+
+/** No one to steer: every hunk kept, and a change that cannot be anchored ends the run
+ *  with its `SynthesisError` and the draft to write it by hand (the service). */
+export const unattended: Steering = {
+  offerEdit: async () => false,
+  edit: () => {
+    throw new Error('unattended synthesis has no editor');
+  },
+};
 
 export interface Steered {
   readonly hunks: readonly Hunk[];
@@ -64,11 +81,13 @@ export interface Steered {
 }
 
 export async function steerSynthesis(request: SteerRequest, steering: Steering): Promise<Steered> {
-  const { oldText, newText, adapter, bridgeGap, exact, trace, maps } = request;
-  let state: Laid = { hunks: [], current: oldText, settled: [] };
+  const { oldText, newText, adapter, bridgeGap, exact, trace, maps, signal } = request;
+  let state: Laid = request.keep === undefined ? { hunks: [], current: oldText, settled: [] } : replayed(kept(request.keep, request), request);
   let target = newText;
 
   for (;;) {
+    signal?.throwIfAborted();
+    if (signal !== undefined) await nextTurn();
     const { hunks, current, settled } = state;
     const offsets = getLineStartOffsets(current);
     const pending = changeSegments(current, target, bridgeGap).filter((s) => !touches(s, offsets, settled));
@@ -87,7 +106,7 @@ export async function steerSynthesis(request: SteerRequest, steering: Steering):
     } catch (e) {
       if (!(e instanceof SynthesisError)) throw e;
       const why = `hunk ${number}: the change at line ${segment.oldStart} could not be anchored — ${e.because}`;
-      if (!(await steering.offerEdit(why))) throw e;
+      if (!(await steering.offerEdit(why))) throw withDraft(e, hunks, segment, current);
       state = replayed(await editUntilItStands([...hunks, template(segment, current)], why, segment, request, steering), request);
       continue;
     }
@@ -174,24 +193,75 @@ async function editUntilItStands(
 
 /** The hunks the edited text holds, or the reason it does not stand. */
 function check(text: string, request: SteerRequest): readonly Hunk[] | string {
+  const checked = standing(text, request);
+  return 'hunks' in checked ? checked.hunks : checked.why;
+}
+
+/** The hunks of `keep`, or what `check` would have said about it, thrown as the error it
+ *  is — the hunk and its line in `keep` on it when one does not land. */
+function kept(keep: string, request: SteerRequest): readonly Hunk[] {
+  const checked = standing(keep, request);
+  if ('hunks' in checked) return checked.hunks;
+  throw checked.error;
+}
+
+type Standing =
+  | { readonly hunks: readonly Hunk[] }
+  | { readonly why: string; readonly error: unknown };
+
+/** Whether a patch written by hand stands: it parses, its heading is the language's, and
+ *  every hunk lands on the old version, in order. */
+function standing(text: string, request: SteerRequest): Standing {
   let file;
   try {
     file = parseHatchFile(text);
   } catch (e) {
-    return `the edited patch does not parse: ${firstLineOf(e)}`;
+    return { why: `the edited patch does not parse: ${firstLineOf(e)}`, error: e };
   }
   if (file.language !== undefined) {
     try {
       checkHeading(file.language, request.adapter);
     } catch (e) {
-      return firstLineOf(e);
+      return { why: firstLineOf(e), error: e };
     }
   }
   const { links } = resolveHunks(request.oldText, file, request.adapter, request.maps);
   const bad = links.find((l) => l.status !== 'ok');
-  if (bad === undefined) return file.hunks;
+  if (bad === undefined) return { hunks: file.hunks };
   const at = bad.failure?.mdLine ?? bad.mdSpan?.[0];
-  return `hunk ${bad.index + 1}${at !== undefined ? ` (line ${at})` : ''} does not land: ${bad.failure?.message ?? bad.status}`;
+  const error = landingError(file.hunks, bad.index, at, request);
+  return { why: error.message, error };
+}
+
+/** The error the hunk that does not land fails with, laid on the text the hunks before it
+ *  make — with its number and line on it. A hunk that lands on the old version by itself
+ *  anchors on text a hunk before it rewrote: that hunk is named, the first after which it
+ *  no longer lands. */
+function landingError(hunks: readonly Hunk[], index: number, mdLine: number | undefined, request: SteerRequest): HatchError {
+  const { adapter, maps } = request;
+  const after = (count: number): string =>
+    count === 0 ? request.oldText : resolveHunks(request.oldText, { hunks: [...hunks.slice(0, count)] }, adapter, maps).applied;
+  const failure = (text: string): unknown => {
+    try {
+      planHunk(text, mapFor(adapter, text, maps), hunks[index]!, adapter);
+      return undefined;
+    } catch (e) {
+      return e;
+    }
+  };
+  // resolveHunks did not lay it on this text, so laying it here throws — a HatchError,
+  // anything else is a fault of hatch and goes on up
+  const error = failure(after(index));
+  if (!(error instanceof HatchError)) throw error;
+  let because = error.message;
+  if (index > 0 && failure(request.oldText) === undefined) {
+    let culprit = 1;
+    while (culprit < index && failure(after(culprit)) === undefined) culprit++;
+    because = `it lands on the old version by itself, but hunk ${culprit} rewrote the text it anchors on — ${because}`;
+  }
+  error.message = `hunk ${index + 1}${mdLine !== undefined ? ` (line ${mdLine})` : ''} does not land: ${because}`;
+  error.hunkAt = { hunk: index + 1, ...(mdLine !== undefined ? { mdLine } : {}) };
+  return error;
 }
 
 const NOTE_WIDTH = 80;
@@ -215,63 +285,24 @@ function note(reason: string, segment: ChangeSegment): string {
   ].join('\n');
 }
 
+/** The hunks of a `.hatch` as written, from the first heading on — its header and any
+ *  prose before them left out, every byte after kept. */
+export function hunksOf(text: string): string {
+  let at = 0;
+  for (const line of text.split('\n')) {
+    const bare = line.endsWith('\r') ? line.slice(0, -1) : line;
+    if (MATCH_HEADING.test(bare) || NOTE_HEADING.test(bare)) return text.slice(at);
+    at += line.length + 1;
+  }
+  return text;
+}
+
 /** The hunks of an edited text without the prose above them: from the first heading —
  *  a hunk's `# note` comes before its `# match` and is part of it. */
 function bodyOf(edited: string): string {
   const lines = edited.split(/\r?\n/);
   const at = lines.findIndex((line) => MATCH_HEADING.test(line) || NOTE_HEADING.test(line));
   return at === -1 ? edited : lines.slice(at).join('\n');
-}
-
-// ── a hunk to start from when synthesis found none ───────────────────────────────
-
-const CONTEXT_LINES = 3;
-
-/** The change with the lines just above it for context — the classic diff hunk, in the
- *  pattern language. Synthesis failed on it, so it is most likely ambiguous as it
- *  stands: a place to start editing, not an answer. Blank lines are left out of the
- *  context: the canon drops them, and a literal cannot be made of them. */
-function template(segment: ChangeSegment, current: string): Hunk {
-  const lines = current.split('\n');
-  const above: string[] = [];
-  for (let k = segment.oldStart - 2; k >= 0 && above.length < CONTEXT_LINES; k--) {
-    if (lines[k]!.trim() !== '') above.unshift(lines[k]!);
-  }
-  const context = above.join('\n');
-  const removed = segment.removed.join('\n');
-  const added = segment.added.join('\n');
-  const left = { side: 'left' as const, mdLine: 0 };
-  const right = { side: 'right' as const, mdLine: 0 };
-  const eof = { target: 'eof' as const };
-
-  // `... context >>> removed <<< ...`, the patch taking up after the context's last
-  // character; with no context, `... >>> removed <<< ...` or, for a bare insertion,
-  // `>>> ...` at the top of the file.
-  const steps: Step[] = [];
-  let patch: string;
-  if (context !== '') {
-    steps.push({ gap: { mode: { op: 'skipAny' } }, anchor: literal(context) });
-    if (removed !== '') {
-      steps.push({ gap: { mode: { op: 'tight' }, insert: left }, anchor: literal(removed) });
-      steps.push({ gap: { mode: { op: 'skipAny' }, replaceEnd: left }, anchor: eof });
-    } else {
-      steps.push({ gap: { mode: { op: 'skipAny' }, insert: left }, anchor: eof });
-    }
-    patch = added === '' ? '' : `\n${added}`;
-  } else if (removed !== '') {
-    steps.push({ gap: { mode: { op: 'skipAny' }, insert: right }, anchor: literal(removed) });
-    steps.push({ gap: { mode: { op: 'skipAny' }, replaceEnd: left }, anchor: eof });
-    patch = added;
-  } else {
-    steps.push({ gap: { mode: { op: 'skipAny' }, insert: left }, anchor: eof });
-    patch = `${added}\n`;
-  }
-  const match: MatchPattern = { steps };
-  return { match, patch };
-}
-
-function literal(raw: string): Step['anchor'] {
-  return { target: 'literal', literal: { raw, mdSpan: [0, 0] } };
 }
 
 // ── what is left to do ───────────────────────────────────────────────────────────

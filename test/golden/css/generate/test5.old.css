@@ -1,0 +1,9 @@
+/* [STRING] скобки и точка с запятой внутри строки content — не структура */
+.badge::before {
+  content: "{;}";
+  font-weight: bold;
+}
+
+.badge::after {
+  content: "(new)";
+}

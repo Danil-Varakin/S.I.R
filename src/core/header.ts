@@ -5,8 +5,8 @@ import { ParseError } from './errors.ts';
 //
 //   Hatch: 1
 //   Target: chrome/browser/feature_list.cc
-//   Generated-From: 3f2a9c1e…
-//   Generated-By: hatch 0.4.0
+//   Base-Blob: 3f2a9c1e…
+//   Hatch-Version: 0.5.0
 //   Grammar: tree-sitter-cpp@0.23.4
 //
 // `Hatch` is the format number and comes first (VERSIONING.md H1–H4); a file without a
@@ -17,6 +17,12 @@ import { ParseError } from './errors.ts';
 // are written in and the order a reader holds them to. A new field goes to the end of
 // the list — never between two that exist, never in place of one (H4) — so a header an
 // older hatch wrote keeps its order in every later one.
+//
+// Places 3 and 4 were named `Generated-From` and `Generated-By` (`hatch <version>`) in
+// 0.4.1 and were renamed in place in 0.5 — against H4, by the author's decision: the
+// old names read wrongly in a patch written by hand. The old names are still read, in
+// the same places, as the new ones (LEGACY_NAMES), so a header 0.4.1 wrote reads as
+// before; they are never written and never given to another field.
 
 export const FORMAT_MIN = 1;
 export const FORMAT_VERSION = 1;
@@ -26,8 +32,8 @@ export const FORMAT_VERSION = 1;
 const FIELDS = [
   ['Hatch', null],
   ['Target', 'target'],
-  ['Generated-From', 'generatedFrom'],
-  ['Generated-By', 'generatedBy'],
+  ['Base-Blob', 'baseBlob'],
+  ['Hatch-Version', 'hatchVersion'],
   ['Grammar', 'grammar'],
 ] as const;
 
@@ -38,22 +44,37 @@ type FieldKey = NonNullable<(typeof FIELDS)[number][1]>;
  *  order, each at most once. */
 export const HEADER_FIELDS: readonly HeaderFieldName[] = FIELDS.map(([name]) => name);
 
+/** The names 0.4.1 wrote, lower-cased, and the field each is read as now. Never
+ *  written, never reused. */
+const LEGACY_NAMES: ReadonlyMap<string, HeaderFieldName> = new Map([
+  ['generated-from', 'Base-Blob'],
+  ['generated-by', 'Hatch-Version'],
+]);
+
 /** The place of a known field (0 is `Hatch`), or -1 for one hatch does not know. */
 function fieldPosition(name: string): number {
   const lower = name.toLowerCase();
-  return HEADER_FIELDS.findIndex((f) => f.toLowerCase() === lower);
+  const known = LEGACY_NAMES.get(lower)?.toLowerCase() ?? lower;
+  return HEADER_FIELDS.findIndex((f) => f.toLowerCase() === known);
 }
 
 /** The fields beside the format number:
  *  - `target` — the file the patch is for, relative, with `/`;
- *  - `generatedFrom` — the id of the git object the patch was generated against;
- *  - `generatedBy` — `hatch <version>`;
- *  - `grammar` — `<package>@<version>`. */
-export type HeaderFields = { [K in FieldKey]?: string | undefined };
+ *  - `baseBlob` — the id of the git blob the patch was generated against;
+ *  - `hatchVersion` — the version of hatch that wrote it, `0.5.0`;
+ *  - `grammar` — `<package>@<version>`;
+ *  - `generatedFrom`, `generatedBy` — the same two as protocol 4 names them:
+ *    `generatedFrom` is `baseBlob`, `generatedBy` is `hatch <hatchVersion>`. Only read,
+ *    never written; kept so a client of protocol 4 sees what it saw. */
+export type HeaderFields = { [K in FieldKey]?: string | undefined } & {
+  generatedFrom?: string | undefined;
+  generatedBy?: string | undefined;
+};
 
 export interface ParsedHeader {
   readonly format: number;
-  /** every field, its name lower-cased; the last one wins */
+  /** every field, its name lower-cased — a known one under its name of now, though
+   *  written with a name of 0.4.1; the last one wins */
   readonly fields: ReadonlyMap<string, string>;
   /** the line after the header (its blank line included), counted from 0; 0 without one */
   readonly endLine: number;
@@ -83,6 +104,7 @@ export function readHeader(text: string): HeaderLines {
 
   const fields = new Map<string, string>();
   let last = -1;
+  let lastWritten = '';
   let targetLine: number | undefined;
   let i = first;
   for (; i < lines.length && lines[i]!.trim() !== ''; i++) {
@@ -94,18 +116,21 @@ export function readHeader(text: string): HeaderLines {
         'the header ends at the first blank line — put one before the patch',
       );
     }
-    const name = field[1]!;
-    const at = fieldPosition(name);
+    const at = fieldPosition(field[1]!);
+    // a known field is kept under its name of now, whatever name it was written with
+    const name = at !== -1 ? HEADER_FIELDS[at]! : field[1]!;
     if (at !== -1) {
-      if (fields.has(name.toLowerCase())) throw new ParseError(`the header names ${HEADER_FIELDS[at]} twice`, i + 1);
+      if (fields.has(name.toLowerCase())) throw new ParseError(`the header names ${name} twice`, i + 1);
       if (at < last) {
+        // the names as the file spells them: a header of 0.4.1 has its own
         throw new ParseError(
-          `${HEADER_FIELDS[at]} must come before ${HEADER_FIELDS[last]} in the header`,
+          `${field[1]!} must come before ${lastWritten} in the header`,
           i + 1,
           `the order is ${HEADER_FIELDS.join(', ')}; fields hatch does not know may stand anywhere after Hatch`,
         );
       }
       last = at;
+      lastWritten = field[1]!;
       if (HEADER_FIELDS[at] === 'Target') targetLine = i + 1;
     }
     fields.set(name.toLowerCase(), field[2]!);
@@ -152,6 +177,10 @@ export function headerFields(parsed: ParsedHeader): HeaderFields {
     const value = key === null ? undefined : parsed.fields.get(name.toLowerCase());
     if (key !== null && value !== undefined) out[key] = value;
   }
+  // `Generated-By` of 0.4.1 held `hatch <version>`; `Hatch-Version` holds the version
+  if (out.hatchVersion !== undefined) out.hatchVersion = out.hatchVersion.replace(/^hatch\s+/i, '');
+  if (out.baseBlob !== undefined) out.generatedFrom = out.baseBlob;
+  if (out.hatchVersion !== undefined) out.generatedBy = `hatch ${out.hatchVersion}`;
   return out;
 }
 

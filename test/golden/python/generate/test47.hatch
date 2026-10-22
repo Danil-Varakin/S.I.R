@@ -1,0 +1,18 @@
+Hatch: 1
+Target: test/golden/python/generate/test47.new.star
+Grammar: tree-sitter-python@0.25.0
+
+# match python
+    ...
+        if config.get(
+    ...
+    ):
+    ...
+    >>>
+    return module(
+    ...
+# end
+# patch
+        step_config["brave_remote"] = True
+        
+# end

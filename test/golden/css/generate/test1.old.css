@@ -1,0 +1,10 @@
+/* [RULE] новое свойство в правиле; соседнее правило с тем же набором свойств */
+.toolbar {
+  display: flex;
+  padding: 8px;
+}
+
+.sidebar {
+  display: flex;
+  padding: 8px;
+}

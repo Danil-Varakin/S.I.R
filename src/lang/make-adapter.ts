@@ -12,16 +12,24 @@ export interface LanguageRules {
   name: string;
   grammar: GrammarSource;
   extensions: readonly string[];
+  fileNames?: readonly string[];
   normalize: (raw: string) => string;
   blockOf: BlockOf;
+  /** A line with less indent closes every block deeper than itself at once — blocks with
+   *  no closing token of their own. Left out: every block closes by its own token. */
+  closesByOutdent?: boolean;
 }
 
-export function makeAdapter(rules: LanguageRules): LanguageAdapter {
+/** An adapter read through a tree-sitter grammar: its grammar is always there. */
+export type GrammarAdapter = LanguageAdapter & { readonly grammar: GrammarSource };
+
+export function makeAdapter(rules: LanguageRules): GrammarAdapter {
   let grammar: Language | null = null;
 
   return {
     name: rules.name,
     extensions: rules.extensions,
+    fileNames: rules.fileNames,
     normalize: rules.normalize,
     grammar: rules.grammar,
 
@@ -38,7 +46,7 @@ export function makeAdapter(rules: LanguageRules): LanguageAdapter {
       try {
         const canon = buildCanon(source, rules.normalize);
         const spans = collectBlockSpans(tree, canon.toCanonPos, rules.blockOf);
-        return makeSourceMap(canon, spans);
+        return makeSourceMap(canon, spans, rules.closesByOutdent === true);
       } finally {
         tree.delete();
       }

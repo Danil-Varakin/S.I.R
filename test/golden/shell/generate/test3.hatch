@@ -1,0 +1,13 @@
+Hatch: 1
+Target: test/golden/shell/generate/test3.new.sh
+
+# match shell
+    ...
+    >>>
+    VERSION="$(cat "$(dirname "$0")/VERSION")"
+    <<<
+    ...
+# end
+# patch
+    VERSION="$(cat "$(dirname "$0")/BRAVE_VERSION")"
+# end

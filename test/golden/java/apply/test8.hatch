@@ -1,0 +1,18 @@
+Hatch: 1
+Target: test/golden/java/apply/test8.java
+Grammar: tree-sitter-java@0.23.5
+
+# match java
+    ...
+        public void evictAll(
+    ...
+    ) {
+    ...
+    >>>
+    }
+    ...
+# end
+# patch
+        capacity = Math.max(capacity, store.size());
+        
+# end

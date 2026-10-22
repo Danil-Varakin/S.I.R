@@ -1,0 +1,19 @@
+Hatch: 1
+Target: test/golden/json/generate/test9.new.json
+Grammar: tree-sitter-json@0.24.8
+
+# match json
+    ...
+      "deps": [
+    ...
+    >>>
+        "url",
+        "net"
+    <<<
+    ...
+    ]
+    ...
+# end
+# patch
+    "url"
+# end

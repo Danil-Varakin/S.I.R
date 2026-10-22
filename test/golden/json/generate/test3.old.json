@@ -1,0 +1,12 @@
+// [FEATURES] _api_features.json Chromium: комментарии, новый ключ среди похожих
+{
+  // The tabs API.
+  "tabs": {
+    "dependencies": ["permission:tabs"],
+    "contexts": ["privileged_extension"]
+  },
+  "storage": {
+    "dependencies": ["permission:storage"],
+    "contexts": ["privileged_extension"]
+  }
+}

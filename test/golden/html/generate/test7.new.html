@@ -1,0 +1,8 @@
+<!-- [SCRIPT] правка внутри <script>: скобки JS — сырой текст, не блоки -->
+<div id="app"></div>
+<script>
+  if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    document.documentElement.setAttribute('dark', '');
+  }
+  window.addEventListener('load', () => { init(); braveInit(); });
+</script>

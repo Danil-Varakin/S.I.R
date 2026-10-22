@@ -1,0 +1,16 @@
+Hatch: 1
+Target: test/golden/shell/generate/test2.new.sh
+
+# match shell
+    ...
+      abort-upgrade)
+        ;;
+    >>>
+    ...
+# end
+# patch
+
+      remove)
+        cleanup_brave
+        ;;
+# end

@@ -1,0 +1,13 @@
+Hatch: 1
+Target: test/golden/shell/generate/test4.new.sh
+
+# match shell
+    ...
+    >>>
+    REPOCONFIG="deb [arch=amd64] https://dl.google.com/linux/chrome/deb/ stable main"
+    <<<
+    ...
+# end
+# patch
+    REPOCONFIG="deb [arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main"
+# end

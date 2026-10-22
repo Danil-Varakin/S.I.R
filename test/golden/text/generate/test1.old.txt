@@ -1,0 +1,5 @@
+# [TXTLIST] строка в список путей — порядок строк важен, структуры нет
++base/
++chrome/browser/
+-third_party/
++components/

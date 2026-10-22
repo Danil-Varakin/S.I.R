@@ -8,7 +8,7 @@
 // unchanged, every client written for PROTOCOL_MIN or later. Every change to the wire
 // raises PROTOCOL_VERSION (once per release); only a change an older client would trip
 // over raises PROTOCOL_MIN with it. Rules: VERSIONING.md.
-export const PROTOCOL_VERSION = 4;
+export const PROTOCOL_VERSION = 5;
 export const PROTOCOL_MIN = 4;
 
 export interface RequestMessage {
@@ -178,6 +178,28 @@ export interface SettingsParams {
 
 export interface GenerateParams extends LanguageParams, BaseParams, SettingsParams {
   readonly newText: string;
+  /** A `.hatch` whose hunks are settled — typically `SynthesisError`'s `detail.draft`,
+   *  finished by hand. Every hunk must land on the base in order; synthesis goes on from
+   *  them, and they open `patch` byte for byte. Protocol 5. */
+  readonly keep?: string;
+}
+
+/** `detail` of a `SynthesisError` (`no-match`, `ambiguous`). `draft` and the fields after
+ *  it only when there is a change to write by hand — protocol 5. */
+export interface SynthesisErrorDetail {
+  readonly reason: 'no-match' | 'ambiguous' | 'unreproduced';
+  /** the line of `newText` the change starts on, from 1. Protocol 4. */
+  readonly newLine?: number;
+  /** the `.hatch` to finish by hand and send back as `keep`: the header `generate` writes,
+   *  the hunks so far, and last a hunk to start the change from. No prose */
+  readonly draft?: string;
+  /** that last hunk, counted from 1 */
+  readonly draftHunk?: number;
+  /** the line of its `# match` in `draft`, from 1 */
+  readonly draftLine?: number;
+  /** the change: its line in the text the hunks so far make of the base (from 1), the
+   *  lines it takes out and those it puts in */
+  readonly change?: { readonly line: number; readonly removed: readonly string[]; readonly added: readonly string[] };
 }
 
 /** `config`/`pair`: the settings a `generate` with these params would use. The base as
@@ -265,7 +287,7 @@ export interface AppliedConfig {
 }
 
 export interface GenerateResult {
-  /** the `.hatch`, header first (`Hatch`, `Target` with a `path`, `Generated-From` for a git base, `Generated-By`, `Grammar`) */
+  /** the `.hatch`, header first (`Hatch`, `Target` with a `path`, `Base-Blob` for a git base, `Hatch-Version`, `Grammar`) */
   readonly patch: string;
   /** `<revision>:<path>` when the base came out of git, null when it was sent as text. */
   readonly baseSpec: string | null;
@@ -288,9 +310,16 @@ export interface GenerateResult {
 export interface PatchHeader {
   readonly format: number;
   readonly target?: string | undefined;
-  readonly generatedFrom?: string | undefined;
-  readonly generatedBy?: string | undefined;
+  /** the field `Base-Blob` (`Generated-From` in a patch of 0.4.1). Protocol 5. */
+  readonly baseBlob?: string | undefined;
+  /** the field `Hatch-Version`, the bare version (`Generated-By` in a patch of 0.4.1,
+   *  its `hatch ` taken off). Protocol 5. */
+  readonly hatchVersion?: string | undefined;
   readonly grammar?: string | undefined;
+  /** `baseBlob` under its protocol-4 name; kept for clients of protocol 4 */
+  readonly generatedFrom?: string | undefined;
+  /** `hatch <hatchVersion>`, as protocol 4 had it; kept for clients of protocol 4 */
+  readonly generatedBy?: string | undefined;
 }
 
 /** What `resolve` and `apply` answer about the patch itself, beside the hunks. Protocol 4. */
@@ -361,6 +390,16 @@ export interface ConfigResult extends AppliedConfig {
   /** the `Target` of the pair: what the patch of this file names, or what this patch
    *  names; null when there is none. Protocol 4. */
   readonly target: string | null;
+  /** the language `generate` names in `# match` for this file — its own name (`cpp` for
+   *  `.cc`), after `generate.language`; for a `.hatch`, that of the file `pair` names for
+   *  it. null when none is picked: an unknown extension, no pair. Protocol 5. */
+  readonly language: string | null;
+  /** the header `generate` would write for this file now, with the same `overrides`,
+   *  its blank line after it: `Hatch`, then `Target`, `Base-Blob` (a git base that could
+   *  be read), `Hatch-Version`, `Grammar` (a language picked) — each left out when it has
+   *  no value. For a `.hatch`, that of the file `pair` names for it; null with no pair.
+   *  Protocol 5. */
+  readonly header: string | null;
   /** null: `generate` would refuse for want of a base — none sent, none in the config;
    *  `unavailable`: a git base is named but cannot be read (protocol 4) */
   readonly base: BaseInfo | null;

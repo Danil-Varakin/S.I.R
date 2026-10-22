@@ -1,0 +1,11 @@
+// [EOL] CRLF-база: член словаря ложится с CRLF
+dictionary CanvasRenderingContext2DSettings {
+    boolean alpha = true;
+    boolean desynchronized = false;
+    boolean braveFarbling = true;
+    PredefinedColorSpace colorSpace = "srgb";
+};
+
+dictionary ImageBitmapRenderingContextSettings {
+    boolean alpha = true;
+};

@@ -1,0 +1,12 @@
+// [EXTATTR] атрибут CallWith у метода — у соседнего метода тот же набор атрибутов
+[
+    Exposed=Window
+] interface AudioBuffer {
+    constructor(AudioBufferOptions options);
+    readonly attribute float sampleRate;
+    [CallWith=ScriptState, Measure, RaisesException] Float32Array getChannelData(
+        unsigned long channelIndex);
+    [Measure, RaisesException] void copyFromChannel(
+        Float32Array destination,
+        unsigned long channelNumber);
+};

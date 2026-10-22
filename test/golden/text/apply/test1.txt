@@ -1,0 +1,7 @@
+# [DRIFT] upstream добавил пути выше и ниже — новый путь встаёт за -third_party/
++base/
++cc/
++chrome/browser/
+-third_party/
++components/
++content/

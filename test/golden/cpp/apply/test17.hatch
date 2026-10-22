@@ -1,0 +1,14 @@
+# match cpp
+    ...
+    void Writer::Open() {
+    ...
+    if ( ... ) {
+    ...
+    >>>
+    }
+    ...
+# end
+# patch
+      fd_ = -1;
+      
+# end

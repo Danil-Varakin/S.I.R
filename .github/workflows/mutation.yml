@@ -1,0 +1,54 @@
+name: mutation
+
+# Stryker over the core and synthesis (stryker.config.json): the share of planted bugs the
+# tests catch. Too slow for every push — weekly, and by hand before a release
+# (CONTRIBUTING, "Checks"). Incremental: the file of the last run is kept in a cache, so
+# only mutants whose code or tests changed are run again. A score below the target is a
+# reason to look, not a red build — the scores and their targets are kept in the
+# project's notes, not enforced here.
+
+on:
+  schedule:
+    - cron: '41 2 * * 0'
+  workflow_dispatch:
+
+jobs:
+  stryker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: grammar cache
+        uses: actions/cache@v4
+        with:
+          path: grammars
+          key: grammars-${{ hashFiles('src/lang/*/index.ts') }}
+
+      - run: npm run grammars
+
+      - name: the last run
+        uses: actions/cache@v4
+        with:
+          path: reports/stryker-incremental.json
+          key: stryker-incremental-${{ github.sha }}
+          restore-keys: stryker-incremental-
+
+      # a runner has 4 cores: more workers than that turn slow mutants into timeouts,
+      # which Stryker counts as caught
+      - name: stryker
+        run: npm run mutation -- --concurrency 4
+
+      - name: report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report
+          path: reports/mutation/

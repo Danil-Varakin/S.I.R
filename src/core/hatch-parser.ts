@@ -65,7 +65,7 @@ class PatternBuilder {
   addInsert(mdLine: number): void {
     if (this.insertMark !== null) {
       throw new ParseError(
-        `repeat insertion point >>> (the first one is on the line ${this.insertMark.mdLine})`,
+        `repeat insertion point >>> (the first one is on line ${this.insertMark.mdLine})`,
         mdLine,
         'you need two insertion points — make two match/patch hunks',
       );
@@ -88,7 +88,7 @@ class PatternBuilder {
     }
     if (this.replaceEndMark !== null) {
       throw new ParseError(
-        `repeat end-of-range marker <<< (the first one is on the line ${this.replaceEndMark.mdLine})`,
+        `repeat end-of-range marker <<< (the first one is on line ${this.replaceEndMark.mdLine})`,
         mdLine,
         'a replacement range has exactly one end; remove the extra <<<',
       );
@@ -112,9 +112,9 @@ class PatternBuilder {
     }
     if (this.insertMark === null) {
       throw new ParseError(
-        'there is no insertion point in the match block >>>',
+        'there is no insertion point >>> in the match block',
         this.blockLine,
-        'each patch body needs exactly one insertion position.',
+        'each patch body needs exactly one insertion position',
       );
     }
     return { steps: this.steps };
@@ -151,6 +151,19 @@ function feedFragment(
   builder.addLiteral(raw, mdLine);
 }
 
+/** A literal as the parser reads it back once `printPattern` has written it: line by
+ *  line from the gutter, each line's trailing whitespace dropped, blank lines no part
+ *  of it (`feedFragment`, `addLiteral`). What `generate` builds an anchor of has to be
+ *  this text — an anchor verified as written but read as something else is a patch that
+ *  does not apply (a blank line in Python, whose canon keeps it). */
+export function literalAsRead(raw: string): string {
+  return raw
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .filter((line) => line !== '')
+    .join('\n');
+}
+
 function feedOperator(op: string, mdLine: number, builder: PatternBuilder): void {
   switch (op) {
     case '...':
@@ -171,6 +184,8 @@ export const MATCH_HEADING = /^#{1,6}[ \t]*match:?(?:[ \t]+(\S+))?[ \t]*$/i;
 export const PATCH_HEADING = /^#{1,6}[ \t]*patch:?[ \t]*$/i;
 export const END_HEADING = /^#{1,6}[ \t]*end[ \t]*$/i;
 export const NOTE_HEADING = /^#{1,6}[ \t]*note:?[ \t]*$/i;
+/** A line that starts like a heading but is none: `# end x`, `# patch now`. */
+const HEADING_LIKE = /^#{1,6}[ \t]*(end|match|patch|note)\b/i;
 
 // The body of a note is prose, not payload: no gutter, any column. Only the headings
 // of the format are refused inside it — a stray one means the note was never closed.
@@ -179,8 +194,10 @@ function readNote(lines: string[], start: number): { note: Note; next: number } 
   for (let i = start + 1; i < lines.length; i++) {
     const line = lines[i]!;
     if (END_HEADING.test(line)) {
-      while (body.length > 0 && body[0]!.trim() === '') body.shift();
-      while (body.length > 0 && body[body.length - 1]!.trim() === '') body.pop();
+      // every line went in trimmed at its end: a blank one is '' (and an empty body has
+      // no first line at all)
+      while (body[0] === '') body.shift();
+      while (body[body.length - 1] === '') body.pop();
       return { note: { text: body.join('\n'), mdSpan: [start + 1, i + 1] }, next: i + 1 };
     }
     if (MATCH_HEADING.test(line) || PATCH_HEADING.test(line) || NOTE_HEADING.test(line)) {
@@ -265,6 +282,13 @@ function bodyLineError(line: string, mdLine: number, kind: 'match' | 'patch'): P
     );
   }
   const shown = line.trim();
+  // a heading with something after it — a person closing the block, not a line of code
+  const heading = HEADING_LIKE.exec(line);
+  if (heading !== null) {
+    const word = heading[1]!.toLowerCase();
+    const takes = word === 'match' ? 'takes a language name and nothing more' : 'takes nothing after it';
+    return new ParseError(`'${shown}' is not a heading: '# ${word}' ${takes}`, mdLine);
+  }
   return new ParseError(
     `a line of the ${kind} block must start with four spaces`,
     mdLine,
@@ -287,7 +311,7 @@ export function parseHatchFile(text: string): HatchFile {
     if (NOTE_HEADING.test(lines[i]!)) {
       if (note !== undefined) {
         throw new ParseError(
-          `a second note for one hunk (the first one is on the line ${note.mdSpan[0]})`,
+          `a second note for one hunk (the first one is on line ${note.mdSpan[0]})`,
           i + 1,
           "a hunk has at most one '# note'; merge the two",
         );
@@ -327,10 +351,11 @@ export function parseHatchFile(text: string): HatchFile {
 
     let j = matchBlock.next;
     while (j < lines.length && lines[j]!.trim() === '') j++;
-    if (j >= lines.length || !PATCH_HEADING.test(lines[j]!)) {
+    // past the last line there is no line, and no heading: `test(undefined)` is false
+    if (!PATCH_HEADING.test(lines[j]!)) {
       throw new ParseError(
         'the patch header is expected after the match block',
-        j >= lines.length ? lines.length : j + 1,
+        j >= lines.length ? matchBlock.endLine : j + 1,
         "a match block without a patch doesn't make sense",
       );
     }
@@ -361,7 +386,7 @@ export function parseHatchFile(text: string): HatchFile {
   }
 
   if (hunks.length === 0) {
-    throw new ParseError('no match/patch pairs were found in the file.', 1);
+    throw new ParseError('no match/patch pairs were found in the file', 1);
   }
 
   const file: HatchFile = { header, hunks };

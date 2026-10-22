@@ -6,7 +6,6 @@ Grammar: tree-sitter-objc@3.0.2
     ...
     // [NSSTR] заголовки разметки Hatch внутри строкового литерала Objective-C
     static NSString *const kTemplate = @"# match objc\n    - (void)sample;\n# end\n";
-
     - (NSString *)template {
     ...
     >>>

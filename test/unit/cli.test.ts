@@ -2,7 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const CLI = fileURLToPath(new URL('../../src/bin/hatch.ts', import.meta.url));
 const PKG = fileURLToPath(new URL('../../package.json', import.meta.url));
@@ -99,4 +101,59 @@ test('apply: a patch is a .hatch file — a .md is refused before it is read', (
   assert.equal(r.status, 1);
   assert.match(r.stderr, /a patch is a \.hatch file/);
   assert.match(r.stderr, /git mv x\.md x\.hatch/);
+});
+
+// ── apply: what it needs, and what it says when it is missing ────────────────────────
+
+function runIn(dir: string, args: string[]): { status: number; stderr: string } {
+  const r = spawnSync('node', ['--experimental-strip-types', '--no-warnings', CLI, ...args], { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  return { status: r.status ?? -1, stderr: r.stderr };
+}
+
+test('apply: no --match, no --out — each named, exit 1', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'hatch-cli-'));
+  try {
+    writeFileSync(join(dir, 'a.cc'), 'int a;\n');
+    writeFileSync(join(dir, 'p.hatch'), '# match cpp\n    >>>\n    ...\n# end\n# patch\n    x\n# end\n');
+    assert.deepEqual(runIn(dir, ['apply', '--in', 'a.cc', '--out', 'o.cc']), { status: 1, stderr: 'error: missing --match <file.hatch>\n' });
+    assert.deepEqual(runIn(dir, ['apply', '--match', 'p.hatch', '--in', 'a.cc']), {
+      status: 1,
+      stderr: 'error: missing --out <file> (or use --dry-run / --verify)\n',
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('apply without --in: a patch with no Target outside the patch tree names no file, and says why', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'hatch-cli-'));
+  try {
+    mkdirSync(join(dir, '.git'));
+    writeFileSync(join(dir, 'hatch.config.json'), JSON.stringify({ version: 2, upstream: '.', generate: { out: 'patches' } }));
+    mkdirSync(join(dir, 'elsewhere'));
+    writeFileSync(join(dir, 'elsewhere', 'x.cc.hatch'), '# match cpp\n    >>>\n    ...\n# end\n# patch\n    x\n# end\n');
+    const r = runIn(dir, ['apply', '--match', join('elsewhere', 'x.cc.hatch'), '--dry-run']);
+    assert.equal(r.status, 1);
+    assert.equal(r.stderr, 'error: missing --in <file>: the patch names no file it is for (outside-out) — give --in\n');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('apply without --in: the file the patch is for, and how it was found, when it is not there', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'hatch-cli-'));
+  try {
+    const body = '# match cpp\n    >>>\n    ...\n# end\n# patch\n    x\n# end\n';
+    writeFileSync(join(dir, 'named.hatch'), `Hatch: 1\nTarget: nosuch.cc\n\n${body}`);
+    mkdirSync(join(dir, 'd'));
+    writeFileSync(join(dir, 'd', 'zz.cc.hatch'), body);
+    const byTarget = runIn(dir, ['apply', '--match', 'named.hatch', '--dry-run']);
+    assert.equal(byTarget.status, 1);
+    assert.match(byTarget.stderr, /^error: missing --in <file>: the patch is for .*nosuch\.cc \(its Target names\), and there is no such file — give --in\n$/);
+    const byPlace = runIn(join(dir, 'd'), ['apply', '--match', 'zz.cc.hatch', '--dry-run']);
+    assert.equal(byPlace.status, 1);
+    assert.match(byPlace.stderr, /^error: missing --in <file>: the patch is for .*d\/zz\.cc \(by its name and place it would be\), and there is no such file — give --in\n$/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

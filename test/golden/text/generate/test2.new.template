@@ -1,0 +1,5 @@
+[TEMPLATE] control.template: значение поля @@…@@ — плоский файл, отступ продолжения значим
+Package: @@PACKAGE@@
+Maintainer: Brave Software <support@brave.com>
+Description: @@SHORTDESC@@
+ @@FULLDESC@@

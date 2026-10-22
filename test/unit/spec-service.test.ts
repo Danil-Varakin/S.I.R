@@ -228,9 +228,9 @@ test('version: protocolMin ≤ protocol, and languages hold every name and exten
   assert.ok((v['configSchemaMin'] as number) <= (v['configSchema'] as number));
   const names = [
     'cpp', 'c++', 'cc', 'cxx', 'h', 'hpp', 'c', 'objc', 'objective-c', 'python', 'py', 'javascript', 'js', 'jsx',
-    'typescript', 'ts', 'tsx', 'rust', 'rs', 'java', 'kotlin', 'kt', 'go', 'golang',
+    'typescript', 'ts', 'tsx', 'rust', 'rs', 'java', 'kotlin', 'kt', 'go', 'golang', 'html', 'xml', 'css', 'json', 'json5', 'idl', 'mojom', 'proto', 'protobuf', 'shell', 'yaml', 'toml', 'text',
   ];
-  const extensions = ['cc', 'cpp', 'cxx', 'h', 'hpp', 'inc', 'c', 'm', 'mm', 'py', 'pyi', 'js', 'mjs', 'cjs', 'jsx', 'ts', 'mts', 'cts', 'tsx', 'rs', 'java', 'kt', 'kts', 'go'];
+  const extensions = ['cc', 'cpp', 'cxx', 'h', 'hpp', 'inc', 'c', 'm', 'mm', 'py', 'pyi', 'js', 'mjs', 'cjs', 'jsx', 'ts', 'mts', 'cts', 'tsx', 'rs', 'java', 'kt', 'kts', 'go', 'html', 'htm', 'xml', 'plist', 'css', 'json', 'json5', 'star', 'webidl', 'sh', 'bash', 'yml', 'txt'];
   const languages = v['languages'] as string[];
   for (const name of [...names, ...extensions]) assert.ok(languages.includes(name), name);
 });

@@ -1,0 +1,16 @@
+Hatch: 1
+Target: test/golden/json5/generate/test9.new.json5
+Grammar: tree-sitter-javascript@0.25.0
+
+# match json5
+    ...
+      parameters: {
+    >>>
+    ...
+    }
+    ...
+# end
+# patch
+
+        // Brave: feature flags overridden in brave-core.
+# end

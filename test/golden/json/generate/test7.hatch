@@ -1,0 +1,18 @@
+Hatch: 1
+Target: test/golden/json/generate/test7.new.json
+Grammar: tree-sitter-json@0.24.8
+
+# match json
+    ...
+          "c": {
+    ...
+    >>>
+            "e": 2
+    <<<
+    ...
+    }
+    ...
+# end
+# patch
+    "e": 3
+# end

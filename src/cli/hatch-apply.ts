@@ -84,6 +84,7 @@ function versionText(): string {
   const pins = new Map<string, string>();
   for (const adapter of adaptersByName().values()) {
     const g = adapter.grammar;
+    if (g === undefined) continue; // read as text: nothing pinned
     pins.set(g.file, `${g.file} ${g.package}@${g.version} sha256:${g.sha256}`);
   }
   return [

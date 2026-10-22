@@ -1,0 +1,16 @@
+Hatch: 1
+Target: test/golden/html/generate/test11.new.html
+Grammar: tree-sitter-html@0.23.2
+
+# match html
+    ...
+          <ul>
+    ...
+    >>>
+    </ul>
+    ...
+# end
+# patch
+      <li><a href="brave://wallet">$i18n{wallet}</a></li>
+          
+# end

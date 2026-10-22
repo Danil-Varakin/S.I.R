@@ -1,0 +1,7 @@
+// [MOJOMSYNC] метод с [Sync] и ответом — правка типа параметра
+module blink.mojom;
+
+interface LocalFrameHost {
+  [Sync] DidChangeName(string name, string unique_name) => ();
+  DidChangeOpener(blink.mojom.LocalFrameToken? opener_frame);
+};

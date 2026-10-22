@@ -1,3 +1,5 @@
+import type { Hunk } from './ast.ts';
+
 /** The first line of an error's message — a reason quoted inside another message. */
 export function firstLineOf(e: unknown): string {
   return String(e instanceof Error ? e.message : e).trim().split('\n')[0] ?? '';
@@ -5,6 +7,9 @@ export function firstLineOf(e: unknown): string {
 
 export abstract class HatchError extends Error {
   abstract readonly exitCode: number;
+  /** The hunk of a patch the client sent that the error is about, and its line there —
+   *  set where a patch written by hand is checked (`generate`'s `keep`). */
+  hunkAt: { readonly hunk: number; readonly mdLine?: number } | undefined;
 
   constructor(message: string) {
     super(message);
@@ -210,6 +215,18 @@ export class NoChanges extends HatchError {
  *  yet. */
 export type SynthesisFailure = 'no-match' | 'ambiguous' | 'unreproduced';
 
+/** What a person needs to write an unanchored change by hand: the hunks so far and, last,
+ *  a hunk to start the change from (`generate/draft.ts`). */
+export interface SynthesisDraft {
+  readonly hunks: readonly Hunk[];
+  /** the change: its line in the text the hunks so far make of the old version (from
+   *  1), the lines it takes out and the lines it puts in */
+  readonly change: { readonly line: number; readonly removed: readonly string[]; readonly added: readonly string[] };
+  /** the draft as a `.hatch`, header first, and the line of the last hunk's `# match` in
+   *  it (from 1) — printed by `generate`, which has the header */
+  readonly printed?: { readonly text: string; readonly line: number };
+}
+
 export class SynthesisError extends HatchError {
   readonly exitCode = 8;
   readonly reason: SynthesisFailure;
@@ -217,16 +234,26 @@ export class SynthesisError extends HatchError {
   readonly newLine: number | undefined;
   /** the last candidate's failure, one line — for a message that names the change itself */
   readonly because: string;
+  /** the hunks to go on from by hand — none for `unreproduced`, which is no change's */
+  readonly draft: SynthesisDraft | undefined;
 
-  constructor(message: string, reason: SynthesisFailure, because: string, newLine?: number) {
+  constructor(message: string, reason: SynthesisFailure, because: string, newLine?: number, draft?: SynthesisDraft) {
     super(message);
     this.reason = reason;
     this.because = because;
     this.newLine = newLine;
+    this.draft = draft;
   }
 
   override detail(): Record<string, unknown> {
-    return { reason: this.reason, ...(this.newLine !== undefined ? { newLine: this.newLine } : {}) };
+    const printed = this.draft?.printed;
+    return {
+      reason: this.reason,
+      ...(this.newLine !== undefined ? { newLine: this.newLine } : {}),
+      ...(printed !== undefined
+        ? { draft: printed.text, draftHunk: this.draft!.hunks.length, draftLine: printed.line, change: this.draft!.change }
+        : {}),
+    };
   }
 }
 

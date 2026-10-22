@@ -1,0 +1,31 @@
+<!-- [DRIFT] upstream добавил строку перед cookies и секцию после — новая строка встаёт за cookies -->
+<link rel="import" href="chrome://resources/html/polymer.html">
+<dom-module id="settings-privacy-page">
+  <template>
+    <style include="settings-shared">
+      .row { padding: 0 16px; }
+    </style>
+    <settings-section page-title="$i18n{privacyPageTitle}" section="privacy">
+      <div class="settings-box first">
+        <cr-link-row id="clearData" label="$i18n{clearBrowsingData}"
+            on-click="onClearDataClick_"></cr-link-row>
+        <cr-link-row id="cookies" label="$i18n{cookiesLabel}"
+            on-click="onCookiesClick_"></cr-link-row>
+        <cr-link-row id="siteSettings" label="$i18n{siteSettings}"
+            on-click="onSiteSettingsClick_"></cr-link-row>
+      </div>
+      <div class="settings-box">
+        <settings-toggle-button id="safeBrowsing"
+            pref="{{prefs.safebrowsing.enabled}}"
+            label="$i18n{safeBrowsingLabel}">
+        </settings-toggle-button>
+      </div>
+      <div class="settings-box">
+        <cr-link-row id="security" label="$i18n{securityPageTitle}"></cr-link-row>
+      </div>
+    </settings-section>
+    <script>
+      Polymer({ is: 'settings-privacy-page' });
+    </script>
+  </template>
+</dom-module>

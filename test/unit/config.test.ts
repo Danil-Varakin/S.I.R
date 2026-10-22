@@ -155,6 +155,11 @@ test('wrong types and out-of-range numbers are refused', withTempDir((dir) => {
   assert.throws(() => readConfigFile(writeConfig(dir, { generate: 5 })), names(/"generate"/));
 }));
 
+test('README "Configuration": JSON with no comments and no trailing commas — either is refused', withTempDir((dir) => {
+  assert.throws(() => readConfigFile(writeConfig(dir, '{ "version": 2 // the schema\n}')), /invalid JSON/);
+  assert.throws(() => readConfigFile(writeConfig(dir, '{ "version": 2, }')), /invalid JSON/);
+}));
+
 test('broken JSON and a bad version value are refused', withTempDir((dir) => {
   assert.throws(() => readConfigFile(writeConfig(dir, '{ nope')), /invalid JSON/);
   assert.throws(() => readConfigFile(writeConfig(dir, { version: 'two' })), /"version" must be/);
@@ -443,7 +448,7 @@ test('CLI generate: generate.base in the config is the old version when no flag 
       const r = runCli(['generate', '--in', repo.inPath, '--out', '-', ...args], repo.dir);
       assert.equal(r.status, 0, r.stderr);
       // a base out of git is named in the header, one from a file is not
-      return r.stdout.replace(/^Generated-From: .*\n/m, '');
+      return r.stdout.replace(/^Base-Blob: .*\n/m, '');
     };
     const against = (text: string): string => {
       const oldFile = join(repo.dir, 'old.cc');

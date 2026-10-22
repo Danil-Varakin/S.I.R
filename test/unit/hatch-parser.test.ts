@@ -173,6 +173,13 @@ test('FAIL: repeat insertion point >>>', () => {
   expectParseError(wrapMatch('foo >>> bar >>> baz'), 'repeat insertion point');
 });
 
+test('FAIL: repeat end-of-range marker <<< — the line of the first one, and the fix', () => {
+  const e = expectParseError(wrapMatch('foo >>> bar <<< baz\nqux <<< end'), 'repeat end-of-range marker <<<');
+  assert.match(e.message, /the first one is on line 2/);
+  assert.equal(e.mdLine, 3);
+  assert.match(e.hint ?? '', /exactly one end/);
+});
+
 test('FAIL: two skip operators in one gap (mark is transparent)', () => {
   expectParseError(wrapMatch('foo ... >>> ... bar'), 'two skip operators');
 });
@@ -245,17 +252,37 @@ test('note: before the first hunk, after the header', () => {
 
 test('header: the fields hatch knows, names in any case, unknown ones read past', () => {
   const file = parseHatchFile(md(
-    'Hatch: 1', 'target: src/a.c', 'Generated-From: 3f2a9c1e', 'GENERATED-BY: hatch 0.4.0',
+    'Hatch: 1', 'target: src/a.c', 'Base-Blob: 3f2a9c1e', 'HATCH-VERSION: 0.5.0',
     'Grammar: tree-sitter-c@0.23.0', 'X-Reviewed-By: someone', '', ...HUNK,
   ));
   assert.deepStrictEqual(file.header, {
     format: 1,
     target: 'src/a.c',
-    generatedFrom: '3f2a9c1e',
-    generatedBy: 'hatch 0.4.0',
+    baseBlob: '3f2a9c1e',
+    hatchVersion: '0.5.0',
     grammar: 'tree-sitter-c@0.23.0',
+    generatedFrom: '3f2a9c1e',
+    generatedBy: 'hatch 0.5.0',
   });
   assert.deepStrictEqual(file.hunks[0]!.mdSpan![0], 8, 'lines are counted from the top of the file');
+});
+
+test('header: a header 0.4.1 wrote — Generated-From, Generated-By — reads as Base-Blob, Hatch-Version, in their places', () => {
+  const file = parseHatchFile(md(
+    'Hatch: 1', 'Target: src/a.c', 'Generated-From: 3f2a9c1e', 'Generated-By: hatch 0.4.1',
+    'Grammar: tree-sitter-c@0.23.0', '', ...HUNK,
+  ));
+  assert.deepStrictEqual(file.header, {
+    format: 1,
+    target: 'src/a.c',
+    baseBlob: '3f2a9c1e',
+    hatchVersion: '0.4.1',
+    grammar: 'tree-sitter-c@0.23.0',
+    generatedFrom: '3f2a9c1e',
+    generatedBy: 'hatch 0.4.1',
+  });
+  expectParseError(md('Hatch: 1', 'Generated-From: a', 'Base-Blob: b', '', ...HUNK), 'twice');
+  expectParseError(md('Hatch: 1', 'Grammar: g', 'Generated-By: hatch 0.4.1', '', ...HUNK), 'Generated-By must come before Grammar');
 });
 
 test('header: none is format 1 — a hand-written patch, or prose before the hunks', () => {
@@ -407,7 +434,7 @@ test('mdSpan of a hunk spans the "# match" heading and the closing "# end"', () 
 test('header: the known fields in their order, each once; unknown ones anywhere after Hatch', () => {
   parseHatchFile(md('Hatch: 1', 'X-Note: a', 'Target: a.c', 'X-Other: b', 'Grammar: g', '', ...HUNK));
   parseHatchFile(md('Hatch: 1', 'Grammar: g', '', ...HUNK)); // a field left out keeps the rest in order
-  const swapped = expectParseError(md('Hatch: 1', 'Generated-By: hatch 0.4.0', 'Target: a.c', '', ...HUNK), 'Target must come before Generated-By');
+  const swapped = expectParseError(md('Hatch: 1', 'Hatch-Version: 0.5.0', 'Target: a.c', '', ...HUNK), 'Target must come before Hatch-Version');
   assert.equal(swapped.mdLine, 3);
   expectParseError(md('Hatch: 1', 'Target: a.c', 'target: b.c', '', ...HUNK), 'twice');
 });

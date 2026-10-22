@@ -1,0 +1,13 @@
+# match cpp
+    ...
+    template <typename... Args>
+    void LogAll(Args&&... args) {
+      // \... and then the rest
+    >>>
+      (Log(args), ...);
+    ...
+# end
+# patch
+
+      Flush();
+# end

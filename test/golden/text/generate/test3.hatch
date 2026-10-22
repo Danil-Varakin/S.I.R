@@ -1,0 +1,15 @@
+Hatch: 1
+Target: test/golden/text/generate/test3.new.release
+
+# match text
+    ...
+    chrome.dll: %(
+    ...
+    )s\
+    >>>
+    ...
+# end
+# patch
+
+    brave_vpn_helper.exe: %(VersionDir)s\
+# end

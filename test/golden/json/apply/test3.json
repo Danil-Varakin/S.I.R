@@ -1,0 +1,20 @@
+// [NOHEADER] MUST-REFUSE: у объекта в массиве нет ключа — родитель с заголовком это сам массив; upstream переименовал его ключ
+{
+  "manifest_version": 3,
+  "name": "__MSG_extName__",
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts_v2": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ]
+}

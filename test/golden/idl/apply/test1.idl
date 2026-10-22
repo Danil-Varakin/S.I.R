@@ -1,0 +1,14 @@
+// [DRIFT] upstream добавил метод и атрибут рядом — CallWith встаёт в свой метод
+[
+    Exposed=Window
+] interface AudioBuffer {
+    constructor(AudioBufferOptions options);
+    readonly attribute float sampleRate;
+    readonly attribute unsigned long length;
+    [Measure, RaisesException] Float32Array getChannelData(
+        unsigned long channelIndex);
+    [Measure, RaisesException] void copyFromChannel(
+        Float32Array destination,
+        unsigned long channelNumber);
+    [Measure] void copyToChannel(Float32Array source, unsigned long channelNumber);
+};

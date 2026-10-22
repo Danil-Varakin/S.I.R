@@ -1,0 +1,19 @@
+Hatch: 1
+Target: test/golden/xml/apply/test2.xml
+Grammar: @tree-sitter-grammars/tree-sitter-xml@0.7.0
+
+# match xml
+    ...
+        <application android:name="org.chromium.chrome.browser.ChromeApplication"
+            android:icon="@drawable/ic_launcher">
+    ...
+    >>>
+            <meta-data android:name="channel" android:value="stable" />
+    <<<
+    ...
+    </application>
+    ...
+# end
+# patch
+    <meta-data android:name="channel" android:value="brave" />
+# end
