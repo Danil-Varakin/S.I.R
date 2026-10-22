@@ -38,7 +38,7 @@ function gitApply(dir: string, oldText: string, newText: string, base: string, e
   writeFileSync(join(dir, 'new'), newText);
   let diff: string;
   try {
-    diff = execFileSync('git', ['diff', '--no-index', '-U3', 'old', 'new'], { cwd: dir, encoding: 'utf8' });
+    diff = execFileSync('git', ['-c', 'core.autocrlf=false', 'diff', '--no-index', '-U3', 'old', 'new'], { cwd: dir, encoding: 'utf8' });
   } catch (e) {
     diff = (e as { stdout: string }).stdout; // exit 1: the files differ
   }
@@ -47,14 +47,20 @@ function gitApply(dir: string, oldText: string, newText: string, base: string, e
   writeFileSync(join(dir, 'p.diff'), diff);
   writeFileSync(join(dir, 'f'), base);
   try {
-    execFileSync('git', ['apply', 'p.diff'], { cwd: dir, stdio: 'pipe' });
+    execFileSync('git', ['-c', 'core.autocrlf=false', 'apply', 'p.diff'], { cwd: dir, stdio: 'pipe' });
   } catch {
     return 'refuses';
   }
   return readFileSync(join(dir, 'f'), 'utf8') === expected ? 'lands' : 'WRONG';
 }
 
-test('7.11: the drift of the matrix through sir and through git apply', async () => {
+test('7.11: the drift of the matrix through sir and through git apply', async (t) => {
+  if (process.platform === 'win32') {
+    // git for Windows reads and writes the files of `git apply` by its own line-ending
+    // settings: the git column is measured where git keeps bytes as they are
+    t.skip('the git column is measured on POSIX');
+    return;
+  }
   const dir = mkdtempSync(join(tmpdir(), 'sir-vs-git-'));
   const table = new Map<string, { git: number; sir: number; languages: number; gitOnly: string[] }>();
   try {
