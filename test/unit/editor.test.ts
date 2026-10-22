@@ -43,6 +43,10 @@ test('runEditor: on Windows the command line goes through the shell, the file qu
   assert.throws(() => runEditor('false', '/dev/null', 'win32'), /the editor \(false\) exited with 1 — nothing was written/);
 });
 
-test('runEditor: an editor killed by a signal is named by the signal', () => {
+test('runEditor: an editor killed by a signal is named by the signal', (t) => {
+  if (process.platform === 'win32') {
+    t.skip('POSIX shell');
+    return;
+  }
   assert.throws(() => runEditor('kill -TERM $$ #', '/dev/null', 'linux'), /the editor \(kill -TERM \$\$ #\) exited with SIGTERM — nothing was written/);
 });

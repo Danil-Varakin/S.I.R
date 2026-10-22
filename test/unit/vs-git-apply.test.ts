@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { adapterOf, driftCases, patchOf } from '../matrix.ts';
 import type { Fixture } from '../matrix.ts';
@@ -25,7 +26,7 @@ async function fixtures(): Promise<Fixture[]> {
     } catch {
       continue;
     }
-    out.push(((await import(file)) as { fixture: Fixture }).fixture);
+    out.push(((await import(pathToFileURL(file).href)) as { fixture: Fixture }).fixture);
   }
   return out;
 }

@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // What sir does only with a person at a terminal — the editor offered when synthesis
 // cannot anchor a change, the yes/no questions — run for real: sir in a process of its
@@ -24,7 +24,7 @@ interface Run {
 function sir(dir: string, args: string[], opts: { tty?: boolean; input?: string; visual?: string } = {}): Run {
   const r = spawnSync(
     'node',
-    ['--experimental-strip-types', '--no-warnings', ...(opts.tty === true ? ['--import', FAKE_TTY] : []), SIR, ...args],
+    ['--experimental-strip-types', '--no-warnings', ...(opts.tty === true ? ['--import', pathToFileURL(FAKE_TTY).href] : []), SIR, ...args],
     {
       cwd: dir,
       encoding: 'utf8',

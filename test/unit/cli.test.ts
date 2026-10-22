@@ -152,7 +152,7 @@ test('apply without --in: the file the patch is for, and how it was found, when 
     assert.match(byTarget.stderr, /^error: missing --in <file>: the patch is for .*nosuch\.cc \(its Target names\), and there is no such file — give --in\n$/);
     const byPlace = runIn(join(dir, 'd'), ['apply', '--match', 'zz.cc.sirp', '--dry-run']);
     assert.equal(byPlace.status, 1);
-    assert.match(byPlace.stderr, /^error: missing --in <file>: the patch is for .*d\/zz\.cc \(by its name and place it would be\), and there is no such file — give --in\n$/);
+    assert.match(byPlace.stderr, /^error: missing --in <file>: the patch is for .*d[\\/]zz\.cc \(by its name and place it would be\), and there is no such file — give --in\n$/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

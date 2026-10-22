@@ -101,7 +101,7 @@ console.log('api ok');
   try {
     reply = JSON.parse(service.stdout.trim());
   } catch {}
-  check('the service answers version over stdio, with this version', reply.ok === true && reply.result?.sirp === version && Number.isInteger(reply.result?.protocol), service.stdout + service.stderr);
+  check('the service answers version over stdio, with this version', reply.ok === true && reply.result?.sir === version && Number.isInteger(reply.result?.protocol), service.stdout + service.stderr);
 } catch (e) {
   failures.push(String(e?.stack ?? e));
 } finally {
