@@ -17,8 +17,6 @@ import type { Pair, PairReason } from '../../src/infra/pair.ts';
 // with it silently. Change the wire type on purpose, with its protocol number and its row
 // in VERSIONING.md, and this line agrees again.
 
-/** Each assignable to the other: the same fields, the same types, nothing more on either
- *  side. `readonly` is no difference on the wire. */
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 
 const sameAsTheCore: readonly true[] = [

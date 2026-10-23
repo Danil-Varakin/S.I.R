@@ -32,8 +32,6 @@ export function firstMatch(md: string): MatchPattern {
   return parseSirFile(md).hunks[0]!.match;
 }
 
-// ── building a .md in the current format: a four-space gutter and '# end' ─────
-
 export function gutter(line: string): string {
   return line === '' ? '' : '    ' + line;
 }

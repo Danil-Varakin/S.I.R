@@ -1,8 +1,6 @@
 import { file, opt } from '../../matrix.ts';
 import type { Fixture } from '../../matrix.ts';
 
-// Blink IDL as text: an interface with a dictionary in it — blocks by their braces,
-// extended attributes `[…]` pairs of brackets.
 export const fixture: Fixture = {
   language: 'idl',
   targetName: 'target',

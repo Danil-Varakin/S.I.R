@@ -2,16 +2,10 @@ import type { Ask } from '../infra/ask.ts';
 import type { ArgSpec } from './args.ts';
 import type { Answers } from './prompt.ts';
 
-// Asking before a step that loses something, or reads a version nobody quite named.
-// The question goes to a person when there is one at a terminal; `--yes` answers it in
-// advance for scripts; and with nobody to ask the answer is NO — a run that cannot be
-// watched must not be the one that quietly throws work away.
-
 export interface ConfirmOptions {
   yes: boolean;
 }
 
-/** Spread into a command's ArgSpec. */
 export const CONFIRM_ARGS = {
   flags: { '--yes': 'yes', '-y': 'yes' },
 } as const satisfies ArgSpec<ConfirmOptions>;
@@ -23,10 +17,8 @@ export const CONFIRM_USAGE = `  --yes,    -y            answer yes in advance to
 
 export interface AskerDeps {
   readonly yes: boolean;
-  /** a person at a terminal, who can both see the question and answer it */
   readonly interactive: boolean;
   readonly note: (message: string) => void;
-  /** the next answer, or null when the input closed first */
   readonly prompt: (text: string) => Promise<string | null>;
 }
 
@@ -41,7 +33,6 @@ export function asker(deps: AskerDeps): Ask {
       deps.note('  not a terminal, so nobody can answer: stopping (pass --yes to go ahead)');
       return false;
     }
-    // A closed input is no answer, and no answer to a question that loses work is no.
     const answer = await deps.prompt('  go ahead? [y/N] ');
     return answer !== null && /^\s*y(es)?\s*$/i.test(answer);
   };
@@ -53,7 +44,6 @@ export function atTerminal(): boolean {
   return process.stdin.isTTY === true && process.stderr.isTTY === true;
 }
 
-/** The asker a command run from a shell gets. */
 export function terminalAsker(yes: boolean, note: (message: string) => void, answers: Answers): Ask {
   return asker({
     yes,

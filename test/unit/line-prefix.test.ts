@@ -5,13 +5,6 @@ import { adapterForLanguage } from '../../src/lang/adapter.ts';
 import { patchOf } from '../matrix.ts';
 import { applyAll } from '../../src/core/apply.ts';
 
-// 07-findings Н8: an anchor that ended its line in the old version matches the START of a
-// longer line in upstream's — `value = base` in `value = base + extra` — and the insertion
-// after it lands in the middle of that line: `value = base⏎log(value) + extra`. Exit 0,
-// another program. Runs as `todo` until the author decides; the row says which languages
-// it reaches.
-
-// [language, the file with LINE, the anchor line, what upstream appends to it, the added line]
 const CASES: [string, string, string, string, string][] = [
   ['python', 'def f(x):\n    a = 1\n    LINE\n    return a\n', 'value = base', ' + extra', 'log(value)'],
   ['go', 'func f() {\n\ta := 1\n\tLINE\n\treturn\n}\n', 'value := base', ' + extra', 'log(value)'],
@@ -34,7 +27,7 @@ for (const [language, tpl, line, appended, add] of CASES) {
     try {
       got = applyAll(base, patch, a).source;
     } catch {
-      return; // a refusal is no corruption
+      return;
     }
     assert.equal(got, tpl.replace('LINE', `${line}${appended}\n${indent}${add}`));
   });

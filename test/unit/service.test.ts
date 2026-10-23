@@ -34,8 +34,6 @@ function failed(response: ResponseMessage): ServiceError {
   return response.error;
 }
 
-// ── handshake ────────────────────────────────────────────────────────────────
-
 test('service version: the protocol number, the sir version and the languages', async () => {
   const result = ok(await handle({ id: 1, method: 'version' }));
   assert.equal(result['protocol'], PROTOCOL_VERSION);
@@ -92,8 +90,6 @@ test('service: params that are not an object are refused in plain words', async 
   assert.match(error.message, /needs params/);
 });
 
-// ── generate ─────────────────────────────────────────────────────────────────
-
 test('service generate: the .md, the hunk coordinates and the reproducibility flag', async () => {
   const result = ok(
     await handle({
@@ -126,8 +122,6 @@ test('service generate: the language comes from path when none is given', async 
   );
   assert.match(String(result['patch']), /^# match cpp$/m);
 });
-
-// ── generate: the base named in git instead of sent ──────────────────────────
 
 async function generateGit(
   repo: Repo,
@@ -208,7 +202,6 @@ test('service generate: no base sent — the one generate.base names in the conf
     const config = fromConfig['config'] as { origins: Record<string, string> };
     assert.match(config.origins['generate.base.commit']!, /^config /);
 
-    // A base in the request replaces the config's whole, and the origins say so.
     const sent = ok(await generateGit(repo, { baseGit: { branch: 'side' } }));
     assert.equal(sent['baseSpec'], 'side:src/core/f.cc');
     const origins = (sent['config'] as { origins: Record<string, string> }).origins;
@@ -250,9 +243,7 @@ test('service generate: a git refusal crosses the wire as GitError, with the rev
     const error = failed(await generateGit(repo, { baseGit: { branch: 'nope' } }));
     assert.equal(error.kind, 'GitError');
     assert.equal(error.exitCode, 1);
-    // X3: the service has no flags, so the message names none
     assert.match(error.message, /^nope: no such branch/);
-    // X2: why, for the client to switch on
     assert.deepEqual(error.detail, { reason: 'no-such-branch', revision: 'nope' });
 
     const off = failed(await generateGit(repo, { baseGit: { branch: repo.branch, commit: repo.s } }));
@@ -260,7 +251,6 @@ test('service generate: a git refusal crosses the wire as GitError, with the rev
     assert.match(off.message, /is not on branch/);
     assert.equal(off.detail?.['reason'], 'not-on-branch');
 
-    // the CLI says the same with the flag in front
     const cli = spawnSync(process.execPath, ['--experimental-strip-types', CLI_PATH, 'generate', '--in', repo.inPath, '--branch', 'nope', '--no-config'], { encoding: 'utf8' });
     assert.match(cli.stderr, /--branch nope: no such branch/);
   } finally {
@@ -321,8 +311,6 @@ test('service generate: progress arrives as its own messages, never as the reply
     assert.ok(message.params.done <= message.params.total);
   }
 });
-
-// ── config: the same layering the CLI uses ────────────────────────────────────
 
 interface Project {
   readonly dir: string;
@@ -417,8 +405,6 @@ test('service generate: a broken config refuses the CALL and names the file in d
   }
 });
 
-// ── resolve and apply ─────────────────────────────────────────────────────────
-
 test('service resolve: the language is read from the # match heading, no path needed', async () => {
   const md = sirMd([{ match: '... one(); >>> ...', patch: 'two();' }]);
   const result = ok(await handle({ id: 7, method: 'resolve', params: { patch: md, baseText: BASE } }));
@@ -456,8 +442,6 @@ test('service apply: hands back the resulting text along with the coordinates', 
   assert.equal((result['hunks'] as HunkLink[]).length, 1);
 });
 
-// ── the pipe end to end ───────────────────────────────────────────────────────
-
 test('serve: one JSON line in, one line out, matched by id', async () => {
   const lines: string[] = [];
   const input = readableOf([
@@ -478,7 +462,6 @@ test('serve: one JSON line in, one line out, matched by id', async () => {
   assert.equal(answers.find((a) => a.id === 0)!.ok, false);
 });
 
-// A generate of one change per function: long enough to be caught running.
 const MANY_OLD = Array.from({ length: 40 }, (_, i) => `int f${i}(int a) {\n  return ${i};\n}\n`).join('');
 const MANY_NEW = MANY_OLD.replace(/return (\d+);/g, 'return $1 + 1;');
 const longGenerate = (id: number): string =>
@@ -546,8 +529,6 @@ test('serve: the process answers version and writes nothing else to stdout', () 
   assert.ok(response.ok);
   assert.equal((response.result as Record<string, unknown>)['protocol'], PROTOCOL_VERSION);
 });
-
-// ── streams for the pipe test ─────────────────────────────────────────────────
 
 function readableOf(lines: readonly string[]): NodeJS.ReadableStream {
   return Readable.from([`${lines.join('\n')}\n`]);
@@ -658,8 +639,6 @@ test('service: language "" is no language — generate and resolve alike go by t
   assert.ok(res.ok, JSON.stringify(res));
 });
 
-// ── configTemplate (protocol 4) ──────────────────────────────────────────────
-
 test('configTemplate: the text, where the core would look, whether it is there, every version', async () => {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'sir-svc-cfg-')));
   try {
@@ -669,7 +648,6 @@ test('configTemplate: the text, where the core would look, whether it is there, 
     const result = ok(
       await handle({ id: 1, method: 'configTemplate', params: { path: join(dir, 'src', 'a.cpp'), settings: { 'generate.out': 'patches/' } } }),
     );
-    // PROTOCOL.md: $schema, version, then only the settings sent
     const written = JSON.parse(String(result['text'])) as Record<string, unknown>;
     assert.deepEqual(Object.keys(written), ['$schema', 'version', 'generate']);
     assert.equal(written['version'], CONFIG_VERSION);

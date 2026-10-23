@@ -48,8 +48,6 @@ test('class names are saved (instanceof via prototype chain)', () => {
   assert.ok(e instanceof Error);
 });
 
-// `detail()` is what the service sends as `error.detail`: part of the protocol, pinned
-// here field by field — a changed field is a protocol change (VERSIONING.md).
 test('detail(): every error kind states exactly its protocol fields', () => {
   assert.deepEqual(new ParseError('bad', 3, 'fix it').detail(), { mdLine: 3, hint: 'fix it' });
   assert.deepEqual(new ParseError('bad', 3).detail(), { mdLine: 3 });

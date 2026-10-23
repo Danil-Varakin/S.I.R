@@ -97,7 +97,6 @@ test('pathWithin: inside, the root itself, outside — a name that merely starts
     assert.equal(pathWithin(root, join(root, '..hidden.c')), '..hidden.c');
     assert.equal(pathWithin(root, join(root, '..', 'x.c')), undefined);
     assert.equal(pathWithin(root, dirname(root)), undefined);
-    // the Target of a patch next to such a file names it, as it names any other
     assert.equal(targetFor(join(root, '..hidden.c.sirp'), join(root, '..hidden.c')), '..hidden.c');
   } finally {
     rmSync(root, { recursive: true, force: true });

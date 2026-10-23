@@ -1,7 +1,6 @@
 import { file, opt } from '../../matrix.ts';
 import type { Fixture } from '../../matrix.ts';
 
-// The outer block is a <div> named by its id, the target a <section> in it.
 export const fixture: Fixture = {
   language: 'html',
   targetName: 'target',

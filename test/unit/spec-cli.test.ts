@@ -19,10 +19,6 @@ import { fileURLToPath } from 'node:url';
 
 import { sirMd } from '../helpers.ts';
 
-// Audit 2026-10-05: the CLI against README — "Exit codes", "apply options", "generate
-// options", the --out table, "Grammars", "Known limitations". Expectations come from those
-// sentences, not from what the code prints today.
-
 const CLI = fileURLToPath(new URL('../../src/bin/sir.ts', import.meta.url));
 
 interface Run {
@@ -79,8 +75,6 @@ const SRC = 'void f() {\n  a();\n}\n';
 const INSERT = sirMd([{ match: '...\na();\n>>>\n...', patch: '\n  b();' }]);
 const PATCHED = 'void f() {\n  a();\n  b();\n}\n';
 
-// ── README "Exit codes": the ones no test ran through the CLI ────────────────────────
-
 test('exit 2: a .sirp that does not parse', inTemp('sir-x2-', (dir) => {
   writeFileSync(join(dir, 'a.cc'), SRC);
   writeFileSync(join(dir, 'p.sirp'), '# match cpp\nno gutter\n# end\n');
@@ -134,8 +128,6 @@ test('exit 1: git cannot be run — "never a question", and not a crash', inTemp
   assert.equal(r.status, 1, r.stderr);
   assert.match(r.stderr, /GitError/);
 }));
-
-// ── apply options ────────────────────────────────────────────────────────────────────
 
 test('apply --dry-run: "show planned edits, write nothing" — not even with --out', inTemp('sir-dry-', (dir) => {
   writeFileSync(join(dir, 'a.cc'), SRC);
@@ -221,8 +213,6 @@ test('apply: an --out that cannot be written is exit 1, and leaves nothing', inT
     chmodSync(ro, 0o755);
   }
 }));
-
-// ── generate options and the --out table ─────────────────────────────────────────────
 
 const OLD = 'void f() {\n  int a = 1;\n}\n';
 const NEW = 'void f() {\n  int a = 2;\n}\n';

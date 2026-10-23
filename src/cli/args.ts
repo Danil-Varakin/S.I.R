@@ -6,8 +6,6 @@ export interface ArgSpec<T> {
   readonly optional?: Readonly<Record<string, keyof T & string>>;
 }
 
-/** Digits become a number; anything else — `all`, `-1`, `two` — is passed on as it is,
- *  for the check that knows the range to refuse it by name. */
 export function parseCountValue(raw: string): unknown {
   return /^\d+$/.test(raw) ? Number(raw) : raw;
 }
@@ -52,9 +50,6 @@ export function parseArgs<T extends object>(argv: readonly string[], spec: ArgSp
   return initial;
 }
 
-/** The options of `spec` named in `names`, each with the meaning it has there — how a
- *  command whose flags must be a subset of another's (`sir-apply` of `sir apply`,
- *  VERSIONING.md F2) is built: an option `spec` does not have is a fault of the build. */
 export function pickOptions<T>(spec: ArgSpec<T>, names: readonly string[]): ArgSpec<T> {
   const groups = ['flags', 'negated', 'values', 'counts', 'optional'] as const;
   const out: { -readonly [K in keyof ArgSpec<T>]: Record<string, keyof T & string> } = {};
@@ -71,10 +66,6 @@ export function knownOptions<T>(spec: ArgSpec<T>): ReadonlySet<string> {
   return new Set(groups.flatMap((group) => Object.keys(group ?? {})));
 }
 
-/** A value that is itself one of THIS command's options is never what was meant: the
- *  option before it lost its value, and swallowing the next one quietly turns a slip
- *  into a run against the wrong input. Everything else is a value and is taken as it
- *  is — `-` for stdout, a negative number, a file whose name begins with a dash. */
 function valueFor(option: string, val: string | undefined, known: ReadonlySet<string>): string {
   if (val === undefined) throw new Error(`option ${option} needs a value`);
   if (known.has(val)) throw new Error(`option ${option} needs a value, and ${val} is another option`);
@@ -90,9 +81,6 @@ function unknownArgument(a: string, known: ReadonlySet<string>): Error {
   return new Error(`unknown argument: ${a}`);
 }
 
-/** The nearest option by edit distance, when there is one close enough to be a slip of
- *  the fingers rather than a different word. Short options are left alone: among names
- *  two characters long everything is one edit from everything else. */
 function closest(a: string, known: ReadonlySet<string>): string | undefined {
   if (a.length < 4) return undefined;
   let best: string | undefined;

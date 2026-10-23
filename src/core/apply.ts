@@ -25,9 +25,6 @@ export function applyAll(source: string, file: SirFile, adapter: LanguageAdapter
   return { source: current, edits };
 }
 
-/** One hunk against the CURRENT text — the step `applyAll` and `resolveHunks` share. What
- *  they do when it throws differs on purpose: the CLI stops at the first hunk that does
- *  not fit, the service reports it and goes on with the next. */
 export function planHunk(current: string, map: SourceMap, hunk: Hunk, adapter: LanguageAdapter): Edit {
   return planEdit(current, map, matchPattern(hunk.match, map, adapter.normalize), hunk.patch);
 }

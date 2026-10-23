@@ -11,9 +11,6 @@ import { digest, grammarDirs, packageGrammarDir, resolveGrammar } from '../../sr
 import { adaptersByName } from '../../src/lang/adapter.ts';
 import { GrammarError } from '../../src/core/errors.ts';
 
-// Stage 4 of 0.4: grammars ship inside sir. Looked for in $SIR_GRAMMAR_DIR, then
-// grammars/ of the package; the bytes must be the pinned ones; nothing is downloaded.
-
 const CLI = fileURLToPath(new URL('../../src/bin/sir.ts', import.meta.url));
 const BYTES = new TextEncoder().encode('not really wasm');
 const SOURCE = { file: 'tree-sitter-nonesuch.wasm', package: 'tree-sitter-nonesuch', version: '1.2.3', sha256: digest(BYTES) };
@@ -37,9 +34,8 @@ async function withEnv(vars: Record<string, string | undefined>, fn: () => Promi
 test('every pinned grammar is in grammars/ of the package, with its pinned bytes', async () => {
   await withEnv({ SIR_GRAMMAR_DIR: undefined }, async () => {
     for (const adapter of new Set(adaptersByName().values())) {
-      if (adapter.grammar === undefined) continue; // read as text: nothing pinned
+      if (adapter.grammar === undefined) continue;
       assert.ok(existsSync(join(packageGrammarDir(), adapter.grammar.file)), adapter.name);
-      // resolveGrammar refuses bytes that are not the pin: reading it is the check
       assert.ok((await resolveGrammar(adapter.grammar)).byteLength > 0, adapter.name);
     }
   });

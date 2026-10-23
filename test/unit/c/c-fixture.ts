@@ -1,7 +1,6 @@
 import { file, opt } from '../../matrix.ts';
 import type { Fixture } from '../../matrix.ts';
 
-// C has no nested functions: the outer block is a function, the target an `if` in it.
 export const fixture: Fixture = {
   language: 'c',
   targetName: 'x > 0',

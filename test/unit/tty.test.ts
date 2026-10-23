@@ -6,12 +6,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-// What sir does only with a person at a terminal — the editor offered when synthesis
-// cannot anchor a change, the yes/no questions — run for real: sir in a process of its
-// own, which `test/fake-tty.mjs` makes take its stdin and stderr for a terminal. The
-// answers come down a pipe, the editor is a command that puts a prepared text into the
-// file it is given (`VISUAL`).
-
 const SIR = fileURLToPath(new URL('../../src/bin/sir.ts', import.meta.url));
 const FAKE_TTY = fileURLToPath(new URL('../fake-tty.mjs', import.meta.url));
 
@@ -35,7 +29,6 @@ function sir(dir: string, args: string[], opts: { tty?: boolean; input?: string;
   return { status: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }
 
-// Two identical if-blocks, the change in the second: synthesis cannot anchor it.
 const TWIN_OLD = 'void f() {\n  if (cond) {\n    a();\n    work();\n  }\n  if (cond) {\n    a();\n    work();\n  }\n}\n';
 const TWIN_NEW = TWIN_OLD.replace(/work\(\);(?![\s\S]*work\(\);)/, 'work(2);');
 const BY_HAND = [
@@ -67,7 +60,6 @@ function project(): { dir: string; done: () => void; editorWriting: (text: strin
   return {
     dir,
     done: () => rmSync(dir, { recursive: true, force: true }),
-    // an "editor" that writes `text` over the file it is opened on
     editorWriting: (text) => {
       const source = join(dir, `editor-${++n}.txt`);
       writeFileSync(source, text);
@@ -77,8 +69,6 @@ function project(): { dir: string; done: () => void; editorWriting: (text: strin
 }
 
 const GENERATE = ['generate', '--in-old', 'old.cc', '--in', 'new.cc', '--out', 'p.sirp'];
-
-// ── generate without -a: the editor is offered only at a terminal ─────────────────────
 
 test('tty: a change synthesis cannot anchor — at a terminal the editor is offered; yes, and the hand hunk is written', () => {
   const p = project();
@@ -170,8 +160,6 @@ test('tty: an edit that does not stand is offered again with its reason; no — 
   }
 });
 
-// ── the yes/no questions ─────────────────────────────────────────────────────────────
-
 const PATCH_A_TO_B = 'Sir: 2\n\n# match cpp\n    >>>\n    int a;\n    <<<\n    ...\n# end\n# patch\n    int b;\n# end\n';
 
 test('tty: apply --verify with no git base asks whether the files on disk are the base — yes checks, no refuses', () => {
@@ -240,12 +228,9 @@ test('tty: generate over a patch of another file asks; yes writes over it, no an
   }
 });
 
-// ── what --debug, --log and --dry-run tell ───────────────────────────────────────────
-
 test('generate --debug: a candidate that fits nowhere is told as no match', () => {
   const dir = mkdtempSync(join(tmpdir(), 'sir-tty-'));
   try {
-    // the change opens `[`: the closer of `def b` past it, with no `]`, fits nowhere
     const old = 'def b(rows):\n    return [\n        x\n        for x in rows\n    ]\n\n\ndef a(rows):\n    return list(rows)\n';
     writeFileSync(join(dir, 'o.py'), old);
     writeFileSync(join(dir, 'n.py'), old.replace('return [', 'yield ['));

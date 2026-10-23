@@ -9,16 +9,6 @@ import type { LanguageAdapter } from '../../src/lang/source-map.ts';
 import type { MatchPattern } from '../../src/core/ast.ts';
 import { AmbiguityError, MatchError, SynthesisError } from '../../src/core/errors.ts';
 
-// The candidate ladder, as the tracer (`--debug`) tells it: which patterns synthesis tries
-// for a change, in what order, and which it keeps. A round trip cannot see any of this —
-// any pattern that lands gives the same text — so a change to the order, to a cut form or
-// to when a rung is given up shows here and nowhere else.
-//
-// One line per attempt: its result, then the pattern on one line (`⏎` between its lines).
-// `unique` is the matcher's word — the pattern fits once; whether it reproduces the change
-// is checked after, so a unique attempt may still be passed over. An attempt the ladder
-// repeats is answered from what it got the first time and not traced again.
-
 const adapters = new Map<string, LanguageAdapter>();
 async function adapterFor(language: string): Promise<LanguageAdapter> {
   let a = adapters.get(language);
@@ -32,7 +22,6 @@ async function adapterFor(language: string): Promise<LanguageAdapter> {
 
 const oneLine = (p: MatchPattern): string => printPattern(p).split('\n').map((l) => l.trim()).join(' ⏎ ');
 
-/** What synthesis tried for the one change between `oldText` and `newText`, and what it kept. */
 async function ladder(language: string, oldText: string, newText: string, limits: PartialLimits = {}): Promise<string[]> {
   const adapter = await adapterFor(language);
   const out: string[] = [];
@@ -54,8 +43,6 @@ async function ladder(language: string, oldText: string, newText: string, limits
 
 const BODY = 'void f() {\n  a();\n  b();\n}\n';
 
-// ── insertions: to the left first, to the right first at the end of a block ────────
-
 test('ladder: an insertion inside a block leans on the line above it — the header alone does not place it', async () => {
   assert.deepEqual(await ladder('cpp', BODY, 'void f() {\n  a();\n  x();\n  b();\n}\n'), [
     'unique ... ⏎ void f() { ⏎ >>> ⏎ ... ⏎ } ⏎ ...',
@@ -76,10 +63,7 @@ test('ladder: an insertion at the end of the file needs nothing but the end', as
   assert.deepEqual(await ladder('cpp', 'int x;\nint y;\n', 'int x;\nint y;\nint z;\n'), ['unique ... ⏎ >>>', 'KEPT ... ⏎ >>>']);
 });
 
-// ── replacements: the cut forms in their order ───────────────────────────────────────
-
 test('ladder: a deeper indent keeps the exact cut — the new line still starts with the old indent', async () => {
-  // the exact cut skips to the removed line (`... >>>`); the context cut sits tight on what precedes it
   assert.deepEqual(await ladder('cpp', BODY, 'void f() {\n    a();\n  b();\n}\n'), [
     'unique ... ⏎ void f() { ⏎ ... ⏎ >>> ⏎ a(); ⏎ <<< ⏎ ... ⏎ } ⏎ ...',
     'KEPT ... ⏎ void f() { ⏎ ... ⏎ >>> ⏎ a(); ⏎ <<< ⏎ ... ⏎ } ⏎ ...',
@@ -195,10 +179,6 @@ test('ladder: in the last function of a Python file there is no closer — the e
   ]);
 });
 
-// Blocks that end where the block inside them ends share its closer: in Python an `if` and
-// its `def` are both closed by the next line at the `def`'s level, and that line is written
-// once — a second copy would have to be another line, and the pattern would fit nowhere.
-// In C++ every block has its own `}`. docs/07-findings.md, С5.
 const HANDLERS = [1, 2, 3]
   .map((n) => `class Handler${n}:\n    def register(self, opts):\n        if opts.enabled:\n            for item in opts.items:\n                self.add(item)\n    def size(self):\n        return ${n}\n`)
   .join('\n');
@@ -225,8 +205,6 @@ test('ladder: in C++ nested blocks each write their own }', async () => {
     'KEPT ... ⏎ struct H2 { ⏎ ... ⏎ void reg( ⏎ ... ⏎ ) { ⏎ ... ⏎ if ( ⏎ ... ⏎ ) { ⏎ ... ⏎ >>> ⏎ for (auto item : opts.items) add(item); ⏎ <<< ⏎ ... ⏎ } ⏎ ... ⏎ } ⏎ ... ⏎ } ⏎ ...',
   ]);
 });
-
-// ── an ambiguity: the brackets are spelled, the header widened, the neighbours taken ──
 
 test('ladder: two overloads with the same body — the generalized ( ... ) is spelled out', async () => {
   const old = 'void f(int a) {\n  go();\n}\nvoid f(long a) {\n  go();\n}\n';
@@ -305,18 +283,12 @@ test('ladder: with one neighbour a side, a copy told apart only by both is found
   ]);
 });
 
-// The lower neighbour stands after `...` — `a(); >>> go(); ... <<< b();` — and so fits
-// any `b();` further down too. When nothing is left to spell or widen, the rung tries
-// the neighbour pressed right against the change. docs/07-findings.md, С2.
 test('ladder: a copy told apart only by both neighbours right next to it — the lower one is pressed close', async () => {
   const old = 'void f() {\n  a();\n  go();\n  b();\n  a();\n  go();\n  c();\n  d();\n  go();\n  b();\n}\n';
   const lines = await ladder('cpp', old, old.replace('  a();\n  go();\n  b();', '  a();\n  stop();\n  b();'), { maxSiblings: 1 });
   assert.equal(lines.at(-1), 'KEPT ... ⏎ void f() { ⏎ ... ⏎ a(); ⏎ >>> ⏎ go(); ⏎ <<< ⏎ b(); ⏎ ... ⏎ } ⏎ ...');
 });
 
-// Two parents with a bracket each to spell: the outer is offered first. The move taken is
-// the one that cuts the most places; of two that cut as many, the narrower bracket; of two
-// alike in both, the first offered.
 const NESTED = (outer: [string, string, string], inner: [string, string, string], extra = ''): string =>
   [0, 1, 2]
     .map((k) => `function a(${outer[k]}) {\n  function b(${inner[k]}) {\n    go();\n  }\n}\n`)
@@ -358,8 +330,6 @@ test('ladder: the bracket that cuts more places is spelled first, though offered
   ]);
 });
 
-// ── when nothing stands ──────────────────────────────────────────────────────────────
-
 test('ladder: two identical functions — every cut is ambiguous, and the refusal says so', async () => {
   const old = 'void f() {\n  go();\n}\nvoid f() {\n  go();\n}\n';
   assert.deepEqual(await ladder('cpp', old, 'void f() {\n  go();\n}\nvoid f() {\n  stop();\n}\n', { maxSiblings: 0 }), [
@@ -374,12 +344,6 @@ test('ladder: two identical functions — every cut is ambiguous, and the refusa
     'FAILED ambiguous: could not anchor the change at line 5 of the new version — ambiguous match: the pattern fits in more than one place — add context',
   ]);
 });
-
-// ── one outdent closes every nested block; the parentless rung, and `--require-parents` ─
-// In Python the closer of a parent is the next line at its own level — `class Archive:`
-// for `class Queue:` — and it closes the method the change opens (`def __init__(…):`)
-// together with the class: one outdent ends both. So the pattern with the parent stands
-// (docs/08-c1-outdent.md, С1).
 
 const QUEUE = [
   'class Queue:',
@@ -426,9 +390,6 @@ test('ladder: the same nested def in two classes — the header of the def aroun
   ]);
 });
 
-// A bracket knows its own closing token, in Python too: a change that opens `[` has its
-// `]` to pass, and the closer of the parent past it is a way out of the bracket — every
-// pattern with the parent and no `]` is refused.
 const listOf = (params: string): string => `def b(${params}):\n    return [\n        x\n        for x in rows\n    ]\n\n\n`;
 const RETURNS = listOf('rows') + 'def a(rows):\n    return list(rows)\n';
 
@@ -469,13 +430,10 @@ test('ladder: --require-parents takes the parentless rung away — another cut, 
   );
 });
 
-// ── loose by default: what a patch cannot write byte for byte is still reproduced ─────
-
 test('synthesis is loose unless asked: a line the new version ends in LF lands in a CRLF base as CRLF', async () => {
   const adapter = await adapterFor('cpp');
   const old = 'void f() {\r\n  a();\r\n  b();\r\n}\r\n';
   const neu = 'void f() {\r\n  a();\n  x();\r\n  b();\r\n}\r\n';
-  // a patch takes the line endings of its base, so the LF after `a();` cannot be written
   assert.equal(synthesize(old, neu, adapter).length, 1);
   assert.throws(
     () => synthesize(old, neu, adapter, { exact: true }),
@@ -494,8 +452,6 @@ test('synthesis with exact: a CRLF line in an LF base is payload, written byte f
   const neu = 'void f() {\n  a();\r\n  x();\n  b();\n}\n';
   assert.equal(synthesize(old, neu, adapter, { exact: true }).length, 1);
 });
-
-// ── which failure a refusal names ──────────────────────────────────────────────────
 
 test('moreInformative: an ambiguity outranks a no-match, whichever came first', () => {
   const amb = new AmbiguityError('two places', [1, 2]);

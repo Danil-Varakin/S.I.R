@@ -9,7 +9,6 @@ export interface Edit {
   text: string;
 }
 
-/** Where the marks cut the ORIGINAL text: `[start, end)` is what the patch replaces. */
 export function cutOf(map: SourceMap, marks: MatchMarks): { start: number; end: number } {
   const start = map.toOriginalPos(marks.insert.pos, marks.insert.side);
   const end =
@@ -38,8 +37,6 @@ export function patchHunk(
   const edit = planEdit(source, map, marks, patch);
   return { source: applyEdit(source, edit), edit };
 }
-
-// Line endings: core/eol.ts — the patch takes the ending of the line the edit starts on.
 
 function landed(patch: string, lineEnd: LineEnd): string {
   return lineEnd === '\n' ? patch : toCrlf(patch);

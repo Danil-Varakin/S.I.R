@@ -27,25 +27,12 @@ export interface GenerateRequest {
   readonly limits?: PartialLimits | undefined;
   readonly trace?: Tracer | undefined;
   readonly onProgress?: ((done: number, total: number) => void) | undefined;
-  /** After synthesis, the hunks to keep. Kept for API callers; `steering` is the way a
-   *  person takes part now — asked hunk by hunk, with an editor. */
   readonly review?: ((hunks: readonly Hunk[]) => Promise<Hunk[]>) | undefined;
-  /** Synthesis a person steers (`generate/steer.ts`): asked about each hunk as it is
-   *  made, and handed the editor when a change cannot be anchored. */
   readonly steering?: Steering | undefined;
   readonly provenance?: boolean | undefined;
-  /** The header's `Target` (`core/header.ts`): the path of the file, already measured
-   *  from the root a reader measures it from; no `Target` without it. */
   readonly target?: string | undefined;
-  /** The header's `Base-Blob`: the id of the git blob the base was read from; none for
-   *  a base that did not come out of git. */
   readonly baseBlob?: string | undefined;
-  /** Stops the run between two changes, throwing the signal's reason. A person steering
-   *  stops it at the terminal instead. */
   readonly signal?: AbortSignal | undefined;
-  /** A `.sirp` whose hunks are settled — a draft a person finished (`SynthesisError`'s
-   *  `draft`): checked, then synthesis goes on from them, with no one to steer. Its hunks
-   *  open the patch byte for byte, as written. */
   readonly keep?: string | undefined;
 }
 
@@ -54,7 +41,6 @@ export interface GenerateOutcome {
   readonly language: string | undefined;
   readonly hunkCount: number;
   readonly warnings: readonly string[];
-  /** the warnings about one hunk, each with the line of `md` it is about */
   readonly warningsAt: readonly HunkWarning[];
   readonly links?: readonly HunkLink[];
   readonly reproducesNew?: boolean;
@@ -62,9 +48,6 @@ export interface GenerateOutcome {
 
 export async function generatePatch(request: GenerateRequest): Promise<GenerateOutcome> {
   const adapter = pickAdapter({ language: request.language, path: request.path });
-  // The heading names the language by its own name (`cpp`, `objc`, `python`), however it
-  // was picked — `--language c++`, a `.mm` file, a config: the same patch from the CLI and
-  // from the service. `label` overrides it for an API caller, and is held to the check.
   const label = request.label ?? adapter.name;
   checkHeading(label, adapter);
   if (unchanged(request, (line) => adapter.normalize(line))) {
@@ -82,7 +65,6 @@ export async function generatePatch(request: GenerateRequest): Promise<GenerateO
   const maps: MapCache = new Map();
 
   const header = patchHeader({ adapter, target: request.target, baseBlob: request.baseBlob });
-  // a `keep` that stands opens the patch as it was written; one that does not is thrown first
   const print = (all: readonly Hunk[]): string => header + printPatch(all, label, request.keep);
 
   let hunks: readonly Hunk[];
@@ -112,8 +94,6 @@ export async function generatePatch(request: GenerateRequest): Promise<GenerateO
   };
 }
 
-/** The hunks: synthesis on its own, or steered — by a person, or by no one from `keep`.
- *  A steered run that does not give the new version says so in `warnings`. */
 async function synthesized(
   request: GenerateRequest,
   setting: { adapter: LanguageAdapter; label: string; bridgeGap: number; trace: Tracer | undefined; maps: MapCache },
@@ -154,9 +134,6 @@ async function synthesized(
   return request.review !== undefined ? request.review(made) : made;
 }
 
-/** The hunks as a `.sirp` body. With `keep` — it stood, so its hunks are the first ones
- *  — they are its own text, from the first heading on, byte for byte; the hunks made
- *  after them are printed below. */
 function printPatch(hunks: readonly Hunk[], label: string, keep: string | undefined): string {
   if (keep === undefined) return printSirFile(hunks, label);
   const kept = parseSirFile(keep).hunks.length;
@@ -164,17 +141,12 @@ function printPatch(hunks: readonly Hunk[], label: string, keep: string | undefi
   return kept < hunks.length ? `${own}\n\n${printSirFile(hunks.slice(kept), label)}` : `${own}\n`;
 }
 
-/** The draft printed as `generate` would print the patch, and where its last hunk is. */
 function printedDraft(e: SynthesisError, draft: SynthesisDraft, print: (hunks: readonly Hunk[]) => string): SynthesisError {
   const text = print(draft.hunks);
   const line = parseSirFile(text).hunks[draft.hunks.length - 1]!.mdSpan![0];
   return new SynthesisError(e.message, e.reason, e.because, e.newLine, { ...draft, printed: { text, line } });
 }
 
-/** The first question, before a grammar is loaded or a hunk is looked for. Without
- *  `exact` a change is one synthesis would have to write: each line as the language
- *  normalizes it, blank lines not counted — spacing and empty lines alone are no change.
- *  With `exact`, byte for byte. */
 function unchanged(request: GenerateRequest, normalize: (raw: string) => string): boolean {
   if (request.oldText === request.newText) return true;
   if (request.exact === true) return false;
@@ -185,9 +157,6 @@ function unchanged(request: GenerateRequest, normalize: (raw: string) => string)
   return a.length === b.length && a.every((line, i) => line === b[i]);
 }
 
-/** The header `generate` writes, its blank line after it — the one code for `generate`
- *  and for `config`, which answers it without a patch. No `Grammar` without an adapter,
- *  no `Target` or `Base-Blob` without their values. The grammar is not loaded. */
 export function patchHeader(fields: {
   readonly adapter?: LanguageAdapter | undefined;
   readonly target?: string | undefined;
@@ -201,8 +170,6 @@ export function patchHeader(fields: {
   });
 }
 
-/** `<package>@<version>` as the adapter pins it; the file name for a grammar with no
- *  package behind it. */
 function grammarName(grammar: GrammarSource): string {
   return grammar.package !== undefined && grammar.version !== undefined
     ? `${grammar.package}@${grammar.version}`

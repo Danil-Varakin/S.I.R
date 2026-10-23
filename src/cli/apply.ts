@@ -24,8 +24,6 @@ import type { ConfirmOptions } from './confirm.ts';
 import type { Ask } from '../infra/ask.ts';
 import { answersFrom } from './prompt.ts';
 
-/** Who runs the apply: `sir apply`, a person's tool — or `sir-apply`, a build's,
- *  which asks nothing and patches only a base out of git (or one it is told is clean). */
 export type ApplyMode = 'sir' | 'sir-apply';
 
 export interface Options extends GitOptions, ConfirmOptions {
@@ -86,7 +84,6 @@ ${CONFIRM_USAGE}
                           warning, not a failure: the run goes on without it
   --help,  -h             this help`;
 
-/** Exported for `sir-apply`, whose options are picked out of these (F2). */
 export const SPEC: ArgSpec<Options> = {
   flags: {
     ...GIT_ARGS.flags,
@@ -127,11 +124,9 @@ function describeEdit(applied: AppliedEdit, index: number, total: number): strin
   return `hunk ${index + 1}/${total}:\n  ${kind} ${where}\n    new: ${JSON.stringify(edit.text)}${old}`;
 }
 
-/** One run of `apply`: everything its steps decide by. */
 interface ApplyRun {
   readonly opts: Options;
   readonly mode: ApplyMode;
-  /** the file of code: `--in`, or the one the patch names */
   readonly inPath: string;
   readonly file: SirFile;
   readonly adapter: LanguageAdapter;
@@ -141,17 +136,11 @@ interface ApplyRun {
   readonly ask: Ask;
 }
 
-/** The file to patch: the one on disk, or — once any coordinate is named — its version
- *  out of git, with `--in` reduced to naming WHICH file that is. */
 async function sourceOf(run: ApplyRun): Promise<FileVersion> {
   const { opts, inPath, ask } = run;
   return asksGit(opts) ? readFromGit(opts, inPath, ask) : { text: readInputFile(inPath, '--in'), spec: inPath };
 }
 
-/** What `--verify` checks against — and everything `sir-apply` patches: a clean base.
- *  Out of git when the flags or the config's generate.base name it; the files on disk
- *  only when the person says they are that base — `--base-from-disk`, or yes to the
- *  question `sir` asks and `sir-apply` never does. */
 async function verifiedBase(run: ApplyRun): Promise<FileVersion> {
   const { opts, inPath, ask, config, mode, log } = run;
   if (asksGit(opts)) return readFromGit(opts, inPath, ask);
@@ -178,12 +167,6 @@ async function verifiedBase(run: ApplyRun): Promise<FileVersion> {
   );
 }
 
-/** Writing the result over the file of code while its content came out of git puts the
- *  patched git version where the working file is. Nothing is lost when the working file
- *  held the git text to begin with, or already holds the result. Anything else throws
- *  away what the file holds now: `sir` asks first; `sir-apply` writes over it and
- *  says so — the files of the code a build patches are not the project's to keep, and
- *  a patch that changed is laid on the clean base again (docs: prebuild §2). */
 async function mustKeepLocalEdits(run: ApplyRun, target: string, source: FileVersion, result: string): Promise<void> {
   const file = resolve(run.inPath);
   if (!isFile(file) || !replacesFile(target, file)) return;
@@ -218,7 +201,6 @@ export async function runApply(opts: Options, log: Logger, seen: Seen, mode: App
     throw new Error('--base-from-disk names the base of --verify, and only when no git coordinate does');
   }
   const willWrite = !opts.dryRun && !opts.verify;
-  // sir-apply without --out patches the file in place
   if (willWrite && opts.out === undefined && mode === 'sir') {
     throw new Error('missing --out <file> (or use --dry-run / --verify)');
   }
@@ -240,7 +222,6 @@ export async function runApply(opts: Options, log: Logger, seen: Seen, mode: App
 
   const base = { opts, mode, inPath, file, adapter, config, log, seen };
   if (mode === 'sir-apply') {
-    // nobody to answer in a build: every question is a refusal, said out loud
     const ask: Ask = (question) => {
       log.note(`warning: ${question}\n  sir-apply asks nothing: stopping`);
       return Promise.resolve(false);
@@ -256,12 +237,10 @@ export async function runApply(opts: Options, log: Logger, seen: Seen, mode: App
   }
 }
 
-/** `--in` left out: the file the patch names, as `pair` finds it. */
 function codeOfPatch(match: string, text: string, config: ResolvedConfig, project: Project): string {
   const pair = pairOf(match, { out: config.generate.out, project }, text);
   if (pair.kind === 'patch' && pair.code !== null) {
     if (pair.exists) return pair.code;
-    // the patch says which file — or its name and place do — and that file is not there
     const how = pair.how === 'target' ? 'its Target names' : 'by its name and place it would be';
     throw new Error(`missing --in <file>: the patch is for ${pair.code} (${how}), and there is no such file — give --in`);
   }
@@ -285,8 +264,6 @@ async function applyWith(run: ApplyRun): Promise<void> {
     log.info(`verify: ok — ${edits.length} hunk(s) apply cleanly`);
     return;
   }
-  // `--out` relative is measured from the repository root (USAGE); the file itself, when
-  // the result goes back into it, is where --in named it — from the current directory
   const target = resolveOutPath({ inPath, out: opts.out ?? resolve(inPath), suffix: '' }).path;
   if (target === undefined) {
     process.stdout.write(result);

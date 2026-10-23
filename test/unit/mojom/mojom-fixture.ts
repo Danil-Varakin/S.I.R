@@ -1,7 +1,6 @@
 import { file, opt } from '../../matrix.ts';
 import type { Fixture } from '../../matrix.ts';
 
-// Mojom as text: an interface with a struct in it — blocks by their braces.
 export const fixture: Fixture = {
   language: 'mojom',
   targetName: 'Target',

@@ -66,8 +66,6 @@ async function run(opts: Options): Promise<void> {
   if (note !== undefined) process.stderr.write(`${note}\n`);
 }
 
-/** One line when the schema written — or printed, with `--dry-run` — is not the newest;
- *  nothing otherwise. */
 export function olderSchemaNote(written: number, dryRun = false): string | undefined {
   if (written >= CONFIG_VERSION) return undefined;
   return `${dryRun ? 'printed' : 'wrote'} config schema v${written}; the newest is v${CONFIG_VERSION}`;

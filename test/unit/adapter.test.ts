@@ -84,8 +84,6 @@ test('the extension is read from the file name, never from a directory', () => {
   assert.throws(() => adapterForFile('/my.proj/Makefile'), /file extension '\(none\)'/);
 });
 
-// ── generate writes `# match <word>`, apply reads it back: the two must agree ──
-
 const ADAPTERS = [...new Set(adaptersByName().values())];
 
 test('every extension a language claims is also a name that leads back to it', () => {

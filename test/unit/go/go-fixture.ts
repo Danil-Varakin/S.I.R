@@ -1,10 +1,8 @@
 import { file, opt } from '../../matrix.ts';
 import type { Fixture } from '../../matrix.ts';
 
-// Go has no nested named blocks: the outer block is a function, the target a closure in it.
 export const fixture: Fixture = {
   language: 'go',
-  // the target is a closure: its name stands before `func`, outside the header — Н7
   todo: { К13: '07-findings Н7: имя присвоенного блока вне заголовка (`target := func`)' },
   targetName: 'target',
   indent: '\t\t',

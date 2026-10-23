@@ -2,13 +2,6 @@ import type { Hunk, MatchPattern, Step } from '../core/ast.ts';
 import { SynthesisError } from '../core/errors.ts';
 import type { ChangeSegment } from './diff.ts';
 
-// Where a person takes over from synthesis: a hunk to start a change from, and the draft
-// a run hands over when it cannot anchor one — the editor in the CLI (`steer.ts`), the
-// `SynthesisError` of the service. One code for both.
-
-/** The same failure, with the draft to write the change by hand: the hunks so far and,
- *  last, the hunk to start from. `current` is the old version with the hunks so far laid
- *  — the text `segment` is in lines of. */
 export function withDraft(
   e: SynthesisError,
   hunks: readonly Hunk[],
@@ -23,11 +16,6 @@ export function withDraft(
 
 const CONTEXT_LINES = 3;
 
-/** The change with the lines just above it for context — the classic diff hunk, in the
- *  pattern language. Synthesis failed on it, so it is most likely ambiguous as it
- *  stands: a place to start editing, not an answer. Blank lines are left out of the
- *  context: the canon drops them, and a literal cannot be made of them. Laid as it is, the
- *  draft makes the change it was drafted for, blank lines included. */
 export function template(segment: ChangeSegment, current: string): Hunk {
   const lines = current.split('\n');
   const at = segment.oldStart - 1;
@@ -39,8 +27,6 @@ export function template(segment: ChangeSegment, current: string): Hunk {
     above.unshift(lines[k]!);
   }
   const context = above.join('\n');
-  // The blank lines between the context and the change: the mark sits right after the
-  // context, so they fall inside what the hunk replaces, and the body writes them back.
   const blanks = lines.slice(last, at);
   const removed = segment.removed.join('\n');
   const added = segment.added.join('\n');
@@ -48,12 +34,6 @@ export function template(segment: ChangeSegment, current: string): Hunk {
   const right = { side: 'right' as const, mdLine: 0 };
   const eof = { target: 'eof' as const };
 
-  // `... context >>> removed <<< ...`, the patch taking up after the context's last
-  // character; with no context, `... >>> removed <<< ...` or, for a bare insertion,
-  // `>>> ...` at the top of the file. An insertion under blank lines has no place of its
-  // own to mark — a mark stands only next to a character — so it replaces the next line
-  // that is not blank, `... context >>> next <<< ...`, and writes it back after the
-  // inserted lines; with no such line, the rest of the file.
   const steps: Step[] = [];
   let patch: string;
   if (context !== '' && removed === '' && blanks.length > 0) {

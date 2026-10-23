@@ -18,7 +18,6 @@ export function makeSourceMap(canon: Canon, spans: readonly BlockSpan[], closesB
     if (from > to) throw new RangeError(`SourceMap: from=${from} > to=${to}`);
   };
   const inside = (s: BlockSpan, pos: number): boolean => s.open < pos && pos <= s.close;
-  // Checked when called, not when first iterated: a bad argument fails at the call.
   const checkedScan = (norm: string, from: number, to: number): Iterable<number> => {
     assertNorm(norm);
     assertPos(from, 'from');
@@ -27,8 +26,6 @@ export function makeSourceMap(canon: Canon, spans: readonly BlockSpan[], closesB
     return scan(text, norm, from, to);
   };
 
-  // the ends of the blocks with no closing token, once a map, and only where the language
-  // closes by outdent: a brace language never asks
   const implicitEnds = closesByOutdent
     ? new Set(spans.filter((s) => s.closeEnd === undefined).map((s) => s.close))
     : null;

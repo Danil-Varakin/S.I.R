@@ -7,11 +7,6 @@ import { applyAll } from '../../src/core/apply.ts';
 import { tuneOne } from '../../bench/run.ts';
 import { TUNE_FLAT, TUNE_SYNTAX } from '../../bench/corpus.ts';
 
-// Patches that land with exit 0 and a result that is not the edit on upstream's file —
-// found by looking for them on purpose (2026-10-21). What they share and where else to
-// look: docs/11-silent-landings.md. Each runs as `todo` until the author decides; a
-// refusal passes, a wrong result fails. The guards at the end are plain tests.
-
 async function landsRightOrRefuses(language: string, oldText: string, newText: string, base: string, want: string): Promise<void> {
   const a = adapterForLanguage(language);
   await a.init();
@@ -20,14 +15,11 @@ async function landsRightOrRefuses(language: string, oldText: string, newText: s
   try {
     got = applyAll(base, patch, a).source;
   } catch {
-    return; // a refusal is no corruption
+    return;
   }
   assert.equal(got, want);
 }
 
-// Н9: a deletion is written `>>> drop(); ... <<< b();` — the `...` inside the range takes
-// whatever upstream wrote between the deleted line and the next anchor.
-// [language, the file with X, the deleted line, the line upstream adds under it]
 const DELETES: [string, string, string, string][] = [
   ['cpp', 'void f() {\n  a();\n  X\n  b();\n}\n', 'drop();', 'keep();'],
   ['java', 'class K {\n  void f() {\n    a();\n    X\n    b();\n  }\n}\n', 'drop();', 'keep();'],
@@ -68,15 +60,10 @@ test('Н9 cpp: the last line of a block deleted — what upstream appended to th
   );
 });
 
-// Н5, what is left of it: a change that runs to the end of the file is written "from
-// this text to the end", and takes the lines upstream appended.
 test('Н5 cpp: the whole file deleted — the line upstream appended to it stays', { todo: '11-silent-landings Н5' }, async () => {
   await landsRightOrRefuses('cpp', 'void f() {\n  a();\n}\n', '', 'void f() {\n  a();\n}\nvoid g();\n', 'void g();\n');
 });
 
-// Н10: in Python the last line of a function deleted is written as the whole body —
-// `def f(): >>> ... <<< def g():` with the body that is left as the patch — so whatever
-// upstream changed anywhere in the function goes back to the old text.
 test('Н10 python: the last line of a function deleted — upstream edits above it stay', { todo: '11-silent-landings Н10' }, async () => {
   await landsRightOrRefuses(
     'python',
@@ -97,9 +84,6 @@ test('Н10 python: the last line of a method deleted — upstream edits above it
   );
 });
 
-// Н11: upstream took the same change (the patch went upstream). A clean base out of git
-// holds it already, and the insertion is laid a second time.
-// [language, the file with X, the inserted line]
 const ADOPTED: [string, string, string][] = [
   ['cpp', 'void f(int x) {\n  a(x);\n  b(x);\nX  c(x);\n}\n', '  NEW(x);\n'],
   ['python', 'def f(x):\n    a(x)\n    b(x)\nX    c(x)\n', '    NEW(x)\n'],
@@ -118,8 +102,6 @@ for (const [language, tpl, line] of ADOPTED) {
   });
 }
 
-// Н12: upstream keeps the old code in a branch the build does not take and changes the
-// live copy; the patch lands in the dead one. `git apply` does the same.
 const F_OLD = 'void f(int x) {\n  a(x);\n  b(x);\n  c(x);\n}\n';
 const F_NEW = 'void f(int x) {\n  a(x);\n  b(x);\n  NEW(x);\n  c(x);\n}\n';
 
@@ -132,12 +114,6 @@ test('Н12 cpp: the old copy in #else, the live one changed — the patch does n
   const base = `#if BUILDFLAG(NEW_PATH)\nvoid f(int x) {\n  a(x);\n  b2(x);\n  c(x);\n}\n#else\n${F_OLD}#endif\n`;
   await landsRightOrRefuses('cpp', F_OLD, F_NEW, base, '(refused)');
 });
-
-// ── the family of the next unit (11-silent-landings.md, Ф1) ─────────────────────────
-// A pattern leans on the first line of the unit after the target — Python's closer,
-// or a neighbour below where nothing is a block. The unit changes its place among its
-// neighbours, and the patch lands where that line now follows another. Held as a set by
-// tuning.test.ts and tuning-flat.test.ts; here one case per language, as `todo`.
 
 const FAMILY: [string, string][] = [
   ['python', 'move-first'],
@@ -165,19 +141,11 @@ for (const [form, drift] of FAMILY) {
   });
 }
 
-// Ф3, `wrap` — a question of intent, not settled (BACKLOG §1, 🔬): a line appended at the
-// end of a function lands after a block upstream wrapped the body in, not after the line
-// it followed. Held `todo` so that the decision, either way, shows here.
 test('Ф3 cpp: the body wrapped in a new block — a line appended at the end stays after its line', { todo: '11-silent-landings Ф3, the author decides' }, async () => {
   await adapterForLanguage('cpp').init();
   const c = await tuneOne('cpp', { units: 8, depth: 1, regime: 'repeat', at: 'end' }, {}, 20_000);
   assert.notEqual(c.drifts.get('wrap'), 'WRONG');
 });
-
-// ── the structure lost (Н13) ───────────────────────────────────────────────────────
-// A bracket that opens and never closes, where the reading cannot tell it is no structure,
-// leaves the unit without blocks: its closers guard nothing, and a pattern whose target is
-// gone there finds the same lines in the next unit. f lost its anchor `a`; g still has it.
 
 test('Н13 cpp: #if / #else each opening a `{` — the patch does not move to the next function', { todo: '11-silent-landings Н13' }, async () => {
   const unit = (name: string, extra: string, body: string): string => `void ${name}(int x) {\n${extra}  if (x) {\n${body}  }\n}\n`;
@@ -192,7 +160,6 @@ test('Н13 cpp: #if / #else each opening a `{` — the patch does not move to th
   );
 });
 
-// [language, a section with EXTRA, the line upstream writes as EXTRA]
 const UNCLOSED: [string, (name: string, extra: string, body: string) => string, string, string][] = [
   ['text', (n, e, b) => `section ${n} {\n${e}  when on {\n${b}  }\n}\n`, '  see (note\n', 'prose with an opening bracket'],
   ['shell', (n, e, b) => `${n}() {\n${e}  if [ -n "$on" ]; then {\n${b}  }; fi\n}\n`, '  cat <<EOF\n  {\nEOF\n', 'a brace inside a heredoc'],
@@ -211,10 +178,6 @@ for (const [language, unit, extra, what] of UNCLOSED) {
     );
   });
 }
-
-// ── guards: places looked at on purpose that refuse or land right today ──────────────
-// (11-silent-landings.md, «Проверено — громко или верно»). A change that makes one of
-// them land wrong fails here.
 
 test('guard: a copy of the function in a comment or a string — refused, not landed in', async () => {
   const fOld = 'void f(int x) {\n  a(x);\n  b(x);\n  c(x);\n}\n';

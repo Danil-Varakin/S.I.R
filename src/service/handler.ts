@@ -57,7 +57,6 @@ import { packageIdentity } from '../infra/version.ts';
 
 export type Emit = (message: ProgressMessage) => void;
 
-/** A request the client took back with `cancel` — answered all the same, as `Cancelled`. */
 export class Cancelled extends Error {
   constructor(id: number) {
     super(`request ${id} was cancelled`);
@@ -65,8 +64,6 @@ export class Cancelled extends Error {
   }
 }
 
-/** The requests of one client still running, by id: what `cancel` reaches. `serve` keeps
- *  one per stream; a request handled without one has nothing that could cancel it. */
 export class Session {
   private readonly running = new Map<number, AbortController>();
 
@@ -77,7 +74,6 @@ export class Session {
   }
 
   end(id: number, signal: AbortSignal): void {
-    // an id reused while its namesake still ran belongs to the newer request
     if (this.running.get(id)?.signal === signal) this.running.delete(id);
   }
 
@@ -89,8 +85,6 @@ export class Session {
   }
 }
 
-/** Never rejects: whatever the line held, the answer is a response — a request that is
- *  not an object at all included (`null`, a number), with `id` 0. */
 export async function handle(message: unknown, emit?: Emit, session: Session = new Session()): Promise<ResponseMessage> {
   const started = performance.now();
   const elapsed = (): number => Math.round(performance.now() - started);
@@ -110,9 +104,6 @@ export async function handle(message: unknown, emit?: Emit, session: Session = n
   }
 }
 
-// ── methods ──────────────────────────────────────────────────────────────────────
-
-/** What a method gets besides its params. */
 interface Call {
   readonly id: number;
   readonly emit: Emit | undefined;
@@ -121,7 +112,6 @@ interface Call {
 }
 
 interface Method {
-  /** the params it knows, with their types; null — it takes none */
   readonly params: ParamSpec | null;
   readonly run: (params: never, call: Call) => unknown;
 }
@@ -132,8 +122,6 @@ function method<T>(params: ParamSpec | null, run: (params: T, call: Call) => unk
 
 const LANGUAGE: ParamSpec = { language: 'string', path: 'string', allowDownload: 'boolean' };
 const BASE: ParamSpec = { baseText: 'string', baseGit: 'object' };
-/** `exact`, `bridgeGap`, `out` and the keys of `limits` are config values: checked as the
- *  config checks them, a wrong one answers `ConfigError`. */
 const SETTINGS: ParamSpec = { language: 'string', limits: 'object', configPath: 'string' };
 const OVERRIDES: ParamSpec = { ...SETTINGS, baseGit: 'object', base: 'string' };
 
@@ -183,7 +171,6 @@ async function generate(p: GenerateParams, call: Call): Promise<GenerateResult> 
   const o = generateOverrides(p);
   const { config, project } = settingsFor(p.path, o);
   const settings = config.generate;
-  // before the base is read: a place the patch cannot go is known without it
   const out =
     p.path === undefined ? null : resolveOutPath({ inPath: p.path, out: settings.out, project }).path ?? null;
   if (out !== null) checkParent(out);
@@ -231,8 +218,6 @@ async function generate(p: GenerateParams, call: Call): Promise<GenerateResult> 
   };
 }
 
-/** `generate`'s params as `config` takes them in `overrides`: `baseText` becomes
- *  `base: "text"` — the only thing about it the settings depend on. */
 function generateOverrides(p: GenerateParams): OverridesParams {
   const { newText, baseText, path, allowDownload, keep, ...settings } = p;
   return { ...settings, ...(baseText !== undefined ? { base: 'text' as const } : {}) };
@@ -253,13 +238,6 @@ function noBase(): BadRequest {
   );
 }
 
-/** The base, sent as text or named in git. The service opens no files of its own (what
- *  the client edits is an unsaved buffer, and stays one), but a version the client does
- *  not have cannot be sent: only git holds it.
- *
- *  Nobody is asked anything here: a pipe has no one to answer, so a request git could
- *  carry out but that contradicts itself (a commit off the branch named) is refused, as
- *  the CLI refuses it without a terminal. */
 async function baseOf(choice: BaseChoice | null, p: BaseParams & LanguageParams): Promise<Base> {
   if (choice === null) throw noBase();
   if (choice.kind === 'text') {
@@ -283,7 +261,6 @@ function needsPath(p: LanguageParams): string {
 interface Base {
   readonly text: string;
   readonly spec: string | null;
-  /** the blob read, for a git base */
   readonly blob?: string;
 }
 
@@ -297,9 +274,6 @@ async function apply(p: ApplyParams): Promise<ApplyResultMessage> {
   return { text: result.applied, hunks: result.links, baseSpec: base.spec, ...facts };
 }
 
-/** `path` is the file of code, with the patch sent as `patch` — or the patch itself:
- *  then its text is read from it (unless sent), the code is the file its `Target`
- *  names, and the config is the patch's own. */
 async function resolveRequest(
   p: ResolveParams,
 ): Promise<{ result: ResolveResult; base: Base; facts: Omit<ResolveResultMessage, 'hunks' | 'baseSpec' | 'baseText'> }> {
@@ -334,7 +308,6 @@ function readPatch(path: string): string {
   }
 }
 
-/** The file a patch is for, as `pair` names it — or the request is refused with why. */
 function codeNamedBy(patchPath: string, patchText: string, configPath: string | undefined): string {
   const { config, project } = settingsFor(patchPath, configPath !== undefined ? { configPath } : {});
   const pair = pairOf(patchPath, { out: config.generate.out, project }, patchText);
@@ -344,10 +317,6 @@ function codeNamedBy(patchPath: string, patchText: string, configPath: string | 
   );
 }
 
-/** The version to patch: the one sent, else the one the project's config names in
- *  `generate.base`, as `generate` would read it — the config found from `configAnchor`
- *  (the patch, when the request named it; else the file of code). The config is read
- *  only then: a request that sends its base is served exactly as before. */
 function patchedBase(p: ResolveParams, configAnchor: string | undefined): BaseChoice | null {
   if (p.baseText !== undefined) return { kind: 'text' };
   if (p.baseGit !== undefined) {
@@ -368,7 +337,6 @@ async function ready(p: LanguageParams, fromHeading: string | undefined): Promis
 function configTemplateOf(p: ConfigTemplateParams): ConfigTemplateResult {
   requiredPath(p.path, 'the file or folder the config is for — the repository root is found from it');
   const template = configTemplate({ version: p.version, settings: p.settings });
-  // `path` may name the workspace folder as well as a file in it
   const suggestedPath = suggestedConfigPath(isDirectory(p.path) ? p.path : dirname(p.path));
   return {
     text: template.text,
@@ -384,14 +352,12 @@ async function configOf(p: ConfigParams): Promise<ConfigResult> {
   const o = withConfigPath(overridesOf(p.overrides), p.configPath);
   const { config, project } = settingsFor(p.path, o);
   const choice = baseChoice(config.generate, o);
-  // A patch has no version in git of its own worth comparing: its base is its file's.
   const paired = isPatchPath(p.path) ? pairOf(p.path, { out: config.generate.out, project }) : undefined;
   const basePath = paired === undefined ? p.path : paired.kind === 'patch' ? paired.code : null;
 
   let base: BaseInfo | null = null;
   let baseBlob: string | undefined;
   const watch = configCandidates(dirname(p.path));
-  // a config found by its claim lies off the way up: it is watched by name
   if (config.file !== undefined && !watch.includes(config.file)) watch.push(config.file);
   if (choice?.kind === 'text') base = { kind: 'text' };
   else if (choice?.kind === 'git' && basePath !== null) {
@@ -401,15 +367,12 @@ async function configOf(p: ConfigParams): Promise<ConfigResult> {
       baseBlob = git.blob;
       watch.push(...git.watch);
     } catch (e) {
-      // A file not committed yet is still a file with settings: they are answered, and
-      // the base says why `generate` would fail — until the next commit, which is watched.
       if (!(e instanceof GitError)) throw e;
       base = { kind: 'unavailable', error: toServiceError(e) };
       watch.push(...(await headRefFiles(basePath)));
     }
   }
 
-  // the adapter `generate` would pick for this file — picked by the same code, no grammar loaded
   const adapter = basePath === null ? null : pickedAdapter({ language: config.generate.language ?? undefined, path: basePath });
   const target = targetOfPair(p.path, config, project);
   return {
@@ -419,24 +382,19 @@ async function configOf(p: ConfigParams): Promise<ConfigResult> {
     projectRoot: project.projectRoot ?? null,
     upstreamRoot: project.upstreamRoot,
     target,
-    // the word `generate` writes in `# match` for this file
     language: adapter?.name ?? null,
-    // the header `generate` would write for this file now — by the same code
     header: basePath === null ? null : patchHeader({ adapter: adapter ?? undefined, target: target ?? undefined, baseBlob }),
     base,
     watch,
   };
 }
 
-/** The `Target` of the pair `config` is about: the one a patch names, or the one the
- *  patch of a file of code would name — null when there is none to name. */
 function targetOfPair(path: string, config: ResolvedConfig, project: Project): string | null {
   try {
     if (isPatchPath(path)) return patchAt(path).target;
     const out = resolveOutPath({ inPath: path, out: config.generate.out, project }).path;
     return patchTarget(project, out, path) ?? null;
   } catch {
-    // a file outside the upstream, a header that does not parse: nothing to name
     return null;
   }
 }
@@ -447,7 +405,6 @@ function pairFor(p: PairParams): PairResult {
   return pairOf(p.path, { out: config.generate.out, project }, p.patch);
 }
 
-/** `configPath` beside `overrides` is the same as inside it; both — they must agree. */
 function withConfigPath(o: OverridesParams, configPath: string | undefined): OverridesParams {
   if (configPath === undefined) return o;
   if (o.configPath !== undefined && o.configPath !== configPath) {
@@ -471,8 +428,6 @@ function requiredPath(path: string | undefined, what: string): asserts path is s
 function text(value: unknown, name: string): asserts value is string {
   if (typeof value !== 'string') throw new BadRequest(`params.${name} must be a string`);
 }
-
-// ── error encoding ───────────────────────────────────────────────────────────────
 
 function toServiceError(e: unknown): ServiceError {
   if (e instanceof BadRequest) {

@@ -122,9 +122,6 @@ test('resolve: an ambiguous pattern reports the status and every candidate place
   }
 });
 
-// ── coordinates through several hunks: base back through the earlier, final forward
-//    through the later ─────────────────────────────────────────────────────────────
-
 const TWO = 'void a() { one(); }\nvoid b() { six(); }\n';
 
 type Seen = [status: string, base: string | undefined, finalText: string | undefined, dependsOnEarlier: boolean];
@@ -201,8 +198,6 @@ test('resolve: a hunk inside what an earlier one wrote is based where the earlie
   assert.equal(links[0]!.finalText, ' two(x);', 'what the first wrote still stands around it');
 });
 
-// ── final is what the hunk WRITES: a later hunk's text at its edge is not in it ─────
-
 test('resolve: a later insertion at the start of what a hunk wrote stays out of its final', async () => {
   const { links, applied } = await seen([
     { match: '... one(); >>> ...', patch: ' two();' },
@@ -261,8 +256,6 @@ test('resolve: what a later hunk replaces whole leaves the earlier one an empty 
   assert.equal(links[1]!.finalText, ' three();');
 });
 
-// ── status `error`: what is neither a MatchError nor an AmbiguityError ──────────────
-
 test('resolve: an error of another kind is status error with the class as kind, the rest go on', async () => {
   await cppAdapter.init();
   const boom = { ...cppAdapter, normalize: (raw: string) => (raw.includes('boom') ? raise() : cppAdapter.normalize(raw)) };
@@ -289,8 +282,6 @@ test('resolve: a thrown value that is no Error is status error, kind Error, its 
   assert.deepEqual(links[0]!.failure, { kind: 'Error', message: 'not an Error' });
 });
 
-// ── the machine fields of a failure ─────────────────────────────────────────────
-
 test('resolve: a no-match carries the step, the steps, how far it got and the anchor', async () => {
   const md = sirMd([{ match: ['...', 'one();', '...', 'nosuchcall();', '>>>', '...'].join('\n'), patch: 'X();' }]);
   const { links } = await resolve(md);
@@ -300,7 +291,7 @@ test('resolve: a no-match carries the step, the steps, how far it got and the an
     message: 'no match: the pattern did not fit the file',
     failedStepIndex: 1,
     totalSteps: 3,
-    origPos: BASE.indexOf('one();') + 'one();\n'.length, // past one(); and the space after it
+    origPos: BASE.indexOf('one();') + 'one();\n'.length,
     anchorText: 'nosuchcall();',
   });
   assert.equal(md.split('\n')[mdLine! - 1]!.trim(), 'nosuchcall();');
@@ -325,8 +316,6 @@ test('resolve: an ambiguity carries exactly the candidate places', async () => {
   });
   assert.equal(links[0]!.dependsOnEarlier, false);
 });
-
-// ── base is what the hunk REPLACES: an earlier hunk's deletion at its edge is not in it ──
 
 test('resolve: a hunk right after text an earlier one deleted is based on its own text only', async () => {
   const baseline = 'int x = f(one(),two());\n';

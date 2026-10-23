@@ -25,7 +25,6 @@ import { textAdapter } from './text/index.ts';
 import { cssAdapter } from './css/index.ts';
 import { jsonAdapter } from './json/index.ts';
 
-// Names a person writes: `# match c++`, `--language golang`.
 const NAMES: ReadonlyMap<string, LanguageAdapter> = new Map([
   ['cpp', cppAdapter],
   ['c++', cppAdapter],
@@ -61,7 +60,6 @@ const NAMES: ReadonlyMap<string, LanguageAdapter> = new Map([
   ['css', cssAdapter],
   ['json', jsonAdapter],
   ['json5', json5Adapter],
-  // read as text — no grammar (make-text-adapter.ts)
   ['idl', idlAdapter],
   ['mojom', mojomAdapter],
   ['proto', protoAdapter],
@@ -133,10 +131,6 @@ export function adapterForFile(path: string): LanguageAdapter {
   });
 }
 
-/** The adapter for a job, from the most explicit source that names a language: the
- *  one named outright (`--language`, `params.language`), else the `# match` heading of
- *  the patch, else the extension of the file. The one order for apply, generate and the
- *  service; an empty name counts as not named, wherever it comes from. */
 export function pickAdapter(from: {
   readonly language?: string | undefined;
   readonly heading?: string | undefined;
@@ -145,19 +139,13 @@ export function pickAdapter(from: {
   const named = namedLanguage(from.language) ?? namedLanguage(from.heading);
   if (named !== undefined) return adapterForLanguage(named);
   if (from.path !== undefined) return adapterForFile(from.path);
-  return adapterForLanguage(undefined); // throws, listing what is supported
+  return adapterForLanguage(undefined);
 }
 
-/** The name of the adapter `pickAdapter` would pick for the job — the word `generate`
- *  writes in `# match` — or null when it picks none: an extension no adapter carries, a
- *  name no adapter answers to. No grammar is loaded. */
 export function pickedLanguage(from: Parameters<typeof pickAdapter>[0]): string | null {
   return pickedAdapter(from)?.name ?? null;
 }
 
-/** The adapter `pickAdapter` would pick, or null when it picks none. No grammar is
- *  loaded: what `config` says of a file — its `# match` word, its `Grammar` — is read off
- *  the adapter as it stands. */
 export function pickedAdapter(from: Parameters<typeof pickAdapter>[0]): LanguageAdapter | null {
   try {
     return pickAdapter(from);
@@ -167,22 +155,14 @@ export function pickedAdapter(from: Parameters<typeof pickAdapter>[0]): Language
   }
 }
 
-/** A language name as given, or undefined when it is empty — the same as not given. */
 export function namedLanguage(name: string | undefined): string | undefined {
   return name === undefined || name.trim() === '' ? undefined : name;
 }
 
-/** The extension of a file, lower-cased and with its dot; `''` when there is none. Read
- *  from the file's NAME only — a dot in a directory (`my.proj/Makefile`) is not one. */
 export function extensionOf(path: string): string {
   return extname(path).toLowerCase();
 }
 
-/** A heading is a promise about the file it will be applied to: `apply` reads
- *  `# match <word>` back through this same registry. A word that leads to another
- *  language — or to none — would make a patch that `apply` refuses or reads wrongly, so
- *  it is refused while the patch is still being written. An empty word writes a bare
- *  `# match`, and `apply` then goes by the extension of the file it is given. */
 export function checkHeading(word: string, adapter: LanguageAdapter): void {
   if (word.trim() === '') return;
   const readBack = ALIASES.get(word.trim().toLowerCase());

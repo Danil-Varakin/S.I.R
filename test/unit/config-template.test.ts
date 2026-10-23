@@ -25,8 +25,6 @@ import { ConfigError } from '../../src/core/errors.ts';
 
 const CLI = fileURLToPath(new URL('../../src/bin/sir.ts', import.meta.url));
 
-/** What `sir init` writes by default: "$schema" naming that version's own schema file and
- *  "version", nothing else, as 2-space JSON with a final newline (README "Configuration"). */
 function assertMinimal(text: string): void {
   const parsed = JSON.parse(text) as Record<string, unknown>;
   assert.deepEqual(Object.keys(parsed), ['$schema', 'version']);
@@ -46,7 +44,6 @@ function withTempDir(body: (dir: string) => void): () => void {
   };
 }
 
-/** A value of each kind that is NOT the default, so reading it back proves it came from the file. */
 function sample(spec: FieldSpec): unknown {
   switch (spec.kind) {
     case 'boolean':
@@ -125,7 +122,6 @@ test('a key not in the chosen version: ONE error naming every such key and where
       return true;
     },
   );
-  // A key that exists, but from a later schema, says since when — version 0 has none.
   assert.throws(
     () => checkKeysOf(['generate.out', 'generate.exact'], 0, undefined),
     /not in config schema v0: generate\.out \(since v1\), generate\.exact \(since v1\)/,
@@ -135,8 +131,6 @@ test('a key not in the chosen version: ONE error naming every such key and where
 test('values are checked as the loader checks them, pairs included', () => {
   assert.throws(() => configTemplate({ settings: { generate: { bridgeGap: -1 } } }), /generate\.bridgeGap/);
   assert.throws(() => configTemplate({ settings: { upstream: '.' } }), /upstream.*set generate\.out .* to a directory/);
-  // PROTOCOL.md configTemplate: "since/until are the schemas a key belongs to; since: null
-  // — no schema has it". generate.mirror was a key of schema 1 (VERSIONING.md §6).
   assert.throws(
     () => configTemplate({ settings: { generate: { mirror: true } } }),
     (e: unknown) => {
@@ -179,8 +173,6 @@ test('suggestedConfigPath: the repository root, outside one the directory itself
   mkdirSync(join(dir, 'loose'));
   assert.equal(suggestedConfigPath(join(dir, 'loose')), join(dir, 'loose', CONFIG_FILE_NAME));
 }));
-
-// ── sir init ──────────────────────────────────────────────────────────────────
 
 function init(args: string[], cwd: string): { status: number; stdout: string; stderr: string } {
   const r = spawnSync('node', ['--experimental-strip-types', CLI, 'init', ...args], {

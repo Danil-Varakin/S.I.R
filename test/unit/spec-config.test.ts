@@ -7,11 +7,6 @@ import { tmpdir } from 'node:os';
 import { CONFIG_FILE_NAME, DEFAULT_SETTINGS, loadConfig, readConfigFile } from '../../src/infra/config/index.ts';
 import { ConfigError } from '../../src/core/errors.ts';
 
-// Audit 2026-10-05: sir.config.json against README "Configuration" and VERSIONING.md
-// C1/C5: "an unknown key is an error (exit 5), not a silent default"; a file is held to
-// the schema version it names; `sir init` writes only "$schema" and "version", "so every
-// default stays the built-in one".
-
 function inDir(body: (dir: string) => void): () => void {
   return () => {
     const dir = mkdtempSync(join(tmpdir(), 'sir-spec-cfg-'));

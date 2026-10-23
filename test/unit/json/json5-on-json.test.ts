@@ -6,11 +6,6 @@ import { loadGrammar, parse } from '../../../src/lang/treesitter.ts';
 import type { Node } from '../../../src/lang/treesitter.ts';
 import { resolveGrammar } from '../../../src/infra/grammar-store.ts';
 
-// Stage 5.3 of docs/10-brave-languages.md: what each trait of JSON5 does to the JSON
-// grammar. Comments read clean and a trailing comma barely shows; single quotes and keys
-// without quotes put most of the file in ERROR — so `.json5` is not read as JSON, and
-// waits in the tail for stage 6. A grammar that reads them is seen here.
-
 function file(key: (s: string) => string, quote: string, trailing: string, comment: boolean): string {
   return [
     '{',

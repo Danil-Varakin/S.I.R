@@ -10,11 +10,6 @@ import { adapterOf, driftCases, patchOf } from '../matrix.ts';
 import type { Fixture } from '../matrix.ts';
 import { applyAll } from '../../src/core/apply.ts';
 
-// docs/10-brave-languages.md, 7.11: the drift of the matrix, through sir and through
-// `git apply` — a unified diff with three lines of context, the form a fork keeps its
-// patches in today. Per row: in how many languages each lands right. sir must never
-// land wrong; a row where `git apply` lands and sir does not is a regression to see.
-
 const UNIT = import.meta.dirname;
 
 async function fixtures(): Promise<Fixture[]> {
@@ -40,7 +35,7 @@ function gitApply(dir: string, oldText: string, newText: string, base: string, e
   try {
     diff = execFileSync('git', ['-c', 'core.autocrlf=false', 'diff', '--no-index', '-U3', 'old', 'new'], { cwd: dir, encoding: 'utf8' });
   } catch (e) {
-    diff = (e as { stdout: string }).stdout; // exit 1: the files differ
+    diff = (e as { stdout: string }).stdout;
   }
   diff = diff.replace(/^(---|\+\+\+) [ab]\/(old|new)$/gm, (_, side: string) => `${side} ${side === '---' ? 'a' : 'b'}/f`)
     .replace(/^diff --git a\/old b\/new$/m, 'diff --git a/f b/f');
@@ -56,8 +51,6 @@ function gitApply(dir: string, oldText: string, newText: string, base: string, e
 
 test('7.11: the drift of the matrix through sir and through git apply', async (t) => {
   if (process.platform === 'win32') {
-    // git for Windows reads and writes the files of `git apply` by its own line-ending
-    // settings: the git column is measured where git keeps bytes as they are
     t.skip('the git column is measured on POSIX');
     return;
   }
@@ -91,8 +84,6 @@ test('7.11: the drift of the matrix through sir and through git apply', async (t
   assert.deepEqual(got, EXPECTED);
 });
 
-// sir is behind `git apply` in one row — Н1 (07-findings): when the author decides Р6,
-// this line changes with it
 const EXPECTED: Record<string, string> = {
   'К0 без дрейфа': 'git 23/23 · sir 23/23',
   'К1в вставка, дрейф далеко от правки': 'git 23/23 · sir 23/23',

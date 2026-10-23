@@ -11,8 +11,6 @@ test('editorCommand: $VISUAL, then $EDITOR, then the one every system has', () =
   assert.equal(editorCommand({}, 'win32'), 'notepad');
 });
 
-// An "editor" that is a command with arguments of its own, as `code --wait` is: node,
-// told to write into the file it is given.
 const FAKE = `node -e "require('fs').appendFileSync(process.argv[1], 'typed\\\\n')"`;
 
 test('editSession: the text goes to the editor, what it saved comes back; the file stays until discarded', async (t) => {
@@ -38,7 +36,6 @@ test('runEditor: an editor that fails stops the run and says how to pick another
 });
 
 test('runEditor: on Windows the command line goes through the shell, the file quoted after it', () => {
-  // the shell is the system's own here too, so the branch runs on any platform
   assert.doesNotThrow(() => runEditor('true', '/dev/null', 'win32'));
   assert.throws(() => runEditor('false', '/dev/null', 'win32'), /the editor \(false\) exited with 1 — nothing was written/);
 });

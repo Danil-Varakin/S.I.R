@@ -11,28 +11,19 @@ import type { GitEol, GitSource } from '../git.ts';
 export const CONFIG_VERSION: number = 3;
 export const CONFIG_MIN: number = 3;
 
-/** `v1`, or `v1–v3` once the range opens up. */
 export function configRange(): string {
   return CONFIG_MIN === CONFIG_VERSION ? `v${CONFIG_VERSION}` : `v${CONFIG_MIN}–v${CONFIG_VERSION}`;
 }
 
 export interface GenerateSettings extends SynthLimits {
-  /** The root of the code the project patches, from the config file's directory — the
-   *  top-level key `upstream`, not under `generate`: it is where the project lies, not
-   *  what a run does. With it a patch is `<config dir>/<out>/<path from upstream>.sirp`
-   *  and `Target` is measured from it. Schema 2. */
   readonly upstream: string | null;
   readonly out: string | null;
   readonly language: string | null;
   readonly exact: boolean;
   readonly bridgeGap: number;
-  /** The old version out of git, as `--head` / `--branch` / `--commit` name it. Naming
-   *  any of the three is the ask for git, as on the command line. Schema 2. */
   readonly baseHead: boolean;
   readonly baseBranch: string | null;
   readonly baseCommit: string | null;
-  /** The line endings of that old version: as git stores it, or as the file on disk
-   *  has them. Schema 2. */
   readonly baseEol: GitEol;
 }
 
@@ -45,12 +36,8 @@ export interface FieldSpec {
   readonly key: keyof GenerateSettings;
   readonly kind: ValueKind;
   readonly flag: string;
-  /** The first config schema this key is part of. */
   readonly since: number;
-  /** The last schema it is part of; absent while it still is. */
   readonly until?: number;
-  /** Set when the key arrived in a release without the schema bump C2 asks for: it is
-   *  part of `since` as released (P7), and the summary says so. */
   readonly unbumpedIn?: string;
 }
 
@@ -73,9 +60,6 @@ export const FIELDS: readonly FieldSpec[] = [
   { path: 'generate.base.eol', key: 'baseEol', kind: 'eol', flag: '--eol', since: 2 },
 ];
 
-/** A key a released schema had and a later one dropped. No setting reads it any more,
- *  but a file or a request that still names one is told which schemas had it and what
- *  took its place — `since: null` stays for a key no schema ever had. */
 export interface RetiredField {
   readonly path: string;
   readonly since: number;
@@ -94,13 +78,10 @@ const RETIRED_FIELDS: readonly RetiredField[] = [
 
 export const RETIRED_BY_PATH = new Map(RETIRED_FIELDS.map((f) => [f.path, f]));
 
-/** Whether the settings name the old version in git — any coordinate is the ask. */
 export function basesOnGit(settings: GenerateSettings): boolean {
   return settings.baseHead || settings.baseBranch !== null || settings.baseCommit !== null;
 }
 
-/** `generate.base` as git takes it. No `path`: the base is the file being worked on, and
- *  which file that is names one run, not the project (C6). */
 export function gitSourceOf(settings: GenerateSettings): GitSource {
   return { branch: settings.baseBranch ?? undefined, commit: settings.baseCommit ?? undefined, eol: settings.baseEol };
 }
@@ -132,25 +113,20 @@ export function knownConfigKeys(): string[] {
   return FIELDS.map((f) => f.path);
 }
 
-/** The keys of config schema `version`, in schema order — the ONE list the template,
- *  the loader and the version summaries are built from. */
 export function fieldsOf(version: number): FieldSpec[] {
   return FIELDS.filter((f) => f.since <= version && (f.until === undefined || version <= f.until));
 }
 
-/** Every version in the range, oldest first, with one line of what it holds. */
 export function schemaVersions(): { version: number; summary: string }[] {
   const out: { version: number; summary: string }[] = [];
   for (let v = CONFIG_MIN; v <= CONFIG_VERSION; v++) out.push({ version: v, summary: schemaSummary(v) });
   return out;
 }
 
-/** `v1: generate: out, mirror (added in 0.2.0 without a bump), language, …` */
 export function schemaSummary(version: number): string {
   const groups = new Map<string, string[]>();
   for (const f of fieldsOf(version)) {
     const parts = f.path.split('.');
-    // a top-level key (`upstream`) stands on its own
     const [group, name] = parts.length === 1 ? ['', parts[0]!] : [parts[0]!, parts.slice(1).join('.')];
     const shown = name + (f.unbumpedIn !== undefined ? ` (added in ${f.unbumpedIn} without a bump)` : '');
     groups.set(group, [...(groups.get(group) ?? []), shown]);
@@ -158,8 +134,6 @@ export function schemaSummary(version: number): string {
   return `v${version}: ${[...groups].map(([g, names]) => (g === '' ? names.join(', ') : `${g}: ${names.join(', ')}`)).join('; ')}`;
 }
 
-/** Every schema in the range is read; outside it the message says WHICH side is behind —
- *  a config from a newer sir asks for an update, not for its own deletion (C5). */
 export function checkSchemaVersion(value: unknown, file: string | undefined): number {
   if (typeof value !== 'number' || !Number.isInteger(value)) {
     throw new ConfigError(
@@ -185,8 +159,6 @@ export function checkSchemaVersion(value: unknown, file: string | undefined): nu
   return value;
 }
 
-/** Keys that exist in some schema, or none, but not in `version` — all of them in one
- *  error, each with the schemas it belongs to. `since: null` — no schema has it. */
 export function checkKeysOf(paths: readonly string[], version: number, file: string | undefined): void {
   const allowed = new Set(fieldsOf(version).map((f) => f.path));
   const outside = paths.filter((p) => !allowed.has(p));

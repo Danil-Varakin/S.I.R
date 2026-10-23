@@ -9,14 +9,6 @@ import type { Options } from './apply.ts';
 import { runCommand } from './command.ts';
 import { GIT_ARGS, GIT_USAGE } from './git-source.ts';
 
-// `sir-apply`: what a project's build runs to lay its patches on the code — the engine
-// of `sir apply`, in one executable with Node, the tree-sitter runtime and the
-// grammars inside. Two commands, and no questions: in a build nobody answers, so what
-// `sir` would ask about is refused, and the base is a clean one — out of git, or the
-// files on disk when the build says so (--base-from-disk).
-//
-// Its flags are a subset of `sir apply`'s, with the same meaning (VERSIONING.md F2).
-
 const COMMON = `  --match, -m <file>      the patch, a .sirp file                       [required]
   --in,    -i <file>      the file to patch; left out, the file the patch names in
                           its Target (from the upstream of the project, else from
@@ -60,8 +52,6 @@ const USAGE = `sir-apply — apply .sirp patches in a build: no Node, no network
 Exit codes: 0 ok · 1 usage or a refusal · 2 patch parse · 3 no match · 4 ambiguous ·
 5 config, or no clean base · 6 grammar`;
 
-/** The options of `sir apply` that `sir-apply` takes — picked out of its spec, so
- *  each has the same meaning there and none can exist here alone (VERSIONING.md F2). */
 const COMMON_OPTIONS = [
   ...Object.keys(GIT_ARGS.flags),
   ...Object.keys(GIT_ARGS.values),
@@ -74,17 +64,15 @@ const COMMON_OPTIONS = [
   '--help', '-h',
 ] as const;
 
-/** `apply` writes, `verify` does not: only `apply` takes `--out`. */
 export function binSpec(command: 'apply' | 'verify'): ArgSpec<Options> {
   return pickOptions(SPEC, command === 'apply' ? [...COMMON_OPTIONS, '--out', '-o'] : COMMON_OPTIONS);
 }
 
-/** `--version`: what a build pins when it records which tool it used. */
 function versionText(): string {
   const pins = new Map<string, string>();
   for (const adapter of adaptersByName().values()) {
     const g = adapter.grammar;
-    if (g === undefined) continue; // read as text: nothing pinned
+    if (g === undefined) continue;
     pins.set(g.file, `${g.file} ${g.package}@${g.version} sha256:${g.sha256}`);
   }
   return [

@@ -10,13 +10,6 @@ import type { LoadedProject } from '../infra/project.ts';
 import { isPatchPath } from '../infra/pair.ts';
 import { BadRequest } from './request.ts';
 
-// What a request settles over the project's config — the ONE reading of it. `generate`
-// takes it from its own params, `config` and `pair` from `overrides`; the same names go
-// through this same code, so `config` answers exactly what `generate` would apply.
-
-/** The config that speaks for `path` (`infra/project.ts`: up from it, else the one
- *  whose upstream claims it; `configPath` before all) — none without a path or a
- *  `configPath` — with the request's settings over it, and the project it describes. */
 export function settingsFor(path: string | undefined, o: OverridesParams): LoadedProject {
   if (o.configPath !== undefined && (typeof o.configPath !== 'string' || !isAbsolute(o.configPath))) {
     throw new BadRequest('configPath must be an absolute path to a sir.config.json');
@@ -29,13 +22,10 @@ export function settingsFor(path: string | undefined, o: OverridesParams): Loade
   });
 }
 
-/** Where the base comes from: the client's text, git as the request names it, git as
- *  the config names it — or nowhere (null), which `generate` refuses. */
 export type BaseChoice = { readonly kind: 'text' } | { readonly kind: 'git'; readonly source: GitSource };
 
 export function baseChoice(settings: GenerateSettings, o: OverridesParams): BaseChoice | null {
   if (o.base === 'text') return { kind: 'text' };
-  // The request's own baseGit, repoPath and all; its fields are in `settings` already.
   if (o.baseGit !== undefined) return { kind: 'git', source: { ...gitSource(o.baseGit), eol: settings.baseEol } };
   if (basesOnGit(settings)) return { kind: 'git', source: gitSourceOf(settings) };
   return null;
@@ -67,8 +57,6 @@ function requestOverrides(o: OverridesParams) {
   );
 }
 
-/** A base sent in the request replaces the config's `generate.base` whole, its line
- *  endings included, so the settings answered back say where this run's base came from. */
 function baseOverrides(o: OverridesParams): PartialSettings {
   if (o.base === 'text') return { baseHead: false, baseBranch: null, baseCommit: null, baseEol: 'repository' };
   if (o.baseGit === undefined) return {};
@@ -78,7 +66,6 @@ function baseOverrides(o: OverridesParams): PartialSettings {
     baseBranch: source.branch ?? null,
     baseCommit: source.commit ?? null,
     baseEol: source.eol ?? 'repository',
-    // repoPath is no setting: it names one run's file (C6)
   };
 }
 

@@ -133,7 +133,6 @@ Configuration
   --print-config          print the effective settings with the origin of each
                           (default / config / flag) and exit`;
 
-/** Exported for the C6 test: every flag here has a config key or is exempt by name. */
 export const SPEC: ArgSpec<Options> = {
   flags: {
     ...GIT_ARGS.flags,
@@ -192,8 +191,6 @@ function flagOverrides(opts: Options): FlagOverride[] {
     minSiblings: opts.minSiblings as PartialSettings['minSiblings'],
     maxSiblings: opts.siblings as PartialSettings['maxSiblings'],
     siblingDetailBase: opts.siblingDetailBase as PartialSettings['siblingDetailBase'],
-    // Flags name the old version whole: a --branch on the command line is not paired
-    // with a commit the config names for another branch.
     ...(asksGit(opts)
       ? { baseHead: true, baseBranch: opts.branch ?? null, baseCommit: opts.commit ?? null }
       : {}),
@@ -201,10 +198,6 @@ function flagOverrides(opts: Options): FlagOverride[] {
   return overridesFrom(values, (spec) => spec.flag);
 }
 
-/** `-a`: each hunk is shown as it is made, and kept unless the answer is no — Enter
- *  keeps it. The answers may come from a terminal or be piped in, one line per hunk; an
- *  input that closes before every hunk is answered stops the run. No offers to write the
- *  hunks by hand; refused, the run stops without a patch. */
 function hunkReviewer(answers: Answers): Steering['review'] {
   return async (hunk, number, total) => {
     const answer = await answers.next(`\n${describeHunk(hunk, number - 1, total)}\nkeep this hunk? [Y/n] `);
@@ -213,8 +206,6 @@ function hunkReviewer(answers: Answers): Steering['review'] {
   };
 }
 
-/** How a run with a person in it goes on when a hunk has to be written by hand: the
- *  reason is shown, the person asked, and the patch so far opened in their editor. */
 function steering(answers: Answers, log: Logger, session: EditSession, review?: Steering['review']): Steering {
   return {
     review,
@@ -255,8 +246,6 @@ function makeTracer(log: Logger): Tracer {
   };
 }
 
-/** A usage question, answered before a single file is opened: a wrong invocation has
- *  to be told apart from a file that is not there. */
 function requireOneOldSource(opts: Options, config: ResolvedConfig): void {
   const one = `exactly one source of the OLD version: --in-old <file>, or git (${GIT_FLAG_NAMES})`;
   if (opts.inOld !== undefined && asksGit(opts)) throw new Error(`provide ${one} — not both`);
@@ -265,8 +254,6 @@ function requireOneOldSource(opts: Options, config: ResolvedConfig): void {
   }
 }
 
-/** --in-old wins over a git base the config names; git flags have already replaced the
- *  config's coordinates (flagOverrides), so the settings hold the git source either way. */
 async function oldVersion(opts: Options, settings: ResolvedConfig['generate'], inPath: string, ask: Ask): Promise<FileVersion> {
   if (opts.inOld !== undefined) return { text: readInputFile(opts.inOld, '--in-old'), spec: opts.inOld };
   return fileFromGit({ ...gitSourceOf(settings), path: opts.repoPath }, inPath, ask);
@@ -305,7 +292,6 @@ async function generate(
 
   const settings = config.generate;
   const ask = terminalAsker(opts.yes, (m) => log.note(m), answers);
-  // before anything is read: a place the patch cannot go is known without it
   const out = resolveOutPath({ inPath: resolve(opts.in), out: settings.out, project });
   if (out.path !== undefined) checkParent(out.path);
   const target = patchTarget(project, out.path, opts.in);
@@ -351,14 +337,10 @@ async function generate(
   log.note(`generated ${outcome.hunkCount} hunk(s) → ${outPath}`);
 }
 
-/** `--out x.sirp`: the person named the file, and writes over it. */
 function namedOutright(out: string | undefined): boolean {
   return out !== undefined && !/[/\\]$/.test(out) && isPatchPath(out);
 }
 
-/** A place sir computed holds a patch of ANOTHER file: two files met at one name
- *  (`out` changed, a flat directory). Regenerating the same file's patch is not asked
- *  about; this is, and with nobody to answer it is refused. */
 async function mayWriteOver(path: string, target: string | undefined, ask: Ask): Promise<void> {
   const there = patchAt(path);
   if (!there.exists || there.target === (target ?? null)) return;
@@ -367,9 +349,6 @@ async function mayWriteOver(path: string, target: string | undefined, ask: Ask):
   throw new ConfigError(`${path} holds ${whose} — nothing written`, undefined);
 }
 
-/** `-a` steers from the first hunk. Without it synthesis runs on its own, and only a
- *  change it cannot anchor, with a person at a terminal, hands the run over — a script
- *  or CI gets the error as before. */
 async function synthesizeFor(
   opts: Options,
   request: GenerateRequest,

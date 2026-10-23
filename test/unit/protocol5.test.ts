@@ -9,10 +9,6 @@ import { handle } from '../../src/service/handler.ts';
 import type { ResponseMessage } from '../../src/service/protocol.ts';
 import { packageIdentity } from '../../src/infra/version.ts';
 
-// Protocol 5: `config` answers `language`, the word `generate` writes in `# match` — so a
-// client making a patch by hand does not keep the core's table of extensions itself —
-// and `header`, the header `generate` would write, so it keeps no list of fields either.
-
 function ok(response: ResponseMessage): Record<string, unknown> {
   assert.equal(response.ok, true, JSON.stringify(response));
   assert.ok(response.ok);
@@ -29,7 +25,6 @@ function inDir(prefix: string, body: (dir: string) => Promise<void>): Promise<vo
   return body(dir).finally(() => rmSync(dir, { recursive: true, force: true }));
 }
 
-/** the word after `# match` in a patch */
 function matchWord(patch: string): string {
   const line = patch.split('\n').find((l) => l.startsWith('# match'));
   assert.ok(line !== undefined, patch);
@@ -50,7 +45,6 @@ test('config: generate.language from the config, then overrides.language, over t
     const path = join(dir, 'a.cc');
     assert.equal(ok(await call('config', { path }))['language'], 'objc', 'the config');
     assert.equal(ok(await call('config', { path, overrides: { language: 'c++' } }))['language'], 'cpp', 'overrides');
-    // an empty name is no name: the config's stands, as in generate
     assert.equal(ok(await call('config', { path, overrides: { language: '' } }))['language'], 'objc', 'empty: none named');
   });
 });
@@ -60,7 +54,6 @@ test('config: no language picked is null, not an error', async () => {
     const c = ok(await call('config', { path: join(dir, 'notes.xyz') }));
     assert.equal(c['language'], null);
     assert.equal(ok(await call('config', { path: join(dir, 'Makefile') }))['language'], null);
-    // a name no adapter answers to: generate would refuse it, config only says none
     assert.equal(ok(await call('config', { path: join(dir, 'a.cc'), overrides: { language: 'cobol' } }))['language'], null);
   });
 });
@@ -75,7 +68,6 @@ test('config: a .sirp answers the language of the file pair names for it; no pai
     assert.equal(ok(await call('pair', { path: out }))['code'], code);
     assert.equal(ok(await call('config', { path: out }))['language'], 'objc');
 
-    // a format newer than this sir: pair names no file, so there is no language
     const stray = join(dir, 'newer.sirp');
     writeFileSync(stray, 'Sir: 99\n\n');
     assert.equal(ok(await call('pair', { path: stray }))['code'], null);
@@ -101,14 +93,10 @@ test('config ≡ generate: language is the word generate writes in # match', asy
   });
 });
 
-// `config` answers `header`: the header `generate` would write for the file now, so a
-// patch made by hand opens with the same fields, in the same order, as a generated one.
-
 function git(dir: string, ...args: string[]): string {
   return execFileSync('git', args, { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 }
 
-/** a repository with `a.cc` committed as OLD and changed to NEW on disk */
 function inRepo(body: (dir: string) => Promise<void>): Promise<void> {
   return inDir('sir-p5-header-', async (dir) => {
     git(dir, 'init', '-q', '-b', 'main');
@@ -122,7 +110,6 @@ function inRepo(body: (dir: string) => Promise<void>): Promise<void> {
   });
 }
 
-/** the names of a header's lines, in order */
 function names(header: string): string[] {
   assert.ok(header.endsWith('\n\n'), JSON.stringify(header));
   return header.trimEnd().split('\n').map((line) => line.slice(0, line.indexOf(':')));
@@ -169,7 +156,6 @@ test('config: header for a text base has no Base-Blob', async () => {
   await inRepo(async (dir) => {
     const header = ok(await call('config', { path: join(dir, 'a.cc'), overrides: { base: 'text' } }))['header'] as string;
     assert.deepEqual(names(header), ['Sir', 'Target', 'Sir-Version', 'Grammar']);
-    // no base at all: the same, and no error
     const none = ok(await call('config', { path: join(dir, 'a.cc') }));
     assert.equal(none['base'], null);
     assert.deepEqual(names(none['header'] as string), ['Sir', 'Target', 'Sir-Version', 'Grammar']);

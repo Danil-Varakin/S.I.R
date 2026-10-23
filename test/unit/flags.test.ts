@@ -12,10 +12,6 @@ import { synthesize } from '../../src/generate/synth.ts';
 import { printSirFile } from '../../src/generate/printer.ts';
 import { cppAdapter } from '../../src/lang/cpp/index.ts';
 
-// The anchoring flags README documents that nothing ran end to end before: each one must
-// reach synthesis from the command line and from sir.config.json, and change what it
-// says it changes. `--debug` is here too — the trace a person reads, not the events.
-
 const SIR_CLI = fileURLToPath(new URL('../../src/bin/sir.ts', import.meta.url));
 
 function inTemp(body: (dir: string) => void | Promise<void>): () => Promise<void> {
@@ -42,13 +38,6 @@ function generate(dir: string, oldText: string, newText: string, ...flags: strin
 
 const hunks = (patch: string): number => patch.match(/^# match/gm)?.length ?? 0;
 
-// ── --require-parents / generate.parents.required ────────────────────────────────
-
-// Two identical `if` blocks: no anchor tells them apart, so every rung fails and the
-// ladder ends on its last resort — a pattern with no enclosing block at all. That rung is
-// what the flag forbids. (No input is known where that rung WINS — every place the
-// parentless pattern fits, a pattern with its parent fits first — so what can be held is
-// that it is not even tried.)
 const TWIN_OLD = 'void f() {\n  if (cond) {\n    a();\n    work();\n  }\n  if (cond) {\n    a();\n    work();\n  }\n}\n';
 const TWIN_NEW = TWIN_OLD.replace(/work\(\);(?![\s\S]*work\(\);)/, 'work(2);');
 const hasParent = (pattern: string): boolean => /void f\(|if \(/.test(pattern);
@@ -94,10 +83,6 @@ test('CLI: --require-parents and generate.parents.required reach synthesis, with
   assert.match(config.stdout, /generate\.parents\.required\s+= true\s+\[config .*sir\.config\.json\]/);
 }));
 
-// ── --sibling-detail / generate.siblings.detail.base ─────────────────────────────
-
-// The same text in a comment and in code: the change is pinned by the neighbour below,
-// `use(a);`, and the detail baseline decides whether its brackets are spelled out.
 const COMMENT_OLD = 'void f() {\n  // int a = 1;\n  int a = 1;\n  use(a);\n}\n';
 const COMMENT_NEW = 'void f() {\n  // int a = 1;\n  int a = 2;\n  use(a);\n}\n';
 
@@ -108,7 +93,6 @@ test('--sibling-detail: the baseline spells out the brackets of neighbour anchor
   assert.match(at(0), /^ {6}use\($/m, 'baseline 0: the neighbour is `use( ... )`');
   assert.ok(!at(0).includes('use(a);'), at(0));
   assert.match(at(1), /^ {6}use\(a\);$/m, 'baseline 1: the neighbour is spelled out');
-  // the parents are untouched by it: the header of f() stays as the parent baseline has it
   assert.equal(at(1).includes('void f() {'), at(0).includes('void f() {'));
 });
 
@@ -130,8 +114,6 @@ test('CLI: --sibling-detail and generate.siblings.detail.base reach synthesis', 
   assert.equal(beaten.stdout, plain.stdout, 'the flag beats the config');
 }));
 
-// ── --bridge-gap / generate.bridgeGap ────────────────────────────────────────────
-
 const SPLIT_OLD = 'void f() {\n  a = 1;\n  keep();\n  b = 1;\n}\n';
 const SPLIT_NEW = 'void f() {\n  a = 2;\n  keep();\n  b = 2;\n}\n';
 
@@ -152,8 +134,6 @@ test('CLI: --bridge-gap stitches edits split by unchanged lines into one hunk; g
   const bad = generate(dir, SPLIT_OLD, SPLIT_NEW, '--no-config', '--bridge-gap', '-1');
   assert.equal(bad.status, 5, 'a negative gap is a bad value, exit 5');
 }));
-
-// ── --debug / -v ─────────────────────────────────────────────────────────────────
 
 test('CLI: --debug traces every segment, each probe and the chosen patch to stderr — and only there', inTemp((dir) => {
   const old = 'void a() {\n  x();\n}\nvoid b() {\n  x();\n  y();\n  gone();\n}\n';

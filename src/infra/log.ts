@@ -3,8 +3,6 @@ import { join, resolve } from 'node:path';
 import { AmbiguityError, GitError, SirError, MatchError, ParseError } from '../core/errors.ts';
 import { ensureParent, isDirectory } from './fs.ts';
 
-// ── where a log file goes ────────────────────────────────────────────────────────
-
 const DEFAULT_LOG_DIR = 'sir-logs';
 
 export function resolveLogPath(
@@ -23,8 +21,6 @@ export function resolveLogPath(
 function stamp(now: Date): string {
   return now.toISOString().replace(/:/g, '-').replace(/\..+$/, '');
 }
-
-// ── the logger ───────────────────────────────────────────────────────────────────
 
 export interface LoggerOptions {
   readonly logPath?: string | undefined;
@@ -109,20 +105,12 @@ function writeLine(fd: number, line: string): void {
   writeSync(fd, `${line}\n`);
 }
 
-// ── rendering ────────────────────────────────────────────────────────────────────
-
 export interface ErrorContext {
   readonly source?: string | undefined;
   readonly sourcePath?: string | undefined;
-  /** the patch an error in it is about */
   readonly patchPath?: string | undefined;
 }
 
-/** The last resort of an entry point that has no logger yet — a command that failed to
- *  load, a bad argument to `sir-apply`: the report goes to stderr and the exit code
- *  comes from the error itself, as `Logger.fail` does it for a command that got that far.
- *  The ONE place that pairs the two (`03-rules.md`: the core gives facts, log.ts the text).
- *  Returns the exit code to set. */
 export function reportFatal(e: unknown, ctx: ErrorContext = {}): number {
   process.stderr.write(`${renderError(e, ctx)}\n`);
   return e instanceof SirError ? e.exitCode : 1;
@@ -132,8 +120,6 @@ export function renderError(e: unknown, ctx: ErrorContext = {}): string {
   if (e instanceof MatchError) return renderMatchError(e, ctx);
   if (e instanceof AmbiguityError) return renderAmbiguityError(e, ctx);
   if (e instanceof ParseError) return renderParseError(e, ctx);
-  // The core names no flags (the service has none): the CLI puts the one a git refusal
-  // is about in front, `--branch nope: no such branch …`.
   if (e instanceof GitError && e.flag !== undefined) return `${e.name}: ${e.flag} ${e.message}`;
   if (e instanceof SirError) return `${e.name}: ${e.message}`;
   return `error: ${e instanceof Error ? e.message : String(e)}`;
@@ -234,8 +220,6 @@ function quote(text: string): string {
   const oneLine = text.replace(/\n/g, '⏎');
   return `\`${oneLine.length > 90 ? `${oneLine.slice(0, 87)}…` : oneLine}\``;
 }
-
-// ── log file header ──────────────────────────────────────────────────────────────
 
 export function logHeader(command: string, argv: readonly string[], extra: readonly string[] = []): string[] {
   return [

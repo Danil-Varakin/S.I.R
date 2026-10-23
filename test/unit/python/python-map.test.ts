@@ -4,11 +4,8 @@ import assert from 'node:assert/strict';
 import { pythonAdapter, normalize } from '../../../src/lang/python/index.ts';
 import type { SourceMap } from '../../../src/lang/source-map.ts';
 
-// depthAt / enclosingEnd жили в SourceMap, но в src/ их не звал никто — только тесты.
-// Оба выводятся из enclosing(), который возвращает спаны от самого внутреннего.
 const depthAt = (map: SourceMap, pos: number): number => map.enclosing(pos).length;
 const enclosingEnd = (map: SourceMap, pos: number): number => map.enclosing(pos)[0]?.close ?? map.eof;
-
 
 const SRC = `def f(a):
     if a:
@@ -26,7 +23,6 @@ const at = (needle: string): number => {
   return i;
 };
 
-// built once, before any test: each test reads it, none depends on another having run
 await pythonAdapter.init();
 const map: SourceMap = pythonAdapter.buildMap(SRC);
 

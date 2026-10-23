@@ -13,15 +13,9 @@ export type { GrammarSource } from '../lang/source-map.ts';
 // at run time and there is no user cache. A grammar is executable code and shapes where
 // a hunk lands (F3), so the bytes must be exactly the pinned ones — a file that is not
 // is refused, wherever it was found.
-//
-// Looked for in:
-//   0. inside `sir-apply`: the assets of the executable, and nowhere else;
-//   1. $SIR_GRAMMAR_DIR — for work on the core and builds of one's own;
-//   2. grammars/ of the package.
 
 const GRAMMAR_DIR_ENV = 'SIR_GRAMMAR_DIR';
 
-/** The pinned bytes of `source`, from the first place that has its file. */
 export async function resolveGrammar(source: GrammarSource, language?: string): Promise<Uint8Array> {
   validate(source);
   if (source.path === undefined && isSingleExecutable()) {
@@ -45,7 +39,6 @@ export async function resolveGrammar(source: GrammarSource, language?: string): 
   );
 }
 
-/** `$SIR_GRAMMAR_DIR`, then `grammars/` of the package. */
 export function grammarDirs(): string[] {
   const dirs: string[] = [];
   const override = process.env[GRAMMAR_DIR_ENV];
@@ -54,7 +47,6 @@ export function grammarDirs(): string[] {
   return dirs;
 }
 
-/** `grammars/` at the root of the package — the same from `src/` and from `dist/`. */
 export function packageGrammarDir(): string {
   return join(import.meta.dirname, '..', '..', 'grammars');
 }

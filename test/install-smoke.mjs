@@ -1,12 +1,3 @@
-// The package as a user gets it: `npm pack`, then the archive installed the way README
-// says — `npm i -g <sir-<version>.tgz>` — into a prefix of its own, and used from there
-// with nothing of this checkout on the path: the `sir` command (version, generate,
-// apply, both grammars of different families), the API through `import('sir')`, the
-// `sir/protocol` and `sir/service` entry points, a closed sub-path, and the service
-// the editor starts. Run by CI; slow (it packs and installs), so not part of `npm test`.
-//
-//   node test/install-smoke.mjs
-
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -30,20 +21,17 @@ function run(cmd, args, options = {}) {
 }
 
 try {
-  // ── pack: prepack fetches the grammars and builds dist/ ───────────────────────────
   execFileSync(npm, ['pack', '--pack-destination', work], { cwd: ROOT, stdio: ['ignore', 'ignore', 'inherit'], shell: process.platform === 'win32' });
   const tgz = readdirSync(work).find((f) => f === `sir-${version}.tgz`);
   check(`npm pack writes sir-${version}.tgz, the name README installs`, tgz !== undefined, readdirSync(work).join(', '));
   if (tgz === undefined) throw new Error('no archive');
 
-  // ── install globally, into a prefix of our own ────────────────────────────────────
   const prefix = join(work, 'global');
   const install = run(npm, ['install', '-g', '--prefix', prefix, '--no-audit', '--no-fund', join(work, tgz)]);
   check('npm i -g <archive> installs', install.status === 0, install.stderr);
   const bin = process.platform === 'win32' ? join(prefix, 'sir.cmd') : join(prefix, 'bin', 'sir');
   const pkgDir = process.platform === 'win32' ? join(prefix, 'node_modules', 'sir') : join(prefix, 'lib', 'node_modules', 'sir');
 
-  // ── the command, from a directory that knows nothing of this checkout ─────────────
   const project = join(work, 'project');
   execFileSync('git', ['init', '-q', project]);
   const sir = (...args) => run(bin, args, { cwd: project });
@@ -64,7 +52,6 @@ try {
     check(`sir apply ${name}: the generated patch gives the new file`, out === newText, apply.stderr);
   }
 
-  // ── the API, imported as a dependent imports it ───────────────────────────────────
   const consumer = join(work, 'consumer');
   execFileSync('git', ['init', '-q', consumer]);
   writeFileSync(join(consumer, 'package.json'), JSON.stringify({ name: 'consumer', type: 'module', private: true }));
@@ -92,7 +79,6 @@ console.log('api ok');
   const api = run(process.execPath, ['use.mjs'], { cwd: consumer, shell: false });
   check("import('sir'), 'sir/protocol', 'sir/service'; sub-paths closed", api.status === 0 && api.stdout.includes('api ok'), api.stdout + api.stderr);
 
-  // ── the service, started the way the extension starts it ──────────────────────────
   const service = run(process.execPath, [join(pkgDir, 'dist', 'bin', 'service.js')], {
     input: `${JSON.stringify({ id: 1, method: 'version' })}\n`,
     shell: false,

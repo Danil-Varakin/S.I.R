@@ -5,11 +5,6 @@ import { handle } from '../../src/service/handler.ts';
 import type { ResponseMessage, ServiceError, SynthesisErrorDetail } from '../../src/service/protocol.ts';
 import { parseSirFile } from '../../src/core/sir-parser.ts';
 
-// Protocol 5: a change synthesis cannot anchor is written by hand through the service, as
-// the CLI does it in the editor (`generate/steer.ts`) — with no session. `SynthesisError`
-// hands over the draft; the client finishes it and sends it back as `keep`; synthesis goes
-// on from it.
-
 const call = (params: object): Promise<ResponseMessage> => handle({ id: 1, method: 'generate', params });
 
 function ok(response: ResponseMessage): Record<string, unknown> {
@@ -24,7 +19,6 @@ function failed(response: ResponseMessage): ServiceError {
   return response.error;
 }
 
-/** the draft of a failed `generate`, its fields checked against each other */
 function draftOf(response: ResponseMessage): Required<SynthesisErrorDetail> {
   const error = failed(response);
   assert.equal(error.kind, 'SynthesisError', JSON.stringify(error));
@@ -36,12 +30,10 @@ function draftOf(response: ResponseMessage): Required<SynthesisErrorDetail> {
   return d;
 }
 
-/** the draft with its starting hunk replaced — everything from `draftLine` on */
 function finished(d: Required<SynthesisErrorDetail>, hunk: string): string {
   return d.draft.split('\n').slice(0, d.draftLine - 1).join('\n') + '\n' + hunk;
 }
 
-// Golden cpp/57's shape: two identical if-blocks, the change in the second.
 const BODY = '  if (cond) {\n    a();\n    work();\n  }\n  if (cond) {\n    a();\n    work();\n  }\n';
 const TWIN = `void f() {\n${BODY}}\n`;
 const lastWork = (text: string, to: string): string => {
@@ -89,8 +81,6 @@ test('keep (a): a change synthesis cannot anchor answers draft, draftHunk, draft
 });
 
 test('keep (a): unreproduced — no change to write by hand, no draft', async () => {
-  // NoChanges and the rest are not SynthesisError; the one draftless SynthesisError is
-  // `unreproduced`, which no input reaches by design — the field is simply absent then.
   const { SynthesisError } = await import('../../src/core/errors.ts');
   const e = new SynthesisError('x', 'unreproduced', 'x');
   assert.deepEqual(e.detail(), { reason: 'unreproduced' });
@@ -122,7 +112,6 @@ test('keep: hunks after the kept ones are synthesized and printed below them', a
 
 test('keep (c): a hunk that does not land — its kind, its number and its line in keep', async () => {
   const d = draftOf(await call(BASE));
-  // an anchor the base does not hold
   const keep = finished(d, handHunk([], 'work(2);').replace('    >>>\n    work();', '    >>>\n    nowhere();'));
   const error = failed(await call({ ...BASE, keep }));
   assert.equal(error.kind, 'MatchError');
@@ -194,7 +183,6 @@ test('keep: not a string — BadRequest; and keep is no config setting', async (
 test('keep: cancel stops a run that goes on from keep', async () => {
   const { Session } = await import('../../src/service/handler.ts');
   const session = new Session();
-  // many changes after the kept hunk: synthesis yields between them
   const many = Array.from({ length: 40 }, (_, i) => `void t${i}() {\n  y();\n}\n`).join('\n');
   const old = `${TWIN}\n${many}`;
   const neu = `${lastWork(TWIN, 'work(2);')}\n${many.replaceAll('y();', 'y2();')}`;

@@ -9,11 +9,6 @@ import type { SourceMap } from '../../src/lang/source-map.ts';
 import { AmbiguityError, MatchError } from '../../src/core/errors.ts';
 import { firstMatch, wrapMatch } from '../helpers.ts';
 
-// A line with less indent closes every block deeper than itself at once, in a language that
-// closes by outdent (Python): a closer met with an overdue block on the stack is legal when
-// that block has no closing token and lies inside a block the closer ends. Every other
-// overdue block still makes the closer an escape. docs/08-c1-outdent.md, С1.
-
 function pattern(...lines: string[]): MatchPattern {
   return firstMatch(wrapMatch(lines.join('\n'), 'python'));
 }
@@ -79,7 +74,6 @@ test('outdent: an overdue block outside the block the closer ends is an escape',
 });
 
 test('outdent: an overdue bracket beside an overdue method keeps the closer an escape — every overdue block must close by outdent', async () => {
-  // at `class B:` both `f` and the `[` of x are overdue; the class closes `f`, not the `[`
   const source = 'class A:\n    def f(self):\n        x = [\n            1,\n        ]\n        go()\n    def g(self):\n        pass\nclass B:\n    pass\n';
   await assert.rejects(
     landsAt(source, pattern('...', 'class A:', '...', '    def f(self):', '...', 'x = [', '...', '>>>', '1,', '<<<', '...', 'class B:', '...')),
@@ -114,10 +108,6 @@ test('outdent: brace languages are untouched — a } past an overdue block is st
   );
 });
 
-// The pattern names `class A`, and before the rule it landed in the first `class B`: the
-// way through `A.g` was an escape, and the way through `B.g` had the next `class B:` as its
-// closer. With the rule both ways stand — the old result was a change in the wrong class,
-// and the new one is an honest refusal asking for context (CHANGELOG, Fixed).
 test('outdent: a pattern that landed in the wrong class is now ambiguous', async () => {
   const source = 'class A:\n    def g(self):\n        return 1\n    def h(self):\n        return 2\nclass B:\n    def g(self):\n        return 3\nclass B:\n    pass\n';
   await assert.rejects(landsAt(source, pattern('...', 'class A:', '...', '>>>', '    def g(self):', '<<<', '...', 'class B:', '...')), AmbiguityError);

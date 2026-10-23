@@ -15,12 +15,9 @@ export interface LanguageRules {
   fileNames?: readonly string[];
   normalize: (raw: string) => string;
   blockOf: BlockOf;
-  /** A line with less indent closes every block deeper than itself at once — blocks with
-   *  no closing token of their own. Left out: every block closes by its own token. */
   closesByOutdent?: boolean;
 }
 
-/** An adapter read through a tree-sitter grammar: its grammar is always there. */
 export type GrammarAdapter = LanguageAdapter & { readonly grammar: GrammarSource };
 
 export function makeAdapter(rules: LanguageRules): GrammarAdapter {

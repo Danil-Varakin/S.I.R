@@ -6,11 +6,6 @@ import { dirname, join } from 'node:path';
 
 import { CONFIG_FILE_NAME } from '../../src/infra/config/index.ts';
 
-// .github/schemastore/catalog-entry.json is what goes into SchemaStore's catalog, so that
-// editors find sir.config.schema.json by the file's name, with no "$schema" in it. The
-// catalog's own CI refuses an entry that breaks its rules; these are those rules, checked
-// here first, and the ties between the entry, the schema and the code.
-
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = (path: string): Record<string, unknown> =>
   JSON.parse(readFileSync(join(ROOT, path), 'utf8')) as Record<string, unknown>;

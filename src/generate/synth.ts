@@ -75,10 +75,6 @@ export function synthesize(
   }
 }
 
-/** The same synthesis, handing the event loop back after every change: a service stays
- *  able to read and answer other requests while it runs, and `signal` stops it there —
- *  throwing the signal's reason. One change is the unit: the matcher is not interrupted
- *  inside it. */
 export async function synthesizeAsync(
   oldSource: string,
   newSource: string,
@@ -94,7 +90,6 @@ export async function synthesizeAsync(
   }
 }
 
-/** Synthesis one change at a time: it yields after each hunk, and returns them all. */
 function* synthesisSteps(
   oldSource: string,
   newSource: string,
@@ -118,7 +113,6 @@ function* synthesisSteps(
     try {
       resolved = resolveHunk(context);
     } catch (e) {
-      // the draft a person would write it from: what `steer.ts` hands the editor
       throw e instanceof SynthesisError ? withDraft(e, hunks, segment, currentSource) : e;
     }
 
@@ -130,9 +124,6 @@ function* synthesisSteps(
 
   const reproduced = exact ? currentSource === newSource : sameIgnoringSpace(currentSource, newSource, adapter);
   if (!reproduced) {
-    // a patch writes the line endings of its base: in a CRLF base a line the new version
-    // ends in a bare LF cannot be written byte for byte — a limit of the format, not a
-    // fault of synthesis
     const lf = exact && firstLineEnd(oldSource) === '\r\n' ? bareLfLine(newSource) : 0;
     if (lf > 0 && sameIgnoringSpace(currentSource, newSource, adapter)) {
       const because = `the new version mixes line endings (line ${lf} ends with LF)`;
@@ -148,16 +139,11 @@ function* synthesisSteps(
   return hunks;
 }
 
-/** The first line that ends in a bare LF, counted from 1; 0 when none does. */
 function bareLfLine(text: string): number {
   const lines = text.split('\n');
   return lines.findIndex((l, k) => k < lines.length - 1 && !l.endsWith('\r')) + 1;
 }
 
-/** One change against the text as it stands — the step `synthesize` repeats, for a
- *  caller that decides between the steps (`generate/steer.ts`). `segment` is in lines of
- *  `source`; `target` is the version the change leads towards. Throws what `synthesize`
- *  throws when no pattern anchors the change. */
 export function synthesizeOne(
   segment: ChangeSegment,
   source: string,
@@ -169,10 +155,8 @@ export function synthesizeOne(
   return { match: resolved.pattern, patch: resolved.patch };
 }
 
-/** What every hunk of one synthesis is made with. */
 interface HunkSetup {
   readonly adapter: LanguageAdapter;
-  /** whether the version the changes lead towards ends with a line break */
   readonly targetEndsWithNewline: boolean;
   readonly requireExact: boolean;
   readonly limits: SynthLimits;
@@ -239,7 +223,6 @@ function makeHunkContext(segment: ChangeSegment, source: string, setup: HunkSetu
   };
 }
 
-// ── candidates ───────────────────────────────────────────────────────────────────
 function resolveHunk(context: HunkContext): ResolvedHunk {
   let fallback: ResolvedHunk | undefined;
   let bestFailure: unknown;
@@ -275,10 +258,6 @@ function resolveHunk(context: HunkContext): ResolvedHunk {
   throw anchorFailure(context.segment, bestFailure);
 }
 
-/** No candidate stood: the most informative of their failures, told as what it is — a
- *  change `generate` could not anchor, not a `.sirp` that failed to apply. No candidate
- *  at all is `no-match`: no pattern lands there, and none fitted twice. Exported for its
- *  test. */
 export function anchorFailure(segment: ChangeSegment, failure: unknown): SynthesisError {
   const because = failure === undefined ? 'no pattern could be built around it' : firstLineOf(failure);
   return new SynthesisError(
@@ -289,9 +268,6 @@ export function anchorFailure(segment: ChangeSegment, failure: unknown): Synthes
   );
 }
 
-/** Of two failures of candidates, the one a refusal names: an ambiguity over a no-match,
- *  between no-matches the one that got further; a tie keeps the first. Exported for its
- *  test. */
 export function moreInformative(current: unknown, next: unknown): unknown {
   if (current === undefined) return next;
   const a = rankFailure(current);
@@ -348,8 +324,6 @@ function verifyPattern(context: HunkContext, pattern: MatchPattern): Attempt {
   return { hunk: { pattern, patch, appliedSource }, exact: false };
 }
 
-/** Whether two texts are the same line for line once the language's canon has had its
- *  say — the check a non-exact synthesis is held to. */
 export function sameIgnoringSpace(a: string, b: string, adapter: LanguageAdapter): boolean {
   return sameByLines(normalizedLines(a, adapter), normalizedLines(b, adapter));
 }
@@ -376,7 +350,6 @@ interface Policies {
   readonly parent: DetailPolicy;
   readonly sibling: DetailPolicy;
   readonly widened: ReadonlySet<number>;
-  /** the lower neighbour right after the change, with no `...` between */
   readonly pressed: boolean;
 }
 
@@ -460,14 +433,8 @@ function selectivity(context: HunkContext, g: Generalized, policy: DetailPolicy)
   return fewest === Number.POSITIVE_INFINITY ? 0 : fewest;
 }
 
-// ── candidate ladder ─────────────────────────────────────────────────────────────
-
 function* candidatePatterns(context: HunkContext): Ladder {
   for (const cut of cutForms(context)) yield* contextLadder(context, cut, false);
-  // A lower neighbour after `...` fits any copy of it further down. When nothing above
-  // stood, the rungs with neighbours below are tried once more with the first of them
-  // pressed against the change: it fits only the copy right there, and breaks when a line
-  // comes between — so it is the last resort, never preferred to a pattern that stands.
   for (const cut of cutForms(context)) yield* contextLadder(context, cut, true);
 }
 
@@ -479,7 +446,6 @@ function* contextLadder(context: HunkContext, cut: Cut, pressed: boolean): Ladde
   const baseParents = Math.min(minParents, topParents);
   const baseAbove = Math.min(minSiblings, maxSiblings);
 
-  // with no neighbour below there is nothing to press
   for (let parents = baseParents; parents <= topParents && !pressed; parents++) {
     yield* rung(context, cut, parents, baseAbove, 0, false);
   }
@@ -558,7 +524,6 @@ function flushGapCanClose(context: HunkContext, leadRanges: readonly Generalized
   return adapter.normalize(source.slice(leadEnd, cutStart)) === '';
 }
 
-// ── cut forms ────────────────────────────────────────────────────────────────────
 type Cut =
   | { kind: 'insert'; side: 'left' | 'right'; needsAbove: boolean; pinsRight: boolean; allowEdge: boolean; looseLeft?: false }
   | { kind: 'exact'; needsAbove: false; pinsRight: false; looseLeft?: false }
@@ -601,7 +566,6 @@ function assemblePattern(context: HunkContext, lead: Step[], cut: Cut, tail: Tai
   const [first, ...rest] = tail.steps;
   const head = first!;
 
-  // what is left of the change, and right of it — asked only of a cut that needs it
   if (cut.needsAbove && !(lead.length > 0 || (cut.allowEdge && context.canonStart === 0))) return null;
   if (cut.pinsRight && !(tail.startCanon === context.canonEnd && (cut.allowEdge || head.anchor.target === 'literal'))) {
     return null;
@@ -647,7 +611,6 @@ function assemblePattern(context: HunkContext, lead: Step[], cut: Cut, tail: Tai
       // (07-findings Н5). Such a span spells what it replaces, as the other cuts do: it
       // then fits only a file that still holds that text.
       if (context.segment.removed.length > 0 && !spanned.steps.some((s) => s.anchor.target === 'literal')) {
-        // a text of blank lines alone has nothing to spell: the span stays as it is
         const removed = removedAnchor();
         if (removed !== null) return pattern(lead, [fromRemoved(removed), withMarks(head, ['replaceEnd', 'left']), ...rest]);
       }
@@ -660,7 +623,6 @@ function pattern(lead: Step[], rest: Step[]): MatchPattern {
   return { steps: [...lead, ...rest] };
 }
 
-// ── lead and tail ────────────────────────────────────────────────────────────────
 function buildLead(
   context: HunkContext,
   parentCount: number,
@@ -701,9 +663,6 @@ function buildTail(
   }
   for (let i = 0; i < parentCount; i++) {
     const span = context.parents[i]!;
-    // Blocks with no closing token that end where the block inside them ends (an `if` and
-    // its `def` closed by one line in Python) share that closer: it is written once, by
-    // the inner one — a second copy would have to be another line.
     if (span.closeEnd === undefined && i > 0 && context.parents[i - 1]!.close === span.close) continue;
     const closer = closerStep(context, span);
     if (closer === null) break;
@@ -761,7 +720,6 @@ function closerStep(context: HunkContext, span: BlockSpan): Step | null {
   return anchor === null ? null : skipStep(anchor);
 }
 
-// ── neighbours ───────────────────────────────────────────────────────────────────
 function neighbourStepsAbove(
   context: HunkContext,
   rows: number,
@@ -800,7 +758,6 @@ function neighbourStepsBelow(
   return stepsForRange(context, context.changeEndOffset, to, policy, generalized, 'sibling');
 }
 
-// ── generalized anchors ──────────────────────────────────────────────────────────
 function stepsForRange(
   context: HunkContext,
   from: number,
@@ -874,8 +831,6 @@ function literalAnchor(context: HunkContext, written: string): Anchor | null {
   return { target: 'literal', literal: { raw, mdSpan: [0, 0] } };
 }
 
-// ── lines and whitespace ─────────────────────────────────────────────────────────
-/** Where every line of `text` starts, and `text.length` last: `[k]` is line k (from 0). */
 export function getLineStartOffsets(text: string): number[] {
   const offsets = [0];
   for (let i = text.indexOf('\n'); i !== -1; i = text.indexOf('\n', i + 1)) offsets.push(i + 1);
@@ -912,7 +867,6 @@ function getTrailingWhitespace(line: string): string {
   return /[ \t]*$/.exec(line)![0];
 }
 
-// ── step constructors ────────────────────────────────────────────────────────────
 const EOF_ANCHOR: Anchor = { target: 'eof' };
 
 type Mark = ['insert' | 'replaceEnd', 'left' | 'right'];
@@ -930,8 +884,6 @@ function markedGap(gap: Gap, ...marks: Mark[]): Gap {
 function skipStep(anchor: Anchor): Step {
   return { gap: skipGap(), anchor };
 }
-/** In a tight gap a mark stands on its left side, as the parser reads it back: the gap
- *  has no width to put a right side across. */
 function withMarks(step: Step, ...marks: Mark[]): Step {
   const tight = step.gap.mode.op === 'tight';
   const sided = marks.map(([mark, side]): Mark => [mark, tight ? 'left' : side]);

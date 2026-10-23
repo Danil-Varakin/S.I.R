@@ -12,16 +12,6 @@ import { printSirFile } from '../../../src/generate/printer.ts';
 import { parseSirFile } from '../../../src/core/sir-parser.ts';
 import { applyAll } from '../../../src/core/apply.ts';
 
-// The numbers of Р4 (docs/10-brave-languages.md, stage 4): every mixed .mm and every
-// Objective-C header, read by the Objective-C grammar and by the C++ one. A change of a
-// grammar, an adapter or synthesis that moves one of them is seen here — and the table
-// in the plan is updated with it.
-//
-//   err%     bytes inside the outermost ERROR nodes, of the file
-//   drift    the patch on a base upstream added a line to, at the top and at the end
-//   repeat   ... upstream copied the anchor line into a block of its own at the end: a
-//            pattern that holds by structure lands, one that does not refuses
-
 const GOLDEN = join(import.meta.dirname, '..', '..', 'golden');
 
 const SAMPLES = [

@@ -3,33 +3,16 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-// One repository in which every coordinate of a git source points somewhere different,
-// so a test can tell which one was actually used:
-//
-//   A ── B   <the branch we are on>, tag v1.0, refs/remotes/origin/main
-//    \
-//     S     side
-//
-//   f.cc         version(1) in A, version(2) in B, version(3) in S,
-//                version(4) in the working tree, uncommitted
-//   other.cc     from A on, on every branch
-//   side-only.cc only in S
-
 export interface Repo {
   readonly dir: string;
-  /** `<dir>/src/core/f.cc` — the working-tree version, what `--in` points at. */
   readonly inPath: string;
   readonly branch: string;
-  /** the first commit, the second (the tip), and the one only `side` holds */
   readonly a: string;
   readonly b: string;
   readonly s: string;
 }
 
 export const OTHER = 'void g() {\n  int b = 7;\n}\n';
-// Close enough to f.cc that a patch against it is a LOCAL hunk quoting `int side = 1;`
-// — two unrelated files would only ever produce "replace the whole thing", which says
-// nothing about which of them was read.
 export const SIDE_ONLY = 'void f() {\n  int a = 1;\n  int side = 1;\n}\n';
 
 export function version(n: number): string {

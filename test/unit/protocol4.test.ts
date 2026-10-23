@@ -14,10 +14,6 @@ import type { Project } from '../../src/infra/project.ts';
 import { resolveOutPath } from '../../src/infra/out-path.ts';
 import { buildRepo, version } from '../git-repo.ts';
 
-// Protocol 4: what the core answers so that a client does not compute it itself —
-// `config`, `pair`, `resolve.baseText`, `warningsAt`, `NoChanges`, `baseGit.eol` and
-// the header's Target.
-
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'src', 'bin', 'sir.ts');
 
 function ok(response: ResponseMessage): Record<string, unknown> {
@@ -51,8 +47,6 @@ function commitAll(dir: string): void {
   git(dir, 'commit', '-q', '-m', 'c');
 }
 
-// ── config ≡ generate ────────────────────────────────────────────────────────────
-
 const CONFIGS: Record<string, string | undefined> = {
   none: undefined,
   v2: JSON.stringify({ version: 3, generate: { bridgeGap: 2, base: { head: true, eol: 'worktree' } } }),
@@ -76,7 +70,6 @@ for (const [name, text] of Object.entries(CONFIGS)) {
         assert.deepEqual({ file: c['file'], settings: c['settings'], origins: c['origins'] }, g['config']);
         assert.equal(c['repoRoot'], R.dir);
       }
-      // no base sent: generate takes the config's, and config says which
       const c = ok(await call('config', { path: R.inPath }));
       if (text?.includes('"base"')) {
         const g = ok(await call('generate', { path: R.inPath, newText: version(9) }));
@@ -128,7 +121,6 @@ test('config: a file git does not know yet — settings answered, the base unava
   try {
     const file = join(dir, 'new.cc');
     writeFileSync(file, 'int f() { return 1; }\n');
-    // no commit at all: the branch HEAD is on does not exist yet, and is watched all the same
     const unborn = ok(await call('config', { path: file, overrides: { baseGit: {} } }));
     assert.equal((unborn['base'] as { kind: string }).kind, 'unavailable');
     const branch = git(dir, 'symbolic-ref', '--short', 'HEAD');
@@ -181,8 +173,6 @@ test('config: a ConfigError as the loader gives it (C5)', async () => {
   }
 });
 
-// ── pair ─────────────────────────────────────────────────────────────────────────
-
 test('pair: code → patch → code, beside, out and upstream — the same outPath generate names', async () => {
   const R = buildRepo('sir-p4-pair-');
   try {
@@ -207,7 +197,6 @@ test('pair: code → patch → code, beside, out and upstream — the same outPa
     const astray = pairOf(join(R.dir, 'elsewhere', 'f.cc.sirp'), { out: 'patches', project: one }, '');
     assert.equal((astray as { reason: string }).reason, 'outside-out');
 
-    // over the wire, with the project's config
     writeFileSync(join(R.dir, 'sir.config.json'), JSON.stringify({ version: 3, upstream: '.', generate: { out: 'patches' } }));
     const wire = ok(await call('pair', { path: R.inPath }));
     assert.equal(wire['patchPath'], join(R.dir, 'patches', 'src', 'core', 'f.cc.sirp'));
@@ -251,12 +240,10 @@ test('pair: Target comes first, measured from the repository root; a path out of
         kind: 'patch', code: null, exists: false, how: null, reason: 'unsafe-target',
       }, bad);
     }
-    // read from disk when the client sends no text
     mkdirSync(dirname(patch), { recursive: true });
     writeFileSync(patch, headed('src/core/other.cc'));
     const wire = ok(await call('pair', { path: patch }));
     assert.equal(wire['code'], join(R.dir, 'src', 'core', 'other.cc'));
-    // a .md is code, not a patch
     assert.equal(pairOf(join(R.dir, 'README.md'), { out: null }).kind, 'code');
   } finally {
     rmSync(R.dir, { recursive: true, force: true });
@@ -280,8 +267,6 @@ test('Target: contained paths only', () => {
   assert.equal(isContainedPath('a/../b'), false);
   assert.equal(isContainedPath(''), false);
 });
-
-// ── generate: the header, warningsAt, NoChanges ─────────────────────────────────
 
 test('generate writes the header: Target from the repository root, Base-Blob for a git base', async () => {
   const R = buildRepo('sir-p4-gen-');
@@ -371,8 +356,6 @@ test('CLI: generate writes the header; --no-marker is gone', () => {
   }
 });
 
-// ── resolve / apply: baseText, the config's base ────────────────────────────────
-
 test('resolve: baseText when the base came out of git, none when it was sent', async () => {
   const R = buildRepo('sir-p4-resolve-');
   try {
@@ -420,8 +403,6 @@ test('resolve/apply with no base take the config\'s generate.base, as generate d
   }
 });
 
-// ── baseGit.eol ──────────────────────────────────────────────────────────────────
-
 test('baseGit.eol: with core.autocrlf the base comes as the file on disk has it — "worktree" — or as stored', async () => {
   const dir = tempRepo('sir-p4-crlf-');
   try {
@@ -440,11 +421,9 @@ test('baseGit.eol: with core.autocrlf the base comes as the file on disk has it 
     const applied = ok(await call('apply', { path: file, patch: md, baseGit: { eol: 'worktree' } }));
     assert.equal(applied['text'], crlf.replace('return 1;', 'return 2;'));
 
-    // exact: every line differs as stored, nothing does as on disk
     ok(await call('generate', { path: file, newText: crlf, baseGit: {}, exact: true }));
     assert.equal(failed(await call('generate', { path: file, newText: crlf, baseGit: { eol: 'worktree' }, exact: true })).kind, 'NoChanges');
 
-    // the config names it once for the project
     writeFileSync(join(dir, 'sir.config.json'), JSON.stringify({ version: 3, generate: { base: { head: true, eol: 'worktree' } } }));
     const c = ok(await call('config', { path: file }));
     assert.equal((c['base'] as { eol: string }).eol, 'worktree');
@@ -475,15 +454,12 @@ test('CLI --eol worktree: generate --head --exact on an unchanged autocrlf file 
   }
 });
 
-// ── generate: a change it cannot anchor ─────────────────────────────────────────
-
 test('generate: a change no pattern anchors fails with SynthesisError (exit 8), the line of the new version in detail', async () => {
   const old = 'void f() {\n  if (cond) {\n    a();\n    work();\n  }\n  if (cond) {\n    a();\n    work();\n  }\n}\n';
   const neu = old.replace(/work\(\);(?![\s\S]*work\(\);)/, 'work(2);');
   const error = failed(await call('generate', { baseText: old, newText: neu, language: 'cpp' }));
   assert.equal(error.kind, 'SynthesisError');
   assert.equal(error.exitCode, 8);
-  // the fields of protocol 4; protocol 5 adds `draft` and the rest beside them (R4)
   assert.deepEqual({ reason: error.detail?.['reason'], newLine: error.detail?.['newLine'] }, { reason: 'ambiguous', newLine: 8 });
   assert.match(error.message, /could not anchor the change at line 8 of the new version/);
 });
@@ -503,12 +479,10 @@ test('generate: a place the .md cannot go is refused before synthesis — before
 test('generate: --out naming a file that is not .sirp is refused before anything is read', async () => {
   const R = buildRepo('sir-p4-outext-');
   try {
-    // --in-old does not exist: the refusal comes first all the same
     const run = spawnSync(process.execPath, ['--experimental-strip-types', CLI, 'generate', '--in', R.inPath, '--in-old', 'nope.cc', '--no-config', '--out', 'p.md'], { encoding: 'utf8' });
     assert.equal(run.status, 5, run.stderr);
     assert.match(run.stderr, /a patch is a \.sirp file — name it p\.sirp/);
     assert.equal(existsSync(join(R.dir, 'p.md')), false);
-    // a directory is fine, with or without an extension-less name
     assert.equal(resolveOutPath({ inPath: R.inPath, out: 'patches' }).path, join(R.dir, 'patches', 'f.cc.sirp'));
 
     const wire = failed(await call('generate', { path: R.inPath, newText: version(9), baseGit: { branch: 'nope' }, out: join(R.dir, 'x.txt') }));

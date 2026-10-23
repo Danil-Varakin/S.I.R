@@ -40,11 +40,6 @@ function bracketPair(node: Node): { first: Node; last: Node } | null {
   return { first, last };
 }
 
-// An object or an array; one that is the value of a pair has the key for its header —
-// `data: [`. An object that is an element of an array has no key: what names it is its
-// first pair — `{ name: "AIPromptAPI",` in Blink's feature lists — so that pair is its
-// header and the block opens after it. Two features with the same body are then told
-// apart by their names, as two functions by theirs.
 const json5BlockOf: BlockOf = (node: Node): OrigSpan | null => {
   const pair = bracketPair(node);
   if (pair === null) return null;

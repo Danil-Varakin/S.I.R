@@ -1,7 +1,6 @@
 import { file, opt } from '../../matrix.ts';
 import type { Fixture } from '../../matrix.ts';
 
-// Protocol Buffers as text: a message with a nested message — blocks by their braces.
 export const fixture: Fixture = {
   language: 'proto',
   targetName: 'Target',

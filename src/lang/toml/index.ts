@@ -3,9 +3,6 @@ import { isWordChar } from '../word.ts';
 import { replaceWhitespaceOutsideStrings } from '../zones.ts';
 import type { StringRule } from '../zones.ts';
 
-// TOML: read as text — `[table]` headers are lines, inline tables and arrays pairs of
-// brackets. Whitespace means nothing outside strings.
-
 const ZONES: readonly StringRule[] = [
   { open: '#', close: '\n', opaque: false },
   { open: '"""', close: '"""', escape: '\\', multiline: true },
