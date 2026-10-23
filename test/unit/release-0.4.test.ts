@@ -15,9 +15,6 @@ import { CONFIG_ENV, configFileFor, loadProject, projectOf } from '../../src/inf
 import { loadConfig, readConfigFile } from '../../src/infra/config/index.ts';
 import { patchAt, patchTarget } from '../../src/infra/pair.ts';
 
-// What 0.4 changed, stage by stage (docs/plan-0.4.md), where the tests of each module
-// leave a gap: the edges, the refusals and the paths between the stages.
-
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const CLI = join(ROOT, 'src', 'bin', 'sir.ts');
 const OLD = 'void f() {\n  int a = 1;\n}\n';
@@ -88,8 +85,6 @@ async function withEnv(vars: Record<string, string | undefined>, fn: () => Promi
   }
 }
 
-// ── stage 1: the .sirp format and its header ─────────────────────────────────────
-
 test('stage 1: printHeader writes the fields in HEADER_FIELDS order, leaves out the missing ones, and parses back', () => {
   const all = printHeader({
     grammar: 'tree-sitter-c@1',
@@ -138,7 +133,6 @@ test('stage 1: --out P.SIRP — the extension in any case; a .md --match is refu
     const r = sir(dir, ['generate', '--in', 'a.cc', '--head', '--no-config', '--out', 'P.SIRP']);
     assert.equal(r.status, 0, r.stderr);
     assert.match(readFileSync(join(dir, 'P.SIRP'), 'utf8'), /^Sir: 2\nTarget: a\.cc\n/);
-    // the .md does not exist: the refusal is about the name, not a missing file
     const md = sir(dir, ['apply', '--match', 'missing.md', '--in', 'a.cc', '--dry-run']);
     assert.equal(md.status, 1);
     assert.match(md.stderr, /a patch is a \.sirp file/);
@@ -147,8 +141,6 @@ test('stage 1: --out P.SIRP — the extension in any case; a .md --match is refu
     rmSync(dir, { recursive: true, force: true });
   }
 });
-
-// ── stage 2: the project and its upstream ─────────────────────────────────────────
 
 test('stage 2: SIR_CONFIG is taken when nothing claims the file — and never before a config that does', async () => {
   const root = temp('sir-s2-env-');
@@ -163,12 +155,10 @@ test('stage 2: SIR_CONFIG is taken when nothing claims the file — and never be
     await withEnv({ [CONFIG_ENV]: join(root, 'nope.json') }, () => {
       assert.throws(() => configFileFor(code), (e: unknown) => e instanceof ConfigError && /SIR_CONFIG/.test(e.message));
     });
-    // a config up from the file wins over the variable
     const own = config(join(root, 'code'), { generate: { exact: true } });
     await withEnv({ [CONFIG_ENV]: file }, () => {
       assert.equal(configFileFor(code), own);
     });
-    // and the CLI reads it the same way
     rmSync(own);
     writeFileSync(code, NEW);
     const r = sir(root, ['generate', '--in', code, '--head'], { [CONFIG_ENV]: file });
@@ -211,7 +201,7 @@ test('stage 2: a config whose upstream does not hold the file is no claim; one t
   try {
     const src = join(root, 'src');
     repoAt(src, { 'a/x.cc': OLD });
-    config(join(src, 'tools'), { upstream: '../a/b', generate: { out: 'p' } }); // a/b does not hold a/x.cc
+    config(join(src, 'tools'), { upstream: '../a/b', generate: { out: 'p' } });
     mkdirSync(join(src, 'broken'));
     writeFileSync(join(src, 'broken', 'sir.config.json'), '{ not json');
     assert.equal(configFileFor(join(src, 'a', 'x.cc')), undefined);
@@ -231,8 +221,6 @@ test('stage 2: patchTarget — from the upstream wherever the patch goes, stdout
     assert.equal(patchTarget(undefined, undefined, code), undefined);
     const outside = temp('sir-s2-outside-');
     try {
-      // the root of a patch outside any repository is its own directory, and the code is
-      // not under it — a Target measured from there would be a path out of the root
       assert.equal(patchTarget(undefined, join(outside, 'elsewhere.sirp'), code), undefined, 'a patch outside the repository');
     } finally {
       rmSync(outside, { recursive: true, force: true });
@@ -281,7 +269,6 @@ test('stage 2: apply — refusals around --in, --verify and --base-from-disk', (
 
     const noIn = sir(dir, ['apply', '--match', 'p.sirp', '--dry-run']);
     assert.equal(noIn.status, 1, noIn.stderr);
-    // no Target and no config: by its name the patch is for `p` beside it, which is not there
     assert.match(noIn.stderr, /missing --in <file>: the patch is for .*[\\/]p \(by its name and place it would be\), and there is no such file/);
 
     const noConfig = sir(dir, ['apply', '--match', 'p.sirp', '--dry-run', '--no-config']);
@@ -294,18 +281,15 @@ test('stage 2: apply — refusals around --in, --verify and --base-from-disk', (
     const notVerify = sir(dir, ['apply', '--match', 'p.sirp', '--in', 'a.cc', '--dry-run', '--base-from-disk']);
     assert.equal(notVerify.status, 1);
 
-    // --verify against the git base the flags name: the file on disk may be anything
     writeFileSync(join(dir, 'a.cc'), 'garbage that would not fit\n');
     const head = sir(dir, ['apply', '--match', 'p.sirp', '--in', 'a.cc', '--verify', '--head']);
     assert.equal(head.status, 0, head.stderr);
 
-    // a Target naming a file that is not there says so
     writeFileSync(join(dir, 'gone.sirp'), patch.replace('Sir: 2\n', 'Sir: 2\nTarget: gone.cc\n'));
     const gone = sir(dir, ['apply', '--match', 'gone.sirp', '--dry-run']);
     assert.equal(gone.status, 1, gone.stderr);
     assert.match(gone.stderr, /the patch is for .*gone\.cc \(its Target names\), and there is no such file/);
 
-    // with a Target, --in may be left out
     writeFileSync(join(dir, 'p.sirp'), patch.replace('Sir: 2\n', 'Sir: 2\nTarget: a.cc\n'));
     const byTarget = sir(dir, ['apply', '--match', 'p.sirp', '--verify', '--head']);
     assert.equal(byTarget.status, 0, byTarget.stderr);
@@ -330,8 +314,6 @@ test('stage 2: init — --out goes with --upstream; the written config reads bac
     rmSync(root, { recursive: true, force: true });
   }
 });
-
-// ── stage 3: the protocol ─────────────────────────────────────────────────────────
 
 test('stage 3: configPath must be absolute; the patch\'s path that cannot be read is refused with what to send', async () => {
   const bad = failed(await call('config', { path: '/abs/a.cc', configPath: 'relative.json' }));
@@ -390,8 +372,6 @@ test('stage 3: X4 — elapsedMs on the wire, the line that is not JSON included'
   assert.deepEqual(replies.map((r) => r['ok']).sort(), [false, true]);
 });
 
-// ── stage 4: grammars inside ──────────────────────────────────────────────────────
-
 test('stage 4: generate --download-grammars is gone (it warned through 0.4, F2)', () => {
   const dir = temp('sir-s4-flag-');
   try {
@@ -416,7 +396,6 @@ test('stage 4: fetch-grammars leaves pinned files alone — no network when gram
   const r = spawnSync(process.execPath, ['--experimental-strip-types', join(ROOT, 'scripts', 'fetch-grammars.ts')], {
     cwd: ROOT,
     encoding: 'utf8',
-    // a proxy that does not exist: any fetch would fail
     env: { ...process.env, HTTPS_PROXY: 'http://127.0.0.1:1', https_proxy: 'http://127.0.0.1:1' },
   });
   assert.equal(r.status, 0, r.stderr);

@@ -3,9 +3,6 @@ import { isWordChar } from '../word.ts';
 import { replaceWhitespaceOutsideStrings } from '../zones.ts';
 import type { StringRule } from '../zones.ts';
 
-// Mojom, Chromium's IPC interfaces: no tree-sitter grammar exists. Read as text —
-// `interface X {` … `};` and `struct S {` … `};` are blocks by their braces.
-
 const ZONES: readonly StringRule[] = [
   { open: '//', close: '\n', opaque: false },
   { open: '/*', close: '*/', multiline: true, opaque: false },

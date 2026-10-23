@@ -11,10 +11,7 @@ import { adapterForLanguage, adapterForFile } from '../../src/lang/adapter.ts';
 import { sirMd } from '../helpers.ts';
 import type { SourceMap } from '../../src/lang/source-map.ts';
 
-// depthAt жил в SourceMap, но в src/ его не звал никто — только тесты. Выводится из
-// enclosing(), который возвращает спаны от самого внутреннего.
 const depthAt = (map: SourceMap, pos: number): number => map.enclosing(pos).length;
-
 
 interface Case {
   lang: string;
@@ -134,7 +131,6 @@ const CASES: readonly Case[] = [
     header: 'second: {',
     body: "    b: 'two',",
   },
-  // read as text: blocks by the balance of brackets, no grammar
   {
     lang: 'idl',
     file: 'a.webidl',
@@ -170,8 +166,6 @@ test('a file is its language by name before extension: DEPS and .star are Python
   for (const path of ['DEPS', 'src/DEPS', 'build/config/siso/main.star']) {
     assert.equal(adapterForFile(path), python, path);
   }
-  // a name is matched whole, and only a name: DEPS.txt is no DEPS (it is text, by `.txt`),
-  // a directory DEPS no file
   assert.equal(adapterForFile('DEPS.txt').name, 'text');
   assert.throws(() => adapterForFile('DEPS/README'));
 });
@@ -231,11 +225,6 @@ test('the whole registry is initialized: no broken paths to the .wasm', async ()
   await adapterForLanguage('python').init();
 });
 
-// One fact written twice: a language declares that it closes blocks by outdent
-// (`closesByOutdent` in `lang/<language>/index.ts`), and its `blockOf` hands out blocks
-// with no closing token. The two must agree, over every golden of the language: a language
-// added with indented blocks and no declaration, or one declared and never closing so, is
-// named here.
 const GOLDEN = join(import.meta.dirname, '..', 'golden');
 for (const language of readdirSync(GOLDEN, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name)) {
   test(`registry: ${language} declares closing by outdent exactly when its blocks have no closing token`, async () => {

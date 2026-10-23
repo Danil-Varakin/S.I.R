@@ -1,18 +1,5 @@
-// Fills grammars/ of the package with the grammars src/lang/*/index.ts pins — for
-// development, CI and `npm pack` only: sir itself never downloads anything
-// (src/infra/grammar-store.ts). Every file is checked against its sha256 pin; a file
-// already there with the right bytes is left alone.
-//
-//   node --experimental-strip-types scripts/fetch-grammars.ts
 //   node --experimental-strip-types scripts/fetch-grammars.ts --pin tree-sitter-go@0.25.0
 //       download one grammar and print the block to paste into a new language's index.ts
-//
-// Where the bytes come from, in order: grammars/ itself; the user cache sir 0.1–0.3
-// filled (a machine that ran it has them, and they are checked like any other); the npm
-// CDNs, jsdelivr then unpkg; last, for a package whose npm archive has no .wasm
-// (@tree-sitter-grammars/tree-sitter-xml), the GitHub Release of the same version — its
-// repository read from the npm registry, its tag `v<version>`. The pin is the same in
-// every case, and so is the check.
 
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -29,8 +16,6 @@ function urls(source: GrammarSource): string[] {
   return [`https://cdn.jsdelivr.net/npm/${spec}`, `https://unpkg.com/${spec}`];
 }
 
-/** The file in the GitHub Release `v<version>` of the package's repository, as the npm
- *  registry names it; undefined when the repository is not on GitHub. */
 async function releaseUrl(source: GrammarSource): Promise<string | undefined> {
   const response = await fetch(`https://registry.npmjs.org/${source.package!}/${source.version!}`, {
     signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -43,7 +28,6 @@ async function releaseUrl(source: GrammarSource): Promise<string | undefined> {
   return `https://github.com/${m[1]!}/${m[2]!}/releases/download/v${source.version!}/${source.file}`;
 }
 
-/** The pinned bytes from the CDNs, then from the GitHub Release; every source checked. */
 async function downloadPinned(source: GrammarSource, failures: string[]): Promise<Uint8Array | undefined> {
   for (const url of urls(source)) {
     const got = await tryDownload(url, source, failures);
@@ -71,7 +55,6 @@ async function tryDownload(url: string, source: GrammarSource, failures: string[
   }
 }
 
-/** Where sir 0.1–0.3 kept its downloads — read, never written. */
 function legacyCacheEntry(source: GrammarSource): string {
   const xdg = process.env['XDG_CACHE_HOME'];
   const root =
@@ -150,7 +133,7 @@ async function main(argv: readonly string[]): Promise<void> {
   const counts = { present: 0, copied: 0, downloaded: 0 };
   for (const adapter of adaptersByName().values()) {
     const grammar = adapter.grammar;
-    if (grammar === undefined || seen.has(grammar.file)) continue; // a language read as text pins none
+    if (grammar === undefined || seen.has(grammar.file)) continue;
     seen.add(grammar.file);
     counts[await fetchPinned(grammar, dir)]++;
   }

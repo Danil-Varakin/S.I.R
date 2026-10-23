@@ -1,8 +1,6 @@
 import { file, opt } from '../../matrix.ts';
 import type { Fixture } from '../../matrix.ts';
 
-// The outer block is a cascade layer named after `@layer`, the target a rule in it with a
-// nested rule of its own (CSS nesting).
 export const fixture: Fixture = {
   language: 'css',
   targetName: 'target',

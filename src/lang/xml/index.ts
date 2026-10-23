@@ -5,8 +5,6 @@ import type { StringRule } from '../zones.ts';
 import type { Node } from '../treesitter.ts';
 import type { BlockOf } from '../block-spans.ts';
 
-// A string is the value of an attribute — a quote after `=` — and a CDATA section, which
-// is data byte for byte. A quote in character data is a letter.
 const STRINGS: readonly StringRule[] = [
   { open: '<!--', close: '-->', multiline: true, opaque: false },
   { open: '<![CDATA[', close: ']]>', multiline: true, opaque: true },
@@ -22,8 +20,6 @@ export function normalize(raw: string): string {
   );
 }
 
-// `<tag …>` … `</tag>`: the block opens at the `>` of the start tag — the whole start tag
-// is its header — and closes with the end tag. `<tag/>` is no block.
 const xmlBlockOf: BlockOf = (node: Node) => {
   if (node.type !== 'element') return null;
   const start = node.firstChild;

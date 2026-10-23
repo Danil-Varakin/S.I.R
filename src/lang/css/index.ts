@@ -41,8 +41,6 @@ function bracketPair(node: Node): { first: Node; last: Node } | null {
   return { first, last };
 }
 
-// A block of declarations: `{` … `}` of a rule, `@media`, `@supports`, `@keyframes`; its
-// header is the selector or the at-rule before it — the node that holds both.
 const cssBlockOf: BlockOf = (node: Node): OrigSpan | null => {
   const pair = bracketPair(node);
   if (pair === null) return null;

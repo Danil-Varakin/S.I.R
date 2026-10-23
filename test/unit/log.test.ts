@@ -15,8 +15,6 @@ import { MatchError, AmbiguityError, ParseError } from '../../src/core/errors.ts
 
 const tmp = (): string => mkdtempSync(join(tmpdir(), 'sir-log-'));
 
-// ── where the file goes ──────────────────────────────────────────────────────────
-
 test('a place that is a directory receives a generated name', () => {
   const dir = tmp();
   const path = resolveLogPath(dir, 'apply', new Date('2026-08-24T10:20:30Z'), 4242);
@@ -31,7 +29,6 @@ test('a place that is not a directory IS the file name', () => {
 
 test('no place → the default directory, under the current one', () => {
   const path = resolveLogPath(undefined, 'generate', new Date('2026-08-24T10:20:30Z'), 7);
-  // README: "omitted means ./sir-logs/"
   assert.equal(resolve(path), join(process.cwd(), 'sir-logs', '2026-08-24T10-20-30-generate-7.log'));
 });
 
@@ -39,8 +36,6 @@ test('every run gets its own file: same second, different pid', () => {
   const when = new Date('2026-08-24T10:20:30Z');
   assert.notEqual(resolveLogPath('/x/', 'apply', when, 1), resolveLogPath('/x/', 'apply', when, 2));
 });
-
-// ── the file itself ──────────────────────────────────────────────────────────────
 
 test('the log holds every channel, and the header says what was run', () => {
   const path = join(tmp(), 'run.log');
@@ -115,8 +110,6 @@ test('no log path → no file anywhere, and no complaint', () => {
   log.close();
   assert.deepEqual(readdirSync(dir), ['sub']);
 });
-
-// ── rendering ─────────────────────────────────────────────────────────────────
 
 const SOURCE = 'void f() {\n  a();\n  b();\n}\n';
 

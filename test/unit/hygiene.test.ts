@@ -6,7 +6,6 @@ import { dirname, join, relative } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-// test/golden/** is DATA: its bytes are what the tests are about (see .gitattributes).
 const SKIP = new Set([join(ROOT, 'test', 'golden')]);
 
 function sources(dir: string, out: string[] = []): string[] {

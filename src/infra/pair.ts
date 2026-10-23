@@ -6,24 +6,12 @@ import { PATCH_EXTENSION, resolveOutPath } from './out-path.ts';
 import { patchTreeRoot, upstreamCode, upstreamTarget, withUpstream } from './project.ts';
 import type { Project, UpstreamProject } from './project.ts';
 
-// A file of code and its patch, both ways. Forward is `resolveOutPath` — the very
-// function `generate` names `outPath` with — and backward undoes exactly what it does;
-// the `Target` in the header of a .sirp comes first, since it names the file outright.
-// With an upstream (`infra/project.ts`) `Target` is measured from the upstream root;
-// without one, from the repository around the patch.
-
-/** What `generate` writes into `Target` of a patch at `patchPath` for `codePath` without
- *  an upstream, or undefined when the file is not under the root — a path out of it
- *  would be one no reader accepts. */
 export function targetFor(patchPath: string, codePath: string): string | undefined {
   const inside = pathWithin(repoRootAround(patchPath), resolve(codePath));
   if (inside === undefined || inside === '') return undefined;
   return toPosixPath(inside);
 }
 
-/** `Target` for the patch of `codePath`: from the upstream root when the project has
- *  one — wherever the patch goes, stdout included — else from the repository around the
- *  patch, and none without a place for it. */
 export function patchTarget(project: Project | undefined, patchPath: string | undefined, codePath: string): string | undefined {
   const upstream = withUpstream(project);
   if (upstream !== undefined) return upstreamTarget(upstream, codePath);
@@ -32,7 +20,6 @@ export function patchTarget(project: Project | undefined, patchPath: string | un
 
 export interface PairSettings {
   readonly out: string | null;
-  /** the project, when an upstream decides the layout */
   readonly project?: Project | undefined;
 }
 
@@ -45,12 +32,8 @@ export type PairReason =
   | 'not-a-patch-name'
   | 'unsafe-target'
   | 'two-patches'
-  /** the patch is of a format newer than this sir reads: update sir (H3) */
   | 'newer-format'
-  /** older than this sir still reads: regenerate the patch (H3) */
   | 'older-format'
-  /** the header does not read: a line that is not `Name: value`, a field twice or out
-   *  of its place, `Sir` not a number */
   | 'bad-header';
 
 export type CodeLayout = 'upstream' | 'beside' | 'out';
@@ -62,7 +45,6 @@ export type Pair =
       readonly exists: boolean;
       readonly how: CodeLayout | null;
       readonly reason?: PairReason;
-      /** `two-patches`: both of them — one file, one patch (P7) */
       readonly patchPaths?: readonly string[];
     }
   | {
@@ -73,7 +55,6 @@ export type Pair =
       readonly reason?: PairReason;
     };
 
-/** A path ending in `.sirp` is a patch; anything else is code. */
 export function isPatchPath(path: string): boolean {
   return extname(path).toLowerCase() === PATCH_EXTENSION;
 }
@@ -99,8 +80,6 @@ function patchOf(codePath: string, settings: PairSettings): Pair {
   try {
     patchPath = resolveOutPath({ inPath: codePath, out: settings.out, project: upstream }).path;
   } catch (e) {
-    // a file outside the upstream: the one way resolveOutPath fails on settings the
-    // loader has already accepted
     if (e instanceof ConfigError) {
       return { kind: 'code', patchPath: null, exists: false, how: null, reason: 'outside-upstream' };
     }
@@ -108,7 +87,6 @@ function patchOf(codePath: string, settings: PairSettings): Pair {
   }
   if (patchPath === undefined) return { kind: 'code', patchPath: null, exists: false, how: null, reason: 'no-out' };
 
-  // One file, one patch: a patch left beside the file after `out` moved is a second one.
   const beside = `${codePath}${PATCH_EXTENSION}`;
   if (beside !== patchPath && isFile(beside) && isFile(patchPath)) {
     return { kind: 'code', patchPath: null, exists: false, how: null, reason: 'two-patches', patchPaths: [patchPath, beside] };
@@ -134,17 +112,14 @@ function codeOf(patchPath: string, settings: PairSettings, patch: string | undef
   const how = layoutOf(settings);
   let code: string;
   if (upstream !== undefined) {
-    // the tree under <project root>/<out> repeats the upstream's
     const within = pathWithin(patchTreeRoot(upstream, settings.out ?? ''), patchPath);
     if (within === undefined || within === '') return refused('outside-out');
     code = join(upstream.upstreamRoot, within.slice(0, -PATCH_EXTENSION.length));
   } else if (how === 'beside') {
     code = join(dirname(patchPath), name);
   } else {
-    // one directory (or one file) for every patch: where the file was is not kept
     return refused(settings.out === '-' ? 'no-out' : 'flat-out');
   }
-  // Checked forward: only a path `generate` would write this patch for is its code.
   let forward: string | undefined;
   try {
     forward = resolveOutPath({ inPath: code, out: settings.out, project: upstream }).path;
@@ -155,9 +130,6 @@ function codeOf(patchPath: string, settings: PairSettings, patch: string | undef
   return { kind: 'patch', code, exists: isFile(code), how };
 }
 
-/** `Target` from the header (undefined without one), or why the header names no file:
- *  each way it can fail is its own reason, the format first — a patch from a newer sir
- *  says "update sir", not "unsafe". */
 function targetOf(text: string): { readonly target: string | undefined } | { readonly refused: PairReason } {
   let header;
   try {
@@ -172,16 +144,12 @@ function targetOf(text: string): { readonly target: string | undefined } | { rea
   return { target };
 }
 
-/** What lies at `path` where a patch is about to be written: whether a file does, and
- *  the `Target` it names (null for none, or a file that is not a patch that parses). */
 export function patchAt(path: string): { readonly exists: boolean; readonly target: string | null } {
   if (!isFile(path)) return { exists: false, target: null };
   const header = targetOf(readOrEmpty(path));
   return { exists: true, target: 'target' in header ? header.target ?? null : null };
 }
 
-/** No file, or one that cannot be read, has no header: `readHeader('')` is a header with
- *  no fields, which `targetOf` reads as "names no Target". */
 function readOrEmpty(path: string): string {
   return readIfReadable(path) ?? '';
 }

@@ -1,18 +1,3 @@
-// Speed and performance cases, repeatable. NOT part of `npm test`: the heavy ones take
-// minutes, and a suite that takes minutes stops being run.
-//
-//   npm run bench                  every case at its default sizes
-//   npm run bench -- --case apply  one case (parse | apply | generate | probes | depth |
-//                                  python | python-depth | siblings | markup | tuning)
-//   npm run bench -- --reps 9 --budget 60000 --big
-//   npm run bench -- --case tuning --lang python --detail   one language, every shape
-//
-// Measured IN PROCESS, through the library API: process start (~0.1 s) and loading the
-// grammar are outside the measurement, because what they cost is already known and does
-// not move. Recorded numbers do not live here: they go into the backlog, under the one
-// item that owns performance (Г3), with the stand each was taken on — a measurement is
-// written down there before it is used in an argument.
-
 import { applyAll } from '../src/core/apply.ts';
 import { parseSirFile } from '../src/core/sir-parser.ts';
 import { printPattern } from '../src/core/sir-printer.ts';
@@ -71,8 +56,6 @@ function parseOptions(argv: readonly string[]): Options {
 
 const ms = (x: number): string => (x >= 1000 ? `${(x / 1000).toFixed(1)} s` : `${x.toFixed(1)}`);
 
-/** Median of up to `reps` runs after one warm-up. A single run past the budget is
- *  reported alone: the point of the budget is that one case cannot eat the suite. */
 async function measure(opts: Options, body: () => Promise<void> | void): Promise<{ median: number; capped: boolean }> {
   const started = performance.now();
   await body();
@@ -97,7 +80,6 @@ async function cell(opts: Options, body: () => Promise<void> | void): Promise<st
   return capped ? `${ms(median)}*` : ms(median);
 }
 
-// ── parse: what one tree-sitter parse costs, the floor under apply ────────────────────
 async function caseParse(opts: Options): Promise<void> {
   const W = [16, 9, 11] as const;
   console.log(row(['lines', 'KB', 'buildMap'], W));
@@ -111,7 +93,6 @@ async function caseParse(opts: Options): Promise<void> {
   }
 }
 
-// ── apply: a patch that FITS — the build's case, and sync's ───────────────────────────
 async function caseApply(opts: Options): Promise<void> {
   const W = [16, 9, 11, 11, 13, 12] as const;
   console.log(row(['lines', 'KB', 'buildMap', 'apply 1', 'resolve 1', 'apply 10'], W));
@@ -133,7 +114,6 @@ async function caseApply(opts: Options): Promise<void> {
   }
 }
 
-// ── generate: synthesis, the one that does not scale ──────────────────────────────────
 async function caseGenerate(opts: Options): Promise<void> {
   const W = [16, 9, 8, 11, 12] as const;
   console.log(row(['lines', 'KB', 'edits', 'generate', 'per edit'], W));
@@ -157,7 +137,6 @@ async function caseGenerate(opts: Options): Promise<void> {
   }
 }
 
-// ── probes: WHERE synthesis spends it — how many probes, and the worst one ────────────
 async function caseProbes(opts: Options): Promise<void> {
   const W = [16, 8, 11, 13, 11] as const;
   console.log(row(['lines', 'probes', 'total', 'worst probe', 'its result'], W));
@@ -190,7 +169,6 @@ async function caseProbes(opts: Options): Promise<void> {
   if (worstPattern !== '') console.log(`\n  worst pattern: ${worstPattern.slice(0, 200)}`);
 }
 
-// ── depth: one edit, nesting 1..4 — the control that says size alone is innocent ──────
 async function caseDepth(opts: Options): Promise<void> {
   const counts = opts.big ? [25, 50, 100, 200, 400] : [25, 50, 100, 200];
   const W = [16, ...counts.map(() => 9)] as const;
@@ -207,8 +185,6 @@ async function caseDepth(opts: Options): Promise<void> {
   console.log(`\n  (lines at the widest: ${nested(counts[counts.length - 1]!, 4).split('\n').length})`);
 }
 
-// ── python: a parent with no closing token — the change opens a block (07-findings, С1) ─
-/** What a run ended with, for the table: `ok`, or the reason/kind it failed with. */
 async function outcome(body: () => Promise<unknown>): Promise<string> {
   try {
     await body();
@@ -253,7 +229,6 @@ async function casePython(opts: Options): Promise<void> {
   }
 }
 
-// ── python-depth: nesting 1..6, the same headers in every class (С1) ─────────────────
 async function casePythonDepth(opts: Options): Promise<void> {
   const counts = opts.big ? [25, 50, 100, 200, 400] : [25, 50, 100, 200];
   const W = [16, ...counts.map(() => 16)] as const;
@@ -262,8 +237,6 @@ async function casePythonDepth(opts: Options): Promise<void> {
     const cells: string[] = [];
     let past = false;
     for (const classes of counts) {
-      // past the budget once, the bigger cells of the row are skipped: one of them ran
-      // 14 minutes (Г3, 2026-10-20), and a row is told by where it crosses the budget
       if (past) { cells.push('—'); continue; }
       const oldText = pyNested(classes, depth);
       const newText = pyNestedEdit(oldText, classes, depth);
@@ -284,7 +257,6 @@ async function casePythonDepth(opts: Options): Promise<void> {
   console.log(`\n  (lines at the widest: ${pyNested(counts[counts.length - 1]!, 6).split('\n').length}; — = skipped, the row went past the budget)`);
 }
 
-// ── siblings: a change told apart only by BOTH neighbours right next to it (С2) ───────
 async function caseSiblings(opts: Options): Promise<void> {
   const W = [16, 22, 13, 13] as const;
   console.log(row(['lines', 'limits', 'generate', '→'], W));
@@ -304,7 +276,6 @@ async function caseSiblings(opts: Options): Promise<void> {
   }
 }
 
-// ── markup: HTML, XML, CSS, JSON, JSON5, IDL — blocks told apart only by their header ─
 async function caseMarkup(opts: Options): Promise<void> {
   const W = [16, 9, 11, 11, 11, 11] as const;
   const kinds: [string, LanguageAdapter, (n: number) => string, (t: string, n: number) => string][] = [
@@ -335,17 +306,6 @@ async function caseMarkup(opts: Options): Promise<void> {
   }
 }
 
-// ── tuning: which settings keep a patch landing in the RIGHT place after upstream moves ─
-//
-// For every language, shape (depth × regime) and profile of settings: `generate` once,
-// then the patch is applied to the old file after each drift of TUNE_DRIFTS. A drift
-// ends one of three ways:
-//   ok      — landed, and the result is the drifted file with the edit where it belongs
-//   refused — did not land (no fit, or ambiguous): a person looks, nothing is broken
-//   WRONG   — landed somewhere else: the one outcome a setting must never buy
-// Lines are compared trimmed, blank lines dropped: a patch that keeps its own indent on
-// a reindented file is not wrong.
-
 export const PROFILES: readonly (readonly [string, PartialLimits & { exact?: boolean }])[] = [
   ['default', {}],
   ['parents 1', { maxParents: 1 }],
@@ -366,7 +326,6 @@ const TUNE_LANGS = ['cpp', 'java', 'javascript', 'typescript', 'go', 'rust', 'ko
 
 const flat = (text: string): string => text.split('\n').map((l) => l.trim()).filter((l) => l !== '').join('\n');
 
-/** Lines inside the `# match` blocks of a `.sirp` — how much a patch leans on. */
 function matchLines(md: string): number {
   let inside = false;
   let n = 0;
@@ -419,8 +378,6 @@ async function caseTuning(opts: Options): Promise<void> {
   await tuneGrid(opts, TUNE_SYNTAX, TUNE_LANGS);
 }
 
-// The same grid on TUNE_FLAT: a unit with no block of its own, the next unit right after
-// it — does a pattern lean on the next unit's first line, as Python's does?
 async function caseTuningFlat(opts: Options): Promise<void> {
   await tuneGrid(opts, TUNE_FLAT, Object.keys(TUNE_FLAT));
 }

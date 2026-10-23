@@ -2,11 +2,7 @@ import { makeTextAdapter } from '../make-text-adapter.ts';
 import { replaceWhitespaceOutsideStrings } from '../zones.ts';
 import type { StringRule } from '../zones.ts';
 
-// YAML: read as text. Its blocks are its indentation, which this reading does not make
-// blocks of; the indentation is kept, so a key moved to another level is no match.
-
 const ZONES: readonly StringRule[] = [
-  // a `#` starts a comment at the start of a line or after a space — not in `$#`, `${#x}`
   { open: /(?<![^\s])#/, close: '\n', opaque: false },
   { open: '"', close: '"', escape: '\\' },
   { open: "'", close: "'" },

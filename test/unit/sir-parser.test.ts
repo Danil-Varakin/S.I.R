@@ -223,8 +223,6 @@ test('FAIL: text between hunks — the hint names the note block', () => {
   assert.match(err.hint ?? '', /# note/);
 });
 
-// ── # note … # end: the author's comment on the hunk after it ─────────────────
-
 const HUNK = ['# match c', '    foo >>>', '# end', '# patch', '    X', '# end'];
 
 test('note: attaches to the next hunk, prose in any column, edges trimmed', () => {
@@ -247,8 +245,6 @@ test('note: before the first hunk, after the header', () => {
   ));
   assert.deepStrictEqual(file.hunks[0]!.note, { text: 'first', mdSpan: [4, 6] });
 });
-
-// ── the header (core/header.ts, VERSIONING.md H1–H3) ────────────────────────────
 
 test('header: the fields sir knows, names in any case, unknown ones read past', () => {
   const file = parseSirFile(md(
@@ -350,8 +346,6 @@ test('FAIL: the old fenced format is reported by name, with the fix in the hint'
   assert.match(err.hint ?? '', /# end/);
 });
 
-// ── the gutter: column 0 belongs to the structure, payload never reaches it ───
-
 test('a fence inside the patch body survives verbatim', () => {
   const file = parseSirFile(
     md('# match cpp', '    foo >>>', '# end',
@@ -421,7 +415,7 @@ test('mdSpan of a hunk spans the "# match" heading and the closing "# end"', () 
 
 test('header: the known fields in their order, each once; unknown ones anywhere after Sir', () => {
   parseSirFile(md('Sir: 2', 'X-Note: a', 'Target: a.c', 'X-Other: b', 'Grammar: g', '', ...HUNK));
-  parseSirFile(md('Sir: 2', 'Grammar: g', '', ...HUNK)); // a field left out keeps the rest in order
+  parseSirFile(md('Sir: 2', 'Grammar: g', '', ...HUNK));
   const swapped = expectParseError(md('Sir: 2', 'Sir-Version: 0.5.0', 'Target: a.c', '', ...HUNK), 'Target must come before Sir-Version');
   assert.equal(swapped.mdLine, 3);
   expectParseError(md('Sir: 2', 'Target: a.c', 'target: b.c', '', ...HUNK), 'twice');

@@ -1,16 +1,12 @@
 import { createInterface } from 'node:readline';
 import type { Interface } from 'node:readline';
 
-// Answers typed at a terminal or piped in (`printf 'y\nn\n' | sir generate -a …`),
 // one line per question. ONE reader per run, not one per question: a pipe delivers
 // several lines at once, and a reader closed after the first answer would throw the
 // rest away.
 
 export interface Answers {
-  /** Writes `prompt` to stderr and resolves with the next line — or null once the input
-   *  has closed with no line left, which is never a promise nobody settles. */
   next(prompt: string): Promise<string | null>;
-  /** Lets the process exit; a reader never asked anything costs nothing. */
   close(): void;
 }
 

@@ -1,8 +1,6 @@
 import { file, opt } from '../../matrix.ts';
 import type { Fixture } from '../../matrix.ts';
 
-// Android resources: the outer block is a <group> named by its name, the target an
-// <array> in it.
 export const fixture: Fixture = {
   language: 'xml',
   targetName: 'target',

@@ -103,8 +103,6 @@ test('apply: a patch is a .sirp file — a .md is refused before it is read', ()
   assert.match(r.stderr, /git mv x\.md x\.sirp/);
 });
 
-// ── apply: what it needs, and what it says when it is missing ────────────────────────
-
 function runIn(dir: string, args: string[]): { status: number; stderr: string } {
   const r = spawnSync('node', ['--experimental-strip-types', '--no-warnings', CLI, ...args], { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   return { status: r.status ?? -1, stderr: r.stderr };

@@ -56,8 +56,6 @@ function writeConfig(dir: string, body: unknown): string {
   return file;
 }
 
-// ── layers ───────────────────────────────────────────────────────────────────────
-
 test('no file and no flags: built-in defaults, every origin is "default"', () => {
   const config = resolveConfig({});
   assert.deepEqual({ ...config.generate }, { ...DEFAULT_SETTINGS });
@@ -128,8 +126,6 @@ test('a minimum above its maximum is a wish, not a contradiction: the config kee
   );
 });
 
-// ── file validation ──────────────────────────────────────────────────────────────
-
 test('an unknown key is an error, not a silent default', withTempDir((dir) => {
   const file = writeConfig(dir, { version: 3, generate: { siblings: { maxx: 3 } } });
   assert.throws(
@@ -146,7 +142,6 @@ test('an unknown top-level key is caught too', withTempDir((dir) => {
 }));
 
 test('wrong types and out-of-range numbers are refused', withTempDir((dir) => {
-  // refused, and the refusal names the key that is wrong
   const names = (key: RegExp) => (e: unknown): boolean => e instanceof ConfigError && key.test(e.message);
   assert.throws(() => readConfigFile(writeConfig(dir, { generate: { exact: 'yes' } })), names(/generate\.exact/));
   assert.throws(() => readConfigFile(writeConfig(dir, { generate: { siblings: { max: -1 } } })), names(/generate\.siblings\.max/));
@@ -178,8 +173,6 @@ test('a version other than the current one is refused', withTempDir((dir) => {
   const file = writeConfig(dir, { version: CONFIG_VERSION + 1, generate: {} });
   assert.throws(() => readConfigFile(file), /does not know yet — it reads v3: update sir/);
 }));
-
-// ── file lookup ──────────────────────────────────────────────────────────────────
 
 test('the config is searched for UPWARDS from the input file', withTempDir((dir) => {
   const file = writeConfig(dir, { version: 3, generate: { siblings: { max: 1 } } });
@@ -234,7 +227,7 @@ test('a config in the HOME directory is not inherited by projects below it', wit
 test('from the HOME directory itself the search looks there and goes no higher', withTempDir((dir) => {
   const home = join(dir, 'home');
   mkdirSync(home);
-  writeConfig(dir, { version: 3 }); // above the home directory: never read
+  writeConfig(dir, { version: 3 });
   withHome(home, () => {
     assert.deepEqual(configCandidates(home), [join(home, CONFIG_FILE_NAME)]);
     assert.equal(findConfigFile(home), undefined);
@@ -291,8 +284,6 @@ test('the JSON Schema lists exactly the keys the code knows', () => {
   walk(schema, '');
   assert.deepEqual(paths.sort(), knownConfigKeys().sort());
 });
-
-// ── limits drive the synthesis ───────────────────────────────────────────────────
 
 const NESTED_OLD = 'namespace net {\nvoid f() {\n  int a = 1;\n  g(a);\n}\n}\n';
 const NESTED_NEW = 'namespace net {\nvoid f() {\n  int a = 2;\n  g(a);\n}\n}\n';
@@ -374,8 +365,6 @@ test('a bracket that discriminates nothing is NOT dragged along', async () => {
   assert.ok(!md.includes('map<'), md);
 });
 
-// ── CLI ──────────────────────────────────────────────────────────────────────────
-
 const SIR_CLI = fileURLToPath(new URL('../../src/bin/sir.ts', import.meta.url));
 
 function runCli(args: string[], cwd: string): { status: number; stdout: string; stderr: string } {
@@ -452,17 +441,15 @@ test('CLI generate: generate.base in the config is the old version when no flag 
     const gen = (...args: string[]): string => {
       const r = runCli(['generate', '--in', repo.inPath, '--out', '-', ...args], repo.dir);
       assert.equal(r.status, 0, r.stderr);
-      // a base out of git is named in the header, one from a file is not
       return r.stdout.replace(/^Base-Blob: .*\n/m, '');
     };
     const against = (text: string): string => {
       const oldFile = join(repo.dir, 'old.cc');
       writeFileSync(oldFile, text);
-      return gen('--in-old', oldFile); // --in-old ignores the config's base
+      return gen('--in-old', oldFile);
     };
 
     assert.equal(gen(), against(version(1)), 'the commit the config names');
-    // A git flag replaces the config's coordinates whole: no commit is left to pair with it.
     assert.equal(gen('--branch', 'side'), against(version(3)), 'the branch the flag names');
   } finally {
     rmSync(repo.dir, { recursive: true, force: true });

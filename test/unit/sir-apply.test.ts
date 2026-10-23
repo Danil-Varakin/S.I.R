@@ -9,10 +9,6 @@ import { SPEC as APPLY_SPEC } from '../../src/cli/apply.ts';
 import { binSpec } from '../../src/cli/sir-apply.ts';
 import { knownOptions } from '../../src/cli/args.ts';
 
-// Stage 5 of 0.4: `sir-apply`, the build's tool. Every test runs the entry through Node;
-// with SIR_APPLY_BIN set to a built binary (scripts/build-apply-bin.mjs) the same tests
-// run through it as well — no Node, no package directory, the grammars inside.
-
 const ENTRY = fileURLToPath(new URL('../../src/bin/sir-apply.ts', import.meta.url));
 const BINARY = process.env['SIR_APPLY_BIN'];
 const RUNNERS: { name: string; argv: string[] }[] = [
@@ -133,12 +129,10 @@ for (const runner of RUNNERS) {
       repoAt(dir, { 'a.cc': OLD });
       git(dir, 'tag', 'v1');
       writeFileSync(join(dir, 'a.cc.sirp'), PATCH('a.cc'));
-      // a tag named as the branch: sir asks, sir-apply refuses
       const tag = run(dir, 'verify', '--match', 'a.cc.sirp', '--branch', 'v1');
       assert.equal(tag.status, 1, tag.stderr);
       assert.match(tag.stderr, /sir-apply asks nothing: stopping/);
       assert.match(tag.stderr, /--branch v1: not a branch/);
-      // into another file it goes
       const elsewhere = run(dir, 'apply', '--match', 'a.cc.sirp', '--head', '--out', 'patched.cc');
       assert.equal(elsewhere.status, 0, elsewhere.stderr);
       assert.match(readFileSync(join(dir, 'patched.cc'), 'utf8'), /int b = 2;/);
@@ -156,7 +150,6 @@ for (const runner of RUNNERS) {
       assert.equal(first.status, 0, first.stderr);
       assert.match(readFileSync(join(dir, 'a.cc'), 'utf8'), /int b = 2;/);
 
-      // the next build: the file already holds the result — same inode, same mtime
       const before = statSync(join(dir, 'a.cc'), { bigint: true });
       const again = run(dir, 'apply', '--match', 'a.cc.sirp', '--head');
       assert.equal(again.status, 0, again.stderr);
@@ -165,7 +158,6 @@ for (const runner of RUNNERS) {
       assert.equal(after.ino, before.ino);
       assert.equal(after.mtimeNs, before.mtimeNs);
 
-      // the patch changed since: the file holds the old result — laid on the clean base again
       writeFileSync(join(dir, 'a.cc.sirp'), PATCH('a.cc').replace('int b = 2;', 'int c = 3;'));
       const changed = run(dir, 'apply', '--match', 'a.cc.sirp', '--head');
       assert.equal(changed.status, 0, changed.stderr);
@@ -216,7 +208,6 @@ for (const runner of RUNNERS) {
       const patch = join(brave, 'patches', 'chrome', 'browser', 'ui', 'browser.h.sirp');
       mkdirSync(dirname(patch), { recursive: true });
       writeFileSync(patch, PATCH('chrome/browser/ui/browser.h'));
-      // the working file has moved on: verify is about the clean base, not about it
       writeFileSync(join(src, 'chrome', 'browser', 'ui', 'browser.h'), NEW);
 
       const verify = run(brave, 'verify', '--match', 'patches/chrome/browser/ui/browser.h.sirp');

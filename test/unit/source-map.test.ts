@@ -7,11 +7,8 @@ import { buildCanon } from '../../src/lang/canon.ts';
 import { normalize } from '../../src/lang/cpp/index.ts';
 import type { SourceMap } from '../../src/lang/source-map.ts';
 
-// depthAt / enclosingEnd жили в SourceMap, но в src/ их не звал никто — только тесты.
-// Оба выводятся из enclosing(), который возвращает спаны от самого внутреннего.
 const depthAt = (map: SourceMap, pos: number): number => map.enclosing(pos).length;
 const enclosingEnd = (map: SourceMap, pos: number): number => map.enclosing(pos)[0]?.close ?? map.eof;
-
 
 function cursorAfter(map: ReturnType<typeof cppAdapter.buildMap>, anchor: string): number {
   for (let p = 0; p + anchor.length <= map.eof; p++) {
@@ -67,8 +64,6 @@ test('at the top level enclosingEnd is eof', async () => {
   assert.equal(depthAt(map, 0), 0);
 });
 
-// ── matchesAt / occurrences: token boundaries, pure and without tree-sitter ────
-
 test('matchesAt honours token boundaries: Foo does not match inside FooBar', () => {
   const map = makeSourceMap(buildCanon('FooBar Foo', normalize), []);
   assert.equal(map.matchesAt('Foo', 0), false);
@@ -89,8 +84,6 @@ test('matchesAt on "}" needs no boundary, punctuation being punctuation', () => 
   assert.equal(map.matchesAt('{', 1), true);
   assert.equal(map.matchesAt('}', 2), true);
 });
-
-// ── brackets in general: () [] <> are blocks too, while 'a < b' is not ─────────
 
 test('nested () give different levels and their own enclosingEnd', async () => {
   await cppAdapter.init();
@@ -147,8 +140,6 @@ test('sibling blocks: enclosingEnd tells their parents apart', async () => {
   assert.ok(map.matchesAt('}', enclosingEnd(map, betweenFns)));
 });
 
-// ── the header of a node (headerStart) and blocksWithin ───────────────────────
-
 test('headerStart: a body span carries the start of the HEADER, not the line with "{"', async () => {
   await cppAdapter.init();
   const map = cppAdapter.buildMap('void foo(int a)\n{\n  g();\n}\n');
@@ -170,15 +161,11 @@ test('blocksWithin: returns bracket spans lying WHOLLY inside the range', async 
   assert.throws(() => map.blocksWithin(2, 1));
 });
 
-// ── token boundaries are unicode-aware ────────────────────────────────────────
-
 test('token boundaries work for non-ASCII text', () => {
   const map = makeSourceMap(buildCanon('Фу,Фубар', normalize), []);
   assert.equal(map.matchesAt('Фу', 0), true);
   assert.equal(map.matchesAt('Фу', 3), false);
 });
-
-// ── validating inputs: junk throws ────────────────────────────────────────────
 
 test('the map methods throw on an invalid input', () => {
   const map = makeSourceMap(buildCanon('abc', normalize), []);

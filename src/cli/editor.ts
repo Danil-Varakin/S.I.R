@@ -3,10 +3,6 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-// The editor a person edits hunks in, chosen the way git chooses it: $VISUAL, then
-// $EDITOR, then the one every system has. It runs with the terminal as its own: stdin,
-// and stderr for its screen too — stdout may be where the patch goes (`--out -`).
-
 export function editorCommand(env: NodeJS.ProcessEnv = process.env, platform: string = process.platform): string {
   for (const value of [env['VISUAL'], env['EDITOR']]) {
     if (value !== undefined && value.trim() !== '') return value.trim();
@@ -14,8 +10,6 @@ export function editorCommand(env: NodeJS.ProcessEnv = process.env, platform: st
   return platform === 'win32' ? 'notepad' : 'vi';
 }
 
-/** Runs `command file` and waits for it. A command may carry its own arguments
- *  (`code --wait`), so it goes through the shell, the file as a separate argument. */
 export function runEditor(command: string, file: string, platform: string = process.platform): void {
   const run =
     platform === 'win32'
@@ -30,11 +24,8 @@ export function runEditor(command: string, file: string, platform: string = proc
   }
 }
 
-/** One file for the whole run, made on the first edit. It is left in place when the run
- *  stops, so that nothing typed into it is lost; `discard` removes it after a success. */
 export interface EditSession {
   edit(text: string): Promise<string>;
-  /** the file, once something was edited */
   readonly file: string | undefined;
   discard(): void;
 }

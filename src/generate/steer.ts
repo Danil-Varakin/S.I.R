@@ -17,32 +17,14 @@ import { template, withDraft } from './draft.ts';
 import { getLineStartOffsets, sameIgnoringSpace, synthesizeOne } from './synth.ts';
 import type { PartialLimits, Tracer } from './synth.ts';
 
-// Synthesis a person steers, one change at a time — `generate -a`, and any `generate`
-// with a terminal whose synthesis could not anchor a change.
-//
-// The state is nothing but the hunks so far. Each step replays them over the OLD version
-// and takes the first change still between that text and the new one; so a hunk written
-// by hand — pattern, patch body, anything — is simply the new state, and the next hunk is
-// built against what it produced. What a hunk wrote is settled: a difference inside it is
-// not offered again, which is how a patch body edited on purpose stays as it was edited.
-
-/** What the person says about a hunk synthesis offers. */
 export type Verdict =
   | 'keep'
-  /** leave this change out of the patch; the next hunks are built without it */
   | 'skip'
-  /** not this hunk — offered the editor next (`offerEdit`); refused, the run stops */
   | 'decline';
 
 export interface Steering {
-  /** Asked about every hunk synthesis offers; absent — every hunk is kept. `total` counts
-   *  the hunks so far and the changes still to go. */
   readonly review?: ((hunk: Hunk, number: number, total: number) => Promise<Verdict>) | undefined;
-  /** Asked after a declined hunk, a change synthesis could not anchor, or a hand edit
-   *  that does not stand: go (back) to the editor? `false` stops the run, and nothing
-   *  is written. `why` is the reason, to show. */
   readonly offerEdit: (why: string) => Promise<boolean>;
-  /** The patch so far — a note on top — to the editor, and back as edited. */
   readonly edit: (text: string) => Promise<string>;
 }
 
@@ -50,23 +32,16 @@ export interface SteerRequest {
   readonly oldText: string;
   readonly newText: string;
   readonly adapter: LanguageAdapter;
-  /** the `# match` heading */
   readonly label: string;
   readonly bridgeGap: number;
   readonly exact: boolean;
   readonly limits?: PartialLimits | undefined;
   readonly trace?: Tracer | undefined;
   readonly maps?: MapCache | undefined;
-  /** A `.sirp` whose hunks are settled before the run starts, as if the editor had just
-   *  given them back (the service's `keep`): checked as an edit is, and the run goes on
-   *  from them. One that does not stand is thrown — there is no one to ask again. */
   readonly keep?: string | undefined;
-  /** Stops the run between two changes, throwing the signal's reason. */
   readonly signal?: AbortSignal | undefined;
 }
 
-/** No one to steer: every hunk kept, and a change that cannot be anchored ends the run
- *  with its `SynthesisError` and the draft to write it by hand (the service). */
 export const unattended: Steering = {
   offerEdit: async () => false,
   edit: () => {
@@ -76,7 +51,6 @@ export const unattended: Steering = {
 
 export interface Steered {
   readonly hunks: readonly Hunk[];
-  /** the hunks give the new version — false when changes were left out or edited */
   readonly reproducesNew: boolean;
 }
 
@@ -124,19 +98,12 @@ export async function steerSynthesis(request: SteerRequest, steering: Steering):
   }
 }
 
-// ── the state: the hunks so far, and what they made of the old version ──────────
-
 interface Laid {
   readonly hunks: readonly Hunk[];
-  /** the old version with every hunk laid, in order */
   readonly current: string;
-  /** where each hunk's text is in `current` — what it wrote is settled */
   readonly settled: readonly Span[];
 }
 
-/** One hunk more, laid on `current` — the text it was made against, where it lands and
- *  only there (synthesis checked that): the same as replaying every hunk over the old
- *  version, for the price of one. */
 function laidOn(state: Laid, hunk: Hunk, request: SteerRequest): Laid {
   const { adapter, maps } = request;
   const edit = planHunk(state.current, mapFor(adapter, state.current, maps), hunk, adapter);
@@ -147,8 +114,6 @@ function laidOn(state: Laid, hunk: Hunk, request: SteerRequest): Laid {
   };
 }
 
-/** Hunks a person wrote: replayed over the old version from the start — `check` saw each
- *  of them land. */
 function replayed(hunks: readonly Hunk[], request: SteerRequest): Laid {
   const { applied, links } = resolveHunks(request.oldText, { hunks: [...hunks], language: request.label }, request.adapter, request.maps);
   return { hunks, current: applied, settled: links.flatMap((l) => (l.final !== undefined ? [l.final] : [])) };
@@ -167,11 +132,6 @@ async function verdictOn(hunk: Hunk, number: number, total: number, steering: St
   }
 }
 
-// ── the editor round trip ────────────────────────────────────────────────────────
-
-/** The patch goes to the editor until what comes back parses and every hunk of it lands on
- *  the old version, in order. Each time it does not, the reason goes on top and the
- *  person is asked again; saying no stops the run. */
 async function editUntilItStands(
   hunks: readonly Hunk[],
   why: string,
@@ -191,14 +151,11 @@ async function editUntilItStands(
   }
 }
 
-/** The hunks the edited text holds, or the reason it does not stand. */
 function check(text: string, request: SteerRequest): readonly Hunk[] | string {
   const checked = standing(text, request);
   return 'hunks' in checked ? checked.hunks : checked.why;
 }
 
-/** The hunks of `keep`, or what `check` would have said about it, thrown as the error it
- *  is — the hunk and its line in `keep` on it when one does not land. */
 function kept(keep: string, request: SteerRequest): readonly Hunk[] {
   const checked = standing(keep, request);
   if ('hunks' in checked) return checked.hunks;
@@ -209,8 +166,6 @@ type Standing =
   | { readonly hunks: readonly Hunk[] }
   | { readonly why: string; readonly error: unknown };
 
-/** Whether a patch written by hand stands: it parses, its heading is the language's, and
- *  every hunk lands on the old version, in order. */
 function standing(text: string, request: SteerRequest): Standing {
   let file;
   try {
@@ -233,10 +188,6 @@ function standing(text: string, request: SteerRequest): Standing {
   return { why: error.message, error };
 }
 
-/** The error the hunk that does not land fails with, laid on the text the hunks before it
- *  make — with its number and line on it. A hunk that lands on the old version by itself
- *  anchors on text a hunk before it rewrote: that hunk is named, the first after which it
- *  no longer lands. */
 function landingError(hunks: readonly Hunk[], index: number, mdLine: number | undefined, request: SteerRequest): SirError {
   const { adapter, maps } = request;
   const after = (count: number): string =>
@@ -249,8 +200,6 @@ function landingError(hunks: readonly Hunk[], index: number, mdLine: number | un
       return e;
     }
   };
-  // resolveHunks did not lay it on this text, so laying it here throws — a SirError,
-  // anything else is a fault of sir and goes on up
   const error = failure(after(index));
   if (!(error instanceof SirError)) throw error;
   let because = error.message;
@@ -266,8 +215,6 @@ function landingError(hunks: readonly Hunk[], index: number, mdLine: number | un
 
 const NOTE_WIDTH = 80;
 
-/** Prose above the first `# match`, which the parser skips. No line of it starts at
- *  column 0 with `#`, so a quoted line of code can never pass for a heading. */
 function note(reason: string, segment: ChangeSegment): string {
   const quote = (lines: readonly string[], mark: string): string[] => lines.map((l) => `  ${mark} ${l}`);
   return [
@@ -285,8 +232,6 @@ function note(reason: string, segment: ChangeSegment): string {
   ].join('\n');
 }
 
-/** The hunks of a `.sirp` as written, from the first heading on — its header and any
- *  prose before them left out, every byte after kept. */
 export function hunksOf(text: string): string {
   let at = 0;
   for (const line of text.split('\n')) {
@@ -297,18 +242,12 @@ export function hunksOf(text: string): string {
   return text;
 }
 
-/** The hunks of an edited text without the prose above them: from the first heading —
- *  a hunk's `# note` comes before its `# match` and is part of it. */
 function bodyOf(edited: string): string {
   const lines = edited.split(/\r?\n/);
   const at = lines.findIndex((line) => MATCH_HEADING.test(line) || NOTE_HEADING.test(line));
   return at === -1 ? edited : lines.slice(at).join('\n');
 }
 
-// ── what is left to do ───────────────────────────────────────────────────────────
-
-/** Whether a change lies in text a hunk already wrote. `offsets`: where each line of the
- *  current text starts. */
 function touches(segment: ChangeSegment, offsets: readonly number[], settled: readonly Span[]): boolean {
   const lineAt = (k: number): number => offsets[Math.min(k, offsets.length - 1)]!;
   const start = lineAt(segment.oldStart - 1);
@@ -318,7 +257,6 @@ function touches(segment: ChangeSegment, offsets: readonly number[], settled: re
   );
 }
 
-/** The target with one change taken back: its lines as the current text has them. */
 function leftOut(segment: ChangeSegment, target: string): string {
   const lines = target.split('\n');
   lines.splice(segment.newStart - 1, segment.added.length, ...segment.removed);

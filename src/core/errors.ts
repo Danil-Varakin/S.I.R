@@ -1,14 +1,11 @@
 import type { Hunk } from './ast.ts';
 
-/** The first line of an error's message — a reason quoted inside another message. */
 export function firstLineOf(e: unknown): string {
   return String(e instanceof Error ? e.message : e).trim().split('\n')[0] ?? '';
 }
 
 export abstract class SirError extends Error {
   abstract readonly exitCode: number;
-  /** The hunk of a patch the client sent that the error is about, and its line there —
-   *  set where a patch written by hand is checked (`generate`'s `keep`). */
   hunkAt: { readonly hunk: number; readonly mdLine?: number } | undefined;
 
   constructor(message: string) {
@@ -26,7 +23,6 @@ export abstract class SirError extends Error {
 
 export class ParseError extends SirError {
   readonly exitCode = 2;
-  /** the line of the `.sirp`, counted from 1 (the name is from the format before 0.4) */
   readonly mdLine: number;
   readonly hint?: string;
 
@@ -108,7 +104,6 @@ export class PathError extends SirError {
 export class ConfigError extends SirError {
   readonly exitCode = 5;
   readonly file: string | undefined;
-  /** `keys` not in the schema `version` the config names — each `{ path, since, until }`. */
   readonly facts: Readonly<Record<string, unknown>> | undefined;
 
   constructor(message: string, file?: string, facts?: Record<string, unknown>) {
@@ -175,8 +170,6 @@ export class GitError extends SirError {
   readonly exitCode = 1;
   readonly revision: string | undefined;
   readonly reason: GitErrorReason;
-  /** The CLI flag the message is about (`--branch`). The message itself does not name
-   *  it — the service has no flags; the CLI puts it in front (`cli/command.ts`). */
   readonly flag: string | undefined;
 
   constructor(message: string, reason: GitErrorReason, options: { revision?: string | undefined; flag?: string | undefined } = {}) {
@@ -191,8 +184,6 @@ export class GitError extends SirError {
   }
 }
 
-/** The new version is the base, as `generate` compares them — after normalization, or
- *  byte for byte with `exact`. There is nothing to write, and no patch is written. */
 export class NoChanges extends SirError {
   readonly exitCode = 7;
   readonly baseSpec: string | null;
@@ -207,34 +198,19 @@ export class NoChanges extends SirError {
   }
 }
 
-/** Why `generate` wrote no patch: no pattern made of the text around a change lands
- *  there and only there — no candidate fitted, or none could be built (`no-match`), or
- *  the last fitted in more than one place (`ambiguous`) — or the hunks, applied, do not
- *  give the new version (`unreproduced`, a fault of synthesis itself). A `.sirp` that
- *  does not apply is a MatchError or an AmbiguityError; this one had no patch to apply
- *  yet. */
 export type SynthesisFailure = 'no-match' | 'ambiguous' | 'unreproduced';
 
-/** What a person needs to write an unanchored change by hand: the hunks so far and, last,
- *  a hunk to start the change from (`generate/draft.ts`). */
 export interface SynthesisDraft {
   readonly hunks: readonly Hunk[];
-  /** the change: its line in the text the hunks so far make of the old version (from
-   *  1), the lines it takes out and the lines it puts in */
   readonly change: { readonly line: number; readonly removed: readonly string[]; readonly added: readonly string[] };
-  /** the draft as a `.sirp`, header first, and the line of the last hunk's `# match` in
-   *  it (from 1) — printed by `generate`, which has the header */
   readonly printed?: { readonly text: string; readonly line: number };
 }
 
 export class SynthesisError extends SirError {
   readonly exitCode = 8;
   readonly reason: SynthesisFailure;
-  /** the line of the new version the change starts on, counted from 1 */
   readonly newLine: number | undefined;
-  /** the last candidate's failure, one line — for a message that names the change itself */
   readonly because: string;
-  /** the hunks to go on from by hand — none for `unreproduced`, which is no change's */
   readonly draft: SynthesisDraft | undefined;
 
   constructor(message: string, reason: SynthesisFailure, because: string, newLine?: number, draft?: SynthesisDraft) {

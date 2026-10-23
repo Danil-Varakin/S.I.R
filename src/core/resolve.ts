@@ -29,9 +29,7 @@ export interface HunkLink {
   readonly index: number;
   readonly status: LinkStatus;
   readonly mdSpan?: readonly [number, number];
-  /** the hunk's `# note` text, when it has one. Protocol 4. */
   readonly note?: string;
-  /** lines of the `.sirp` from `# note` to its `# end`. Protocol 4. */
   readonly noteSpan?: readonly [number, number];
   readonly base?: Span;
   readonly final?: Span;
@@ -78,7 +76,6 @@ export function resolveHunks(
   return { links: drafts.map((d) => project(d, staged, current)), applied: current };
 }
 
-/** A hunk laid — or, with no edit, refused, and then always with what it failed with. */
 type Draft =
   | { readonly index: number; readonly hunk: Hunk; readonly edit: Edit; readonly dependsOnEarlier: boolean }
   | { readonly index: number; readonly hunk: Hunk; readonly edit: null; readonly dependsOnEarlier: false; readonly failure: LinkFailure };
@@ -127,9 +124,6 @@ function project(draft: Draft, staged: readonly (Edit | null)[], applied: string
   };
 }
 
-/** Where `span` of the text after `edit` was before it. What `edit` replaced is never
- *  inside the span — the start goes past it, the end stays before it; inside what `edit`
- *  wrote the baseline has no place, and both go to where the edit writes. */
 function spanBack(span: Span, edit: Edit): Span {
   const start = backThrough(span.start, edit, 'start');
   const end = backThrough(span.end, edit, 'end');
@@ -140,13 +134,9 @@ function backThrough(pos: number, edit: Edit, side: 'start' | 'end'): number {
   if (side === 'start' ? pos < edit.start : pos <= edit.start) return pos;
   const writtenEnd = edit.start + edit.text.length;
   if (pos >= writtenEnd) return pos - edit.text.length + (edit.end - edit.start);
-  return edit.start; // inside what the edit wrote — the baseline has no such place
+  return edit.start;
 }
 
-/** Where `span` of the text before `edit` is after it — the projection `resolve` does
- *  for `final`, for a caller that lays hunks one at a time (`generate/steer.ts`). What
- *  `edit` writes is never inside the span: the start goes past it, the end stays before
- *  it. A span `edit` replaced whole is left empty where it stood. */
 export function spanThrough(span: Span, edit: Edit): Span {
   const start = startThrough(span.start, edit);
   const end = endThrough(span.end, edit);
@@ -156,13 +146,13 @@ export function spanThrough(span: Span, edit: Edit): Span {
 function startThrough(pos: number, edit: Edit): number {
   if (pos < edit.start) return pos;
   if (pos >= edit.end) return pos + edit.text.length - (edit.end - edit.start);
-  return edit.start + edit.text.length; // inside what the edit replaced — the rest follows its text
+  return edit.start + edit.text.length;
 }
 
 function endThrough(pos: number, edit: Edit): number {
   if (pos <= edit.start) return pos;
   if (pos > edit.end) return pos + edit.text.length - (edit.end - edit.start);
-  return edit.start; // up to the end of what the edit replaced — the rest precedes its text
+  return edit.start;
 }
 
 function fitsBaseline(hunk: Hunk, baselineMap: SourceMap, adapter: LanguageAdapter): boolean {

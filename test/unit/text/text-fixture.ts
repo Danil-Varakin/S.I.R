@@ -1,8 +1,6 @@
 import { file, opt } from '../../matrix.ts';
 import type { Fixture } from '../../matrix.ts';
 
-// Plain text: a list with a braced section, as a template may have — no comments, no
-// strings; the indentation is kept.
 export const fixture: Fixture = {
   language: 'text',
   targetName: 'target',

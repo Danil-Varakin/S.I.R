@@ -54,8 +54,6 @@ test('patchHunk: a replacement cuts the old code out and puts the patch in', asy
   assert.equal(source, 'a;new(); b;');
 });
 
-// ── line endings: a bare LF of the patch takes the ending of the line it lands on ──
-
 async function landed(src: string, patternText: string, patch: string): Promise<string> {
   await cppAdapter.init();
   const map = cppAdapter.buildMap(src);

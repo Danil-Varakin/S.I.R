@@ -5,7 +5,6 @@ import type { StringRule } from '../zones.ts';
 import type { Node } from '../treesitter.ts';
 import type { BlockOf, OrigSpan } from '../block-spans.ts';
 
-// The grammar reads comments, which JSON has not; a file with them is read as it is.
 const STRINGS: readonly StringRule[] = [
   { open: '//', close: '\n', opaque: false },
   { open: '/*', close: '*/', multiline: true, opaque: false },
@@ -36,8 +35,6 @@ function bracketPair(node: Node): { first: Node; last: Node } | null {
   return { first, last };
 }
 
-// An object or an array; one that is the value of a pair has the key for its header —
-// `"permissions": [`.
 const jsonBlockOf: BlockOf = (node: Node): OrigSpan | null => {
   const pair = bracketPair(node);
   if (pair === null) return null;

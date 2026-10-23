@@ -5,11 +5,6 @@ import { parseSirFile, MATCH_HEADING, PATCH_HEADING, END_HEADING, NOTE_HEADING }
 import { readHeader, headerFields, parseHeader, isContainedPath, formatSide } from '../../src/core/header.ts';
 import { ParseError } from '../../src/core/errors.ts';
 
-// Every way a .sirp is refused, as a table: the line it names, the sentence, the hint.
-// The line is where an editor underlines; the sentence and the hint are all a person gets
-// to fix it with — a test that only checks "it throws" lets either drift.
-
-/** a hunk: the match block as given, a patch of one line */
 const H = (match: string, patch = '    x'): string => `# match cpp\n${match}\n# end\n# patch\n${patch}\n# end\n`;
 
 interface Refusal {
@@ -25,7 +20,6 @@ const ORDER = 'the order is Sir, Target, Base-Blob, Sir-Version, Grammar; fields
 const TARGET = (v: string): string => `Target must be a relative path inside the project, with no '..': '${v}'`;
 
 const REFUSALS: Refusal[] = [
-  // ── the operators of a match block ──
   {
     name: 'two skips in one gap',
     text: H('    ...\n    ...\n    >>>'),
@@ -68,7 +62,6 @@ const REFUSALS: Refusal[] = [
     says: 'there is no insertion point >>> in the match block',
     hint: 'each patch body needs exactly one insertion position',
   },
-  // ── blocks ──
   { name: 'a match block never closed — named at its heading', text: '# match cpp\n    >>>\n', line: 1, says: 'the match block is not closed', hint: NO_END },
   {
     name: 'a patch block never closed — named at its heading',
@@ -134,7 +127,6 @@ const REFUSALS: Refusal[] = [
     says: 'the patch header is expected after the match block',
     hint: "a match block without a patch doesn't make sense",
   },
-  // ── between hunks ──
   {
     name: 'text between hunks',
     text: H('    >>>') + 'stray\n' + H('    >>>'),
@@ -204,7 +196,6 @@ const REFUSALS: Refusal[] = [
     says: 'a line of the match block must start with four spaces',
     hint: "indent '# endif', or close the block with '# end'",
   },
-  // ── the header ──
   {
     name: 'a header line that is no Name: value — quoted trimmed',
     text: 'Sir: 2\nno colon here  \n\n' + H('    >>>'),
@@ -275,8 +266,6 @@ for (const r of REFUSALS) {
     );
   });
 }
-
-// ── what reads: the edges of the header and of the headings ─────────────────────────
 
 const ONE = H('    >>>');
 
@@ -366,8 +355,6 @@ test('notes: before the first hunk only a closed note followed by blank lines is
   assert.equal(parseSirFile('# end\n' + ONE).hunks[0]!.note, undefined, 'an # end with no note');
 });
 
-// ── which lines are headings ───────────────────────────────────────────────────────
-
 test('headings: what each heading pattern takes, and what it leaves as text', () => {
   const kind = (line: string): string => {
     const m = line.match(MATCH_HEADING);
@@ -412,8 +399,6 @@ test('headings: what each heading pattern takes, and what it leaves as text', ()
   ];
   for (const [line, want] of table) assert.equal(kind(line), want, JSON.stringify(line));
 });
-
-// ── a line of spaces is a blank line, wherever it stands ─────────────────────────────
 
 test('blank: a line of spaces between # end and # patch, between hunks, inside a block', () => {
   assert.equal(parseSirFile('# match cpp\n    >>>\n# end\n   \n# patch\n    x\n# end\n').hunks[0]!.patch, 'x');

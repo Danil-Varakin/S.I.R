@@ -178,24 +178,17 @@ function feedOperator(op: string, mdLine: number, builder: PatternBuilder): void
   }
 }
 
-// The headings of the format, the one spelling of each: the printer, the warnings and the
-// editor round trip find them with these, never with a copy.
 export const MATCH_HEADING = /^#{1,6}[ \t]*match:?(?:[ \t]+(\S+))?[ \t]*$/i;
 export const PATCH_HEADING = /^#{1,6}[ \t]*patch:?[ \t]*$/i;
 export const END_HEADING = /^#{1,6}[ \t]*end[ \t]*$/i;
 export const NOTE_HEADING = /^#{1,6}[ \t]*note:?[ \t]*$/i;
-/** A line that starts like a heading but is none: `# end x`, `# patch now`. */
 const HEADING_LIKE = /^#{1,6}[ \t]*(end|match|patch|note)\b/i;
 
-// The body of a note is prose, not payload: no gutter, any column. Only the headings
-// of the format are refused inside it — a stray one means the note was never closed.
 function readNote(lines: string[], start: number): { note: Note; next: number } {
   const body: string[] = [];
   for (let i = start + 1; i < lines.length; i++) {
     const line = lines[i]!;
     if (END_HEADING.test(line)) {
-      // every line went in trimmed at its end: a blank one is '' (and an empty body has
-      // no first line at all)
       while (body[0] === '') body.shift();
       while (body[body.length - 1] === '') body.pop();
       return { note: { text: body.join('\n'), mdSpan: [start + 1, i + 1] }, next: i + 1 };
@@ -234,7 +227,6 @@ function preambleNote(lines: string[], firstMatch: number): Note | undefined {
   return undefined;
 }
 
-/** Every payload line of a block carries it; stripped on read, added on print. */
 export const GUTTER = '    ';
 
 interface Block {
@@ -282,7 +274,6 @@ function bodyLineError(line: string, mdLine: number, kind: 'match' | 'patch'): P
     );
   }
   const shown = line.trim();
-  // a heading with something after it — a person closing the block, not a line of code
   const heading = HEADING_LIKE.exec(line);
   if (heading !== null) {
     const word = heading[1]!.toLowerCase();
@@ -351,7 +342,6 @@ export function parseSirFile(text: string): SirFile {
 
     let j = matchBlock.next;
     while (j < lines.length && lines[j]!.trim() === '') j++;
-    // past the last line there is no line, and no heading: `test(undefined)` is false
     if (!PATCH_HEADING.test(lines[j]!)) {
       throw new ParseError(
         'the patch header is expected after the match block',

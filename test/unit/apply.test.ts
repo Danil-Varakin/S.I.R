@@ -13,8 +13,6 @@ import { sirMd } from '../helpers.ts';
 import { buildRepo, version } from '../git-repo.ts';
 import type { Repo } from '../git-repo.ts';
 
-// ── applyAll: the pure core, no files ─────────────────────────────────────────
-
 test('applyAll: a single insertion hunk changes the text', async () => {
   await cppAdapter.init();
   const file = parseSirFile(sirMd([{ match: '... a(); >>> ...', patch: 'X();' }]));
@@ -37,12 +35,8 @@ test('applyAll: the second hunk leans on what the first inserted, in order', asy
   assert.ok(source.indexOf('int a;') < source.indexOf('int b;'), source);
 });
 
-// ── CLI end-to-end ────────────────────────────────
-
 const SIR = fileURLToPath(new URL('../../src/bin/sir.ts', import.meta.url));
 
-/** Both streams, whatever the exit: a warning printed on the way to success is part of
- *  what a run says, and has to be there to be checked. */
 function runCli(args: string[]): { status: number; stdout: string; stderr: string } {
   const r = spawnSync('node', ['--experimental-strip-types', SIR, 'apply', ...args], {
     encoding: 'utf8',
@@ -76,7 +70,6 @@ test('CLI apply --verify: a clean fit is exit 0 and nothing written', () => {
     writeFileSync(src, 'void f(){ a(); b(); }');
     writeFileSync(md, sirMd([{ match: '... a(); >>> ...', patch: 'X();' }]));
 
-    // no base out of git and nobody at a terminal to say the disk is clean: refused
     const asked = runCli(['--match', md, '--in', src, '--verify']);
     assert.equal(asked.status, 1, asked.stderr);
     assert.match(asked.stderr, /--verify needs a clean base/);
@@ -127,14 +120,6 @@ test('CLI apply: --out as a directory keeps the name, and directories are create
   }
 });
 
-
-// ── CLI apply: the file to patch out of git ───────────────────────────────────
-//
-// The repository (test/git-repo.ts) holds a different f.cc in every commit, so a patch
-// anchored on one version's line fits THAT version and no other: which one fitted
-// tells which one was read.
-
-/** A patch that fits only the version holding `line`: it inserts X(); right after it. */
 function patchAfter(repo: Repo, line: string, name = 'p.sirp'): string {
   const md = join(repo.dir, name);
   writeFileSync(md, sirMd([{ match: `... ${line} >>> ...`, patch: 'X();' }]));
@@ -218,14 +203,12 @@ test('CLI apply: writing a git version over --in never throws local edits away',
   withRepo('sir-apply-inplace-', (repo) => {
     const md = patchAfter(repo, 'int a = 2;');
 
-    // the working file (version 4) differs from HEAD (version 2): refused, left alone
     const lossy = runCli(['--match', md, '--in', repo.inPath, '--head', '--out', repo.inPath]);
     assert.equal(lossy.status, 1);
     assert.match(lossy.stderr, /the result would go over .*f\.cc, which holds changes that HEAD:src\/core\/f\.cc does not/);
     assert.match(lossy.stderr, /write the result elsewhere \(--out\), or patch the file as it is on disk \(no git coordinate\)/);
     assert.equal(readFileSync(repo.inPath, 'utf8'), version(4));
 
-    // the same text on disk as in HEAD: nothing to lose, the write goes ahead
     writeFileSync(repo.inPath, version(2));
     const clean = runCli(['--match', md, '--in', repo.inPath, '--head', '--out', repo.inPath]);
     assert.equal(clean.status, 0, clean.stderr);
@@ -249,8 +232,6 @@ test('CLI apply: --out spelled in another case is --in all the same on a case-in
 
 test('CLI apply: in place over --in is fine when the result IS the working file', () => {
   withRepo('sir-apply-noop-', (repo) => {
-    // a patch made from HEAD to the working file, applied back to HEAD: the result is the
-    // working file itself, so writing it there loses nothing
     const md = join(repo.dir, 'back.sirp');
     execFileSync('node', ['--experimental-strip-types', SIR, 'generate', '--in', repo.inPath, '--head', '--out', md,
       '--language', 'cpp'], { stdio: ['ignore', 'pipe', 'pipe'] });

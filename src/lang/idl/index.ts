@@ -3,11 +3,6 @@ import { isWordChar } from '../word.ts';
 import { replaceWhitespaceOutsideStrings } from '../zones.ts';
 import type { StringRule } from '../zones.ts';
 
-// Web IDL and Blink's IDL (`.idl`, `.webidl`): no grammar worth shipping — the one on npm is
-// OMG IDL, and the WebIDL grammars on GitHub are young and miss the dialects Chromium
-// keeps (docs/10-brave-languages.md, stage 6). Read as text: `interface X {` … `};` is a
-// block by its braces, `[Attr]` a pair of brackets.
-
 const ZONES: readonly StringRule[] = [
   { open: '//', close: '\n', opaque: false },
   { open: '/*', close: '*/', multiline: true, opaque: false },

@@ -19,8 +19,6 @@ import type { LanguageAdapter } from '../../src/lang/source-map.ts';
 import { buildRepo, version } from '../git-repo.ts';
 import type { Repo } from '../git-repo.ts';
 
-// ── the round trip THROUGH .md: synth → print → parse → apply == new ──────────
-
 async function pipelineRoundtrip(oldStr: string, newStr: string, adapter: LanguageAdapter = cppAdapter): Promise<void> {
   await adapter.init();
   const md = printSirFile(synthesize(oldStr, newStr, adapter), adapter.name);
@@ -63,9 +61,6 @@ test('printer round trip: a literal holding ... is escaped and survives parsing'
   await pipelineRoundtrip('int a = f(x, y);\nint z = 0;\n', 'int a = f(x, ...);\nint z = 0;\n');
 });
 
-// A .md carries no line endings of its own (git and editors turn them either way), so
-// the lines a hunk writes into a CRLF file must come out CRLF — byte for byte, not only
-// after normalization, which would hide a mixed file.
 test('printer round trip: a CRLF file gets CRLF on every line the hunks write', async () => {
   await pipelineRoundtrip(
     'int f() {\r\n  int a = 1;\r\n  return a;\r\n}\r\n',
@@ -104,8 +99,6 @@ test('printSirFile: the parser reads back the headings it writes', async () => {
   assert.equal(file.language, 'cpp');
 });
 
-// ── CLI generate end to end, and apply back again ─────────────────────────────
-
 const SIR = fileURLToPath(new URL('../../src/bin/sir.ts', import.meta.url));
 const GEN_CLI = [SIR, 'generate'];
 const APPLY_CLI = [SIR, 'apply'];
@@ -116,8 +109,6 @@ interface CliRun {
   stderr: string;
 }
 
-/** Both streams, whatever the exit: a warning printed on the way to success is part of
- *  what a run says, and has to be there to be checked. */
 function runCli(cli: readonly string[], args: string[], cwd?: string): CliRun {
   const r = spawnSync('node', ['--experimental-strip-types', ...cli, ...args], {
     encoding: 'utf8',
@@ -178,7 +169,6 @@ test('CLI generate → apply with no --language: the heading is the language\'s 
       assert.equal(ap.status, 0, `${c.ext}: ${ap.stderr}`);
       assert.equal(readFileSync(out, 'utf8'), newStr, c.ext);
 
-      // sir 0.2.0 wrote the extension there instead: that .md applies the same
       writeFileSync(md, printed.replace(`# match ${c.name}`, `# match ${c.ext.slice(1)}`));
       const old = runCli(APPLY_CLI, ['--match', md, '--in', oldF, '--out', out]);
       assert.equal(old.status, 0, `${c.ext} as 0.2.0 wrote it: ${old.stderr}`);
@@ -209,8 +199,6 @@ test('CLI generate → apply on a CRLF file: the result is the new file byte for
     rmSync(dir, { recursive: true, force: true });
   }
 });
-
-// ── -a: one answer per hunk, from a terminal or a pipe ─────────────────────────
 
 function runCliWithInput(cli: readonly string[], args: string[], input: string): CliRun {
   const r = spawnSync('node', ['--experimental-strip-types', ...cli, ...args], {
@@ -363,13 +351,6 @@ test('CLI generate --branch takes the old version from a git branch', () => {
   }
 });
 
-// ── the old version from git ─────────────────────────────────────────────────
-//
-// WHICH version each coordinate names is settled in test/unit/git-source.test.ts,
-// against the resolver itself. What is left for the CLI is its own business: that
-// every flag reaches the coordinate it belongs to, that the two sources cannot be
-// asked for at once, and that a refusal comes out named.
-
 function generateIn(repo: Repo, args: readonly string[], from = join(repo.dir, 'src', 'core')): CliRun {
   return runCli(GEN_CLI, ['--in', 'f.cc', ...args, '--out', '-', '--language', 'cpp'], from);
 }
@@ -427,9 +408,6 @@ test('CLI generate --head: the old version is the last commit of the current bra
 test('CLI generate: each coordinate flag reaches the coordinate it belongs to', () => {
   const repo = buildRepo('sir-git-coords-');
   try {
-    // All three at once, each naming something only IT can reach: the branch and the
-    // commit are `side`, the path is a file no other commit holds. A flag wired to the
-    // wrong coordinate cannot produce this answer.
     const all = generateIn(repo, [
       '--branch', 'side', '--commit', repo.s, '--repo-path', 'src/core/side-only.cc',
     ]);
@@ -484,8 +462,6 @@ test('CLI generate: a source asked for twice, or not at all, is answered by nami
       const r = generateIn(repo, args);
       assert.equal(r.status, 1, `expected a refusal for: ${args.join(' ')}`);
       assert.match(r.stderr, expected, `for: ${args.join(' ')}`);
-      // The message names every flag involved, so the whole usage is not dumped on top
-      // of it — that is kept for a slip of the FINGERS, where the list is the answer.
       assert.doesNotMatch(r.stderr, /sir generate —/, `for: ${args.join(' ')}`);
     }
   } finally {
@@ -495,8 +471,6 @@ test('CLI generate: a source asked for twice, or not at all, is answered by nami
 
 test('CLI generate: a misspelt or valueless option is answered with the option and the usage', () => {
   const repo = buildRepo('sir-cli-spelling-');
-  // generateIn appends `--out - --language cpp`, so an option left without a value here
-  // runs into --out — which is exactly the slip being tested.
   const cases: readonly (readonly [readonly string[], RegExp])[] = [
     [['--brnach', 'side'], /unknown argument: --brnach[\s\S]*did you mean --branch\?/],
     [['--repo_path', 'src/core/other.cc'], /did you mean --repo-path\?/],
@@ -631,8 +605,6 @@ test('CLI generate: a plain refusal for a missing input and for a directory', ()
   }
 });
 
-// ── generatePatch: what it passes on, and how it prints `keep` ─────────────────────
-
 const HEAD = (s: string): string => s.slice(s.indexOf('# match'));
 const F_OLD = 'void f() {\n  a();\n}\n';
 const F_NEW = 'void f() {\n  a2();\n}\n';
@@ -662,8 +634,6 @@ test('generatePatch: bridgeGap is passed on — two changes one line apart becom
   assert.equal((await generatePatch({ oldText, newText, language: 'cpp', bridgeGap: 1 })).hunkCount, 1);
 });
 
-// a CRLF base, and a new line ending in LF: a patch writes the base's endings, so only a
-// normalized comparison is met
 const CR_OLD = 'void f() {\r\n  a();\r\n  b();\r\n}\r\n';
 const CR_NEW = 'void f() {\r\n  a();\n  x();\r\n  b();\r\n}\r\n';
 

@@ -15,26 +15,10 @@ import type { LanguageAdapter } from '../../src/lang/source-map.ts';
 import type { SirFile } from '../../src/core/ast.ts';
 import { strip, type FlatStep } from '../helpers.ts';
 
-// Properties README promises for ANY input, checked on generated ones rather than on the
-// cases somebody thought of:
-//   - generate then apply round-trips: whatever synthesize returns, printed, read back
-//     and applied to the old text, gives the new text (byte for byte with `exact`);
-//     the only way out is a SynthesisError that says it could not anchor a change;
-//   - the printer and the parser agree: print → parse gives the same hunks back;
-//   - resolve tells the editor where each hunk is: `base` is what it replaced in the old
-//     text, `final` what it wrote in the applied one — nothing of another hunk's;
-//   - a .sirp that is not well formed is a ParseError — never a crash, never a hang;
-//   - normalization is idempotent.
-// The inputs are edits of the golden corpus — real code in every language — drawn from a
-// seeded generator, so a failure names its seed and is reproduced by
-// `SIR_PROP_SEED=<seed> node --test --experimental-strip-types test/unit/property.test.ts`.
-// `SIR_PROP_RUNS` multiplies the number of cases for a longer hunt.
-
 const GOLDEN = join(dirname(fileURLToPath(import.meta.url)), '..', 'golden');
 const SEED = Number(process.env['SIR_PROP_SEED'] ?? 20261019);
 const RUNS = Math.max(1, Number(process.env['SIR_PROP_RUNS'] ?? 1));
 
-/** mulberry32: small, fast, and the same sequence on every platform. */
 function rng(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
@@ -59,7 +43,6 @@ const isDir = (p: string): boolean => {
 
 const LANGUAGES = readdirSync(GOLDEN).filter((d) => isDir(join(GOLDEN, d))).sort();
 
-/** Source files of a language's goldens: the old versions and the apply sources. */
 function corpus(language: string): { name: string; text: string }[] {
   const out: { name: string; text: string }[] = [];
   for (const kind of ['generate', 'apply']) {
@@ -69,7 +52,6 @@ function corpus(language: string): { name: string; text: string }[] {
       if (f.endsWith('.sirp') || f.includes('.new.') || f.includes('.expected.')) continue;
       const text = readFileSync(join(dir, f), 'utf8');
       const lines = text.split('\n').length;
-      // big enough to have structure, small enough that a hundred runs stay quick
       if (lines >= 6 && lines <= 90 && !text.includes('\r')) out.push({ name: `${language}/${kind}/${f}`, text });
     }
   }
@@ -87,7 +69,6 @@ async function adapterFor(language: string): Promise<LanguageAdapter> {
   return a;
 }
 
-/** A word of the line changed the way an edit changes it: renamed, or a literal bumped. */
 function touch(r: () => number, line: string): string {
   const words = [...line.matchAll(/[A-Za-z_][A-Za-z0-9_]*|\d+/g)];
   if (words.length === 0) return `${line} x`;
@@ -96,13 +77,12 @@ function touch(r: () => number, line: string): string {
   return line.slice(0, w.index) + replacement + line.slice(w.index! + w[0].length);
 }
 
-/** One to three line edits of `text`, from lines of the same file: what a change looks like. */
 function mutate(r: () => number, text: string): { text: string; ops: string[] } {
   const lines = text.split('\n');
   const ops: string[] = [];
   const count = int(r, 1, 3);
   for (let k = 0; k < count; k++) {
-    const last = lines.length - 1; // the '' after a final newline stays last
+    const last = lines.length - 1;
     const i = int(r, 0, Math.max(0, last - 1));
     const kind = pick(r, ['replace', 'insert', 'insert-copy', 'delete'] as const);
     if (kind === 'replace' && lines[i]!.trim() !== '') {
@@ -124,10 +104,6 @@ function mutate(r: () => number, text: string): { text: string; ops: string[] } 
   return { text: lines.join('\n'), ops };
 }
 
-/** print → parse gives the hunks back: the patch body and the note byte for byte, each
- *  literal as the matcher sees it — through `canon`. A literal is not kept byte for byte:
- *  a blank line inside a match block is not payload of a literal, so `#endif⏎⏎#if` reads
- *  back as `#endif⏎#if`, which no language tells apart once normalized. */
 function samePrinted(
   file: SirFile,
   again: SirFile,
@@ -145,16 +121,9 @@ function samePrinted(
   });
 }
 
-/** A CR before a line end is a line ending, not payload ("Line endings are not payload"):
- *  a payload line that ends in a CR of its own (`x\r\r\n`) is not one the printer can
- *  write back, and need not be. */
 const dropLineEndCr = (text: string): string => text.replace(/\r+(?=\n|$)/g, '');
 
-/** For a file of no known language: the reading rules themselves — blank lines are not
- *  literal, and a CR before a line end is not payload. */
 const dropBlankLines = (raw: string): string => dropLineEndCr(raw).replace(/\n(?:[ \t]*\n)+/g, '\n');
-
-// ── generate → print → parse → apply == new, for every language ───────────────────
 
 for (const language of LANGUAGES) {
   test(`property ${language}: generate → print → parse → apply reproduces the new text, or says it cannot anchor`, async () => {
@@ -189,15 +158,10 @@ for (const language of LANGUAGES) {
       if (exact) assert.equal(applied, next, `${where}: the printed patch does not give the new text`);
       else assert.ok(sameIgnoringSpace(applied, next, adapter), `${where}: the printed patch does not give the new text`);
     }
-    // a property nobody reaches checks nothing: most edits of real code must anchor
     assert.ok(anchored >= cases * 0.6, `${language}: only ${anchored} of ${cases} edits anchored`);
   });
 }
 
-// ── resolve: base is what a hunk replaced, final what it wrote ─────────────────────
-
-/** Whether no edit reaches into text an earlier one wrote — a model of its own, not
- *  the projection `resolve` does: what each wrote, carried along as the text grows. */
 function apart(edits: readonly { start: number; end: number; text: string }[]): boolean {
   let written: { start: number; end: number }[] = [];
   for (const e of edits) {
@@ -240,11 +204,6 @@ for (const language of LANGUAGES) {
         assert.equal(applied.slice(final!.start, final!.end), link.finalText, `${where}, hunk ${k + 1}: finalText is the text at final`);
       });
 
-      // Hunks that each fit the old text on their own and keep off what the earlier ones
-      // wrote — side by side is apart — are the case an editor shows most: there base is
-      // exactly what a hunk replaced, final exactly what it wrote, and laid back over the
-      // old text they give the applied one. A hunk may lean on what an earlier one wrote,
-      // or rewrite it: then it has no place of its own in the old text, and these do not hold.
       if (!links.every((l) => !l.dependsOnEarlier) || !apart(edits.map((e) => e.edit))) continue;
       const order = links.map((l, k) => ({ l, k })).sort((a, b) => a.l.final!.start - b.l.final!.start || a.l.final!.end - b.l.final!.end);
       let rebuilt = '';
@@ -264,8 +223,6 @@ for (const language of LANGUAGES) {
     assert.ok(hunksSeen >= cases * 0.6, `${language}: only ${hunksSeen} hunks in ${cases} cases`);
   });
 }
-
-// ── the parser: a .sirp that is not well formed is a ParseError, nothing else ──────
 
 const TOKENS = [
   '# match', '# match cpp', '# match python', '# match nosuchlang', '# patch', '# end', '# note', '#  end', ' # end',
@@ -303,7 +260,6 @@ function damage(r: () => number, text: string): string {
     }
   }
   let out = lines.join('\n');
-  // turned to CRLF the way git and editors do it: a line that already ends in CR keeps one
   if (r() < 0.2) out = out.replace(/\r?\n/g, '\r\n');
   return r() < 0.1 ? out.slice(0, int(r, 0, out.length)) : out;
 }
@@ -317,7 +273,6 @@ function parsesOrRefuses(text: string, where: string): void {
     assert.ok(Number.isInteger(e.mdLine) && e.mdLine >= 0, `${where}: the ParseError names a line`);
     return;
   }
-  // what reads must read again the same once printed
   samePrinted(file, parseSirFile(printSirFile(file.hunks, file.language)), dropBlankLines, where, dropLineEndCr);
 }
 
@@ -352,13 +307,6 @@ test('fuzz: a .sirp made of format tokens at random is read or refused with a Pa
     parsesOrRefuses(lines.join(r() < 0.2 ? '\r\n' : '\n'), `seed ${SEED}, random ${c}`);
   }
 });
-
-// ── normalization: canon of canon is canon, line by line ──────────────────────────
-// Line by line, and only so: canon joins lines, so over several lines a `// comment` it
-// joined would swallow the next line on a second pass (`// c⏎s = "a  b"` → `//c s="a  b"`,
-// then the string is comment and collapses). Nothing normalizes canon text again — the
-// source and an anchor are each normalized once, from what was written — so that is no
-// fault; the per-line property is the one `sameIgnoringSpace` and the loose check lean on.
 
 for (const language of LANGUAGES) {
   test(`property ${language}: normalize is idempotent on every line of real code`, async () => {

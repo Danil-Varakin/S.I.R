@@ -12,10 +12,6 @@ import type { ProgressMessage, ResponseMessage, ServiceError } from '../../src/s
 import type { HunkLink } from '../../src/core/resolve.ts';
 import { sirMd } from '../helpers.ts';
 
-// Audit 2026-10-05: the service against PROTOCOL.md — "Transport", "Two levels of
-// failure", the error table, `version`, `generate`, `apply`, `cancel`, "The link table".
-// Each expectation is a sentence of PROTOCOL.md.
-
 const BASE = 'namespace f {\nvoid a() {\n  one();\n}\n}\n';
 
 function ok(response: ResponseMessage): Record<string, unknown> {
@@ -30,7 +26,6 @@ function failed(response: ResponseMessage): ServiceError {
 
 const call = (method: string, params: object, id = 1): Promise<ResponseMessage> => handle({ id, method, params });
 
-/** Everything `serve` writes for these input lines, one parsed message per output line. */
 async function served(lines: readonly string[]): Promise<(ResponseMessage | ProgressMessage)[]> {
   const out: string[] = [];
   const sink = new Writable({
@@ -62,8 +57,6 @@ async function withEnv(vars: Record<string, string>, fn: () => Promise<void>): P
     }
   }
 }
-
-// ── Transport ─────────────────────────────────────────────────────────────────────────
 
 test('transport: "a request whose id is not a number is answered with id: 0"', async () => {
   const messages = await served([
@@ -112,8 +105,6 @@ test('transport: a request of several megabytes on one line is answered', async 
   assert.equal(ok(reply!)['reproducesNew'], true);
 });
 
-// ── progress ──────────────────────────────────────────────────────────────────────────
-
 test('generate progress: "done of total, where total is known before synthesis starts" — one total, done never goes back', async () => {
   const old = Array.from({ length: 12 }, (_, i) => `int f${i}() {\n  return ${i};\n}\n`).join('');
   const neu = old.replace(/return (\d+);/g, 'return $1 + 1;');
@@ -128,8 +119,6 @@ test('generate progress: "done of total, where total is known before synthesis s
     if (i > 0) assert.ok(done >= progress[i - 1]!.params.done, 'done does not go back');
   }
 });
-
-// ── cancel ────────────────────────────────────────────────────────────────────────────
 
 test('cancel: "the other methods do not stop: they answer as usual" — a resolve with a cancel behind it', async () => {
   const patch = sirMd([{ match: '...\none();\n>>>\n...', patch: 'two();' }]);
@@ -148,8 +137,6 @@ test('cancel: "cancel itself cannot be cancelled" — a cancel naming its own id
   const [reply] = replies(await served([JSON.stringify({ id: 5, method: 'cancel', params: { id: 5 } })]));
   assert.deepEqual(ok(reply!), { cancelled: false });
 });
-
-// ── Two levels of failure; the link table ─────────────────────────────────────────────
 
 test('apply: "apply still returns text — with the hunks that landed"', async () => {
   const patch = sirMd([
@@ -188,8 +175,6 @@ test('link table: "offsets are UTF-16 code units (JavaScript string indices), no
   assert.equal(link.finalText, 'uno();');
 });
 
-// ── the error object ──────────────────────────────────────────────────────────────────
-
 test('errors: an unknown language is a LanguageError with detail.language, and exitCode 1 as the CLI', async () => {
   const error = failed(await call('generate', { baseText: BASE, newText: BASE.replace('one', 'two'), language: 'cobol' }));
   assert.equal(error.kind, 'LanguageError');
@@ -220,8 +205,6 @@ test('errors: GitError reasons from the list — no-repository, no-git', async (
   }
 });
 
-// ── version ───────────────────────────────────────────────────────────────────────────
-
 test('version: protocolMin ≤ protocol, and languages hold every name and extension of README "Language support"', async () => {
   const v = ok(await call('version', {}));
   assert.ok((v['protocolMin'] as number) <= (v['protocol'] as number));
@@ -234,8 +217,6 @@ test('version: protocolMin ≤ protocol, and languages hold every name and exten
   const languages = v['languages'] as string[];
   for (const name of [...names, ...extensions]) assert.ok(languages.includes(name), name);
 });
-
-// ── generate: the edges ───────────────────────────────────────────────────────────────
 
 test('generate: from an empty base, down to an empty text — reproducesNew; both empty — NoChanges', async () => {
   const into = ok(await call('generate', { baseText: '', newText: 'int a = 1;\n', language: 'cpp' }));

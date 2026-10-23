@@ -3,12 +3,6 @@ import type { GitEol } from '../infra/git.ts';
 import type { Ask } from '../infra/ask.ts';
 import type { ArgSpec } from './args.ts';
 
-// Taking a file out of git, as every command that reads one spells it. The flags, their
-// help and the way they become a request to infra/git.ts live here once, so `generate`
-// (the old version) and `apply` (the file to patch) cannot drift apart: the same words
-// mean the same version in both.
-
-/** The git coordinates as a command's options carry them. */
 export interface GitOptions {
   head: boolean;
   branch?: string;
@@ -17,19 +11,14 @@ export interface GitOptions {
   eol?: string;
 }
 
-/** A version of a file: its text, and where it was read from — a path on disk, or
- *  `<revision>:<path>` out of git. Kept for the error report: an error deep in the run
- *  points into this text, and the reader has to be told which text it is. */
 export interface FileVersion {
   readonly text: string;
   readonly spec: string;
-  /** the blob read, for a version out of git */
   readonly blob?: string;
 }
 
 export const GIT_FLAG_NAMES = '--head / --branch / --commit / --repo-path';
 
-/** Spread into a command's ArgSpec. */
 export const GIT_ARGS = {
   flags: { '--head': 'head', '-H': 'head' },
   values: {
@@ -48,15 +37,12 @@ export function readFromGit(opts: GitOptions, inPath: string, ask?: Ask): Promis
   return fileFromGit({ branch: opts.branch, commit: opts.commit, path: opts.repoPath, eol: gitEol(opts.eol) }, inPath, ask);
 }
 
-/** `--eol` as given, checked; left out, undefined — the default is the caller's. */
 export function gitEol(value: string | undefined): GitEol | undefined {
   if (value === undefined) return undefined;
   if (GIT_EOLS.includes(value as GitEol)) return value as GitEol;
   throw new Error(`--eol ${value}: one of ${GIT_EOLS.join(', ')}`);
 }
 
-/** The coordinates explained, for a command's USAGE; "it" is whatever that command
- *  reads from git, and the command says what that is in the line above. */
 export const GIT_USAGE = `From git it is named by three independent coordinates, and every one of them may be
 left out: what is missing takes its default, so --head alone means "this same file,
 as of the last commit here". Naming any coordinate is itself the ask for git.

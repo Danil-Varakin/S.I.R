@@ -26,10 +26,6 @@ import type {
   SynthesisFailure,
 } from '../../src/index.ts';
 
-// The public API is what README "API" names, and by P3 an export of src/index.ts removed
-// or changed is a breaking change. These tests hold the two together: a name added to one
-// and not the other, or dropped from both, fails here instead of in somebody's build.
-// The type imports above are the same check for types: the typecheck fails on a type gone.
 export type PublicTypes = [
   SirFile, Hunk, MatchPattern, LanguageAdapter, ApplyResult, AppliedEdit, SynthOptions, SynthEvent, Tracer,
   GenerateRequest, GenerateOutcome, HunkLink, LinkFailure, LinkStatus, ResolveResult, Span, SynthesisFailure,
@@ -38,7 +34,6 @@ export type PublicTypes = [
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = (name: string): string => readFileSync(join(ROOT, name), 'utf8');
 
-/** The text of README's `### <title>` section, up to the next heading. */
 function section(readme: string, title: string): string {
   const start = readme.indexOf(`\n### ${title}\n`);
   assert.ok(start >= 0, `README has no "### ${title}"`);
@@ -67,8 +62,7 @@ test('API: the types src/index.ts exports are exactly the types README names', (
 
 test('API: every error carries the exit code README gives it, and is a SirError', () => {
   const errors = section(README, 'Errors');
-  const text = errors.slice(errors.indexOf(':') + 1); // past "carries an `exitCode` matching the CLI:"
-  // "`A` (2), `B` (3), and `C`, `D` (1)": a code belongs to every name since the last one
+  const text = errors.slice(errors.indexOf(':') + 1);
   const codes = new Map<string, number>();
   for (const chunk of text.matchAll(/([^()]*)\((\d)\)/g)) {
     for (const m of chunk[1]!.matchAll(/`(\w+)`/g)) codes.set(m[1]!, Number(chunk[2]));
@@ -135,7 +129,6 @@ test('API: package.json exports only the entry points README names — internals
   const pkg = JSON.parse(read('package.json')) as { name: string; exports: Record<string, unknown> };
   assert.deepEqual(Object.keys(pkg.exports).sort(), ['.', './protocol', './service']);
 
-  // the self-reference resolves through `exports` exactly as a dependent's import would
   if (!existsSync(join(ROOT, 'dist', 'index.js'))) return;
   const require = createRequire(join(ROOT, 'package.json'));
   assert.equal(require.resolve(pkg.name), join(ROOT, 'dist', 'index.js'));

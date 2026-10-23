@@ -5,19 +5,12 @@ import { StringDecoder } from 'node:string_decoder';
 import type { ProgressMessage, ResponseMessage } from './protocol.ts';
 import { Session, handle } from './handler.ts';
 
-// Every line is taken as it comes and answered when it is done, not after the ones before
-// it: a quick `pair` does not wait behind a `generate`, which hands the loop back after
-// each change — and that is also where a `cancel` for it is read. Replies are matched to
-// requests by `id`, never by order.
-
 export async function serve(
   input: NodeJS.ReadableStream = process.stdin,
   output: NodeJS.WritableStream = process.stdout,
 ): Promise<void> {
   const session = new Session();
   const running = new Set<Promise<void>>();
-  // Replies are written from whichever request finishes, so the stream's state is kept
-  // here, not in the loop: a `drain` that comes before the loop looks is not missed.
   let flushed = true;
   output.on('drain', () => {
     flushed = true;
@@ -27,7 +20,6 @@ export async function serve(
   };
 
   for await (const line of jsonLines(input)) {
-    // a client that stops reading stops being read from
     if (!flushed) await once(output, 'drain');
     if (line.trim() === '') continue;
 
@@ -44,9 +36,6 @@ export async function serve(
       continue;
     }
 
-    // `handle` answers every line, `null` and `42` included; a failure past it (the
-    // output gone) is reported where the client does not read, never left to end the
-    // process with every other request in it
     const job = handle(request, send, session)
       .then(send)
       .catch((e: unknown) => {
@@ -66,7 +55,6 @@ async function* jsonLines(input: NodeJS.ReadableStream): AsyncGenerator<string> 
   let pending = '';
   for await (const chunk of input) {
     const text = typeof chunk === 'string' ? chunk : decoder.write(chunk as Buffer);
-    // a line spread over many chunks is searched once, in the chunk that ends it
     let from = pending.length;
     pending += text;
     let start = 0;

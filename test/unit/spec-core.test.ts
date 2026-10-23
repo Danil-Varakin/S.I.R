@@ -9,18 +9,12 @@ import { AmbiguityError, MatchError, ParseError } from '../../src/core/errors.ts
 import { cppAdapter } from '../../src/lang/cpp/index.ts';
 import { firstMatch, sirMd, strip, wrapMatch } from '../helpers.ts';
 
-// Audit 2026-10-05: the core against README ("The file format", "The language",
-// "Three rules fixed by decision", "Known limitations", "API"). Every expectation below is
-// a sentence of the README, quoted in the test name; none is read off the code.
-
 const roundtrip = (oldText: string, newText: string): string => {
   const md = printSirFile(synthesize(oldText, newText, cppAdapter), 'cpp');
   return applyAll(oldText, parseSirFile(md), cppAdapter).source;
 };
 
 const applyText = (source: string, md: string): string => applyAll(source, parseSirFile(md), cppAdapter).source;
-
-// ── the file format: empty and degenerate inputs ─────────────────────────────────────
 
 test('format: an empty file, blank lines only, or a header with no hunks is a ParseError (exit 2), not an empty patch', () => {
   for (const text of ['', '\n\n   \n', 'Sir: 2\nTarget: a.cc\n\n', 'just prose\n']) {
@@ -64,21 +58,16 @@ test('format: a large patch — 2000 hunks — is read whole, every hunk at its 
   assert.equal(file.hunks[1999]!.patch, 'int w1999;');
 });
 
-// ── the language: operators are words ────────────────────────────────────────────────
-
 test('language: "operators are recognized only as standalone words, so template <typename... Args> stays literal"', () => {
   const m = firstMatch(wrapMatch('template <typename... Args>\n>>>'));
   assert.deepEqual(strip(m), [
     { mode: { op: 'tight' }, insert: null, replaceEnd: null, anchor: { kind: 'literal', raw: 'template <typename... Args>' } },
     { mode: { op: 'tight' }, insert: 'left', replaceEnd: null, anchor: { kind: 'eof' } },
   ]);
-  // glued to a word, >>> and <<< are text too
   const glued = strip(firstMatch(wrapMatch('a>>>b c<<<d >>>')));
   assert.equal(glued.length, 2);
   assert.equal(glued[0]!.anchor.raw, 'a>>>b c<<<d');
 });
-
-// ── the language: what a pattern means ───────────────────────────────────────────────
 
 const SRC = 'void f() {\n  a();\n}\n';
 
@@ -108,8 +97,6 @@ test('rule 1: "<<< replaces inclusively — literals between >>> and <<< must ma
   assert.throws(() => applyText(SRC, md), MatchError, 'old code that is not there is not replaced by nothing');
 });
 
-// ── API: applyAll ────────────────────────────────────────────────────────────────────
-
 test('API: applyAll "throws MatchError or AmbiguityError on the first hunk that does not fit" — with the CLI exit codes', async () => {
   await cppAdapter.init();
   const second = sirMd([
@@ -125,8 +112,6 @@ test('API: applyAll "throws MatchError or AmbiguityError on the first hunk that 
   );
 });
 
-// README "Known limitations": "already applied" is not recognized. Laid on its own result a
-// patch finds its place again and writes again, exit 0 — the clean base is what rules it out.
 test('known limitation: a patch laid a second time on its own result inserts again', async () => {
   await cppAdapter.init();
   const patch = sirMd([{ match: '...\nvoid g() {\n...\n>>>\n}\n...', patch: 'X();' }]);
@@ -135,8 +120,6 @@ test('known limitation: a patch laid a second time on its own result inserts aga
   assert.equal(once.split('X();').length - 1, 1);
   assert.equal(twice.split('X();').length - 1, 2, 'no error, and the insertion is there twice');
 });
-
-// ── generate → apply round-trips: the edges of the input ─────────────────────────────
 
 test('round trip: "applying a generated patch to the old file reproduces the new file" — from and to an EMPTY file', async () => {
   await cppAdapter.init();
@@ -172,8 +155,6 @@ test('round trip: one line of 100 000 characters', async () => {
   const newText = oldText.replace('return 1;', 'return 2;');
   assert.equal(roundtrip(oldText, newText), newText);
 });
-
-// ── repeated calls ───────────────────────────────────────────────────────────────────
 
 test('repeat: synthesize twice on the same input prints the same .sirp (goldens rely on it)', async () => {
   await cppAdapter.init();

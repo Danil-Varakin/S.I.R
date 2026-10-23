@@ -56,7 +56,6 @@ export function matchPattern(
   const advance = (norm: string, A: number, stack: readonly number[]): { pos: number; stack: number[] } => {
     const B = A + norm.length;
     const s = stack.slice();
-    // an empty stack has no top: `undefined >= A` is false
     while (s[s.length - 1]! >= A && s[s.length - 1]! < B) s.pop();
     const entered = map.enclosing(B).filter((sp) => sp.open >= A);
     for (let k = entered.length - 1; k >= 0; k--) s.push(entered[k]!.close);
@@ -91,21 +90,15 @@ export function matchPattern(
   const wordGapAt = (i: number, pos: number, norm: string): boolean => {
     const prev = i > 0 ? steps[i - 1]!.anchor : undefined;
     if (prev === undefined || prev.target !== 'literal') return false;
-    // a literal is never empty (`assertNorm`), and at `eof` no space follows
     const before = normOf(prev.literal);
     return isWordChar(before[before.length - 1]!) && isWordChar(norm[0]!) && map.matchesAt(' ', pos);
   };
 
-  // Two fits are the same edit when their marks stand at the same places: which side a
-  // mark takes, and whether there is a `<<<` at all, the pattern decides — once for every
-  // fit — so the positions alone tell edits apart. A fit seen again replaces itself.
   const recordFull = (m: Marks): void => {
     edits.set(`${m.insert!.pos}|${m.replaceEnd?.pos}`, m as MatchMarks);
     if (edits.size >= 2) stop = true;
   };
 
-  // `stop` is checked where a walk comes back: every caller returns at once once it is set,
-  // so no walk starts after it.
   const walk = (i: number, pos: number, stack: number[], marks: Marks, last: Matched | null): boolean => {
     if (i === steps.length) {
       if (pos !== eof) {
@@ -139,7 +132,6 @@ export function matchPattern(
       return walk(i + 1, adv.pos, adv.stack, mL, { text: anchor.literal.raw, pos: at });
     }
 
-    // the closer the innermost block owes; with none, -1 is before every position
     const W = stack[stack.length - 1] ?? -1;
     const obligation = W >= pos && map.matchesAt(norm, W);
     if (obligation) {
@@ -171,7 +163,6 @@ export function matchPattern(
 
   walk(0, 0, [], {}, null);
 
-  // a walk that fits nowhere has recorded where it got: `deepestPos` is a position by now
   if (edits.size === 0) throw noMatch();
   if (edits.size >= 2) {
     const positions = [...edits.values()].map((m) => map.toOriginalPos(m.insert.pos, m.insert.side));

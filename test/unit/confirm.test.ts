@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 
 import { asker } from '../../src/cli/confirm.ts';
 
-/** An asker over a fake terminal: what it printed, and whether it prompted at all. */
 function fake(opts: { yes?: boolean; interactive?: boolean; answer?: string | null }) {
   const notes: string[] = [];
   const prompts: string[] = [];

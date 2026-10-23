@@ -4,26 +4,16 @@ import { stringZones, inZone } from './zones.ts';
 import type { StringRule } from './zones.ts';
 import type { BlockSpan, SourceMap, LanguageAdapter } from './source-map.ts';
 
-// A language read as text: no grammar, the blocks are the pairs of `()`, `[]`, `{}` that
-// balance outside the strings and comments of the format — the way comby reads code it
-// has no grammar for. For formats with no tree-sitter grammar worth shipping: IDL,
-// Mojom, Proto, shell scripts, YAML, TOML, plain text (docs/10-brave-languages.md,
-// stage 6). What a format is — its extensions, its strings and comments, how its
-// whitespace reads — is the format's own folder; this is only the reading.
-
 export interface TextRules {
   name: string;
   extensions: readonly string[];
-  /** whole file names that are this format (`postinst`) */
   fileNames?: readonly string[];
   normalize: (raw: string) => string;
-  /** the strings and comments of the format: a bracket inside one is no structure */
   zones: readonly StringRule[];
 }
 
 const CLOSER_OF: Readonly<Record<string, string>> = { '(': ')', '[': ']', '{': '}' };
 const CLOSERS = new Set([')', ']', '}']);
-/** a line ending in one of these ends a statement, not a header */
 const ENDS_STATEMENT = new Set([';', ',', '{', '}']);
 
 export function makeTextAdapter(rules: TextRules): LanguageAdapter {
@@ -59,11 +49,6 @@ interface Pair {
   headerStart?: number;
 }
 
-/** Every pair of brackets that balances outside the zones, with its header: what stands
- *  before the opener on its line — after a pair opened on an earlier line and closed on
- *  this one (`[⏎Exposed=Window⏎] interface X {` is headed `interface X {`; `f() {` keeps
- *  `f()`) — or, with nothing there, the line above when it is no statement of its own
- *  (`interface X⏎{`). A closer that matches no opener is passed by. */
 export function bracketSpans(source: string, zones: readonly StringRule[]): Pair[] {
   const inside = stringZones(source, zones);
   const stack: number[] = [];
@@ -98,7 +83,6 @@ function headerOf(source: string, open: number, openerOf: ReadonlyMap<number, nu
   }
   const own = firstNonSpace(source, from, open);
   if (own !== undefined) return own;
-  // nothing before the opener on its line: the line above heads it, unless it ends a statement
   let end = lineStart - 1;
   while (end > 0) {
     const prevStart = source.lastIndexOf('\n', end - 1) + 1;

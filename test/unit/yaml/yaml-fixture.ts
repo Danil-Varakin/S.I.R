@@ -1,8 +1,6 @@
 import { file, opt } from '../../matrix.ts';
 import type { Fixture } from '../../matrix.ts';
 
-// YAML as text: no brackets, the structure is the indentation, which is kept — so the
-// outer key is no block of the map.
 export const fixture: Fixture = {
   language: 'yaml',
   targetName: 'target',

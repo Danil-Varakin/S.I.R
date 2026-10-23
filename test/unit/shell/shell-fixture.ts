@@ -1,8 +1,6 @@
 import { file, opt } from '../../matrix.ts';
 import type { Fixture } from '../../matrix.ts';
 
-// A shell script as text: functions are blocks by their braces; `if … fi` is not.
-// The indentation of a line is kept, as in Python.
 export const fixture: Fixture = {
   language: 'shell',
   targetName: 'target',

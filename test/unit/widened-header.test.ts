@@ -5,12 +5,6 @@ import { patchOf } from '../matrix.ts';
 import { applyAll } from '../../src/core/apply.ts';
 import { adapterForLanguage } from '../../src/lang/adapter.ts';
 
-// 07-findings Н4: an insertion at the end of a block whose header is not unique widens
-// the header with the block's body, from the top down to the change — every line of it.
-// A line upstream adds anywhere in that body refuses the patch, where the one neighbour
-// above the change would have told the places apart and let it land. Runs as `todo`
-// until the author decides; never lands elsewhere — that much holds now.
-
 const CASES: [string, string, string, string][] = [
   [
     'cpp',
@@ -32,7 +26,6 @@ for (const [language, oldText, after, added] of CASES) {
     await adapter.init();
     const insert = (t: string): string => t.replace(after, after + added);
     const patch = patchOf(oldText, insert(oldText), adapter);
-    // upstream: one more line at the top of the same body
     const lines = oldText.split('\n');
     const drift = (t: string): string => {
       const l = t.split('\n');

@@ -1,8 +1,6 @@
 import { file, opt } from '../../matrix.ts';
 import type { Fixture } from '../../matrix.ts';
 
-// The shape of Blink's runtime_enabled_features.json5: keys without quotes, a trailing
-// comma after every value, comments. The outer block is the object under a key.
 export const fixture: Fixture = {
   language: 'json5',
   targetName: 'target',

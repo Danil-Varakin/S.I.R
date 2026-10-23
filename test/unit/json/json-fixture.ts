@@ -1,9 +1,6 @@
 import { file, opt } from '../../matrix.ts';
 import type { Fixture } from '../../matrix.ts';
 
-// A pair is a statement and ends in a comma; the last pair of the target, `"end"`, has
-// none — so every change stands before it, as in a real file. The outer block is the
-// object under a key.
 export const fixture: Fixture = {
   language: 'json',
   targetName: 'target',

@@ -9,24 +9,16 @@ import { SynthesisError } from '../../src/core/errors.ts';
 import type { Hunk } from '../../src/core/ast.ts';
 import { cppAdapter } from '../../src/lang/cpp/index.ts';
 
-// The hunk a person starts a change from when synthesis could not anchor it (`draft.ts`):
-// the change with up to three lines above it. It is a place to start editing, so it is
-// most likely ambiguous — but where it does land, laid as it is, it has to make the change
-// it was drafted for: a draft finished by adding context and sent back as `keep` must not
-// quietly change something else.
-
 const CURRENT = 'void f() {\n  one();\n\n  two();\n  three();\n  four();\n  five();\n}\n';
 
 function segment(oldStart: number, removed: string[], added: string[]): ChangeSegment {
   return { oldStart, newStart: oldStart, removed, added };
 }
 
-/** The draft hunk, as `generate` prints it into the draft. */
 function printed(seg: ChangeSegment, current = CURRENT): string {
   return printSirFile([template(seg, current)], 'cpp');
 }
 
-/** `current` with the change made — what the draft is for. */
 function intended(seg: ChangeSegment, current = CURRENT): string {
   const lines = current.split('\n');
   lines.splice(seg.oldStart - 1, seg.removed.length, ...seg.added);
@@ -37,8 +29,6 @@ async function laid(seg: ChangeSegment, current = CURRENT): Promise<string> {
   await cppAdapter.init();
   return applyAll(current, { hunks: [{ ...template(seg, current), mdSpan: [0, 0] }] }, cppAdapter).source;
 }
-
-// ── its form ──────────────────────────────────────────────────────────────────────
 
 test('template: a replacement — three lines above, then the removed lines between >>> and <<<', () => {
   assert.equal(
@@ -102,8 +92,6 @@ test('template: a line of spaces is blank — not counted as context', () => {
   );
 });
 
-// ── laid as it is, it makes the change it was drafted for ───────────────────────────
-
 for (const [name, seg, current] of [
   ['a replacement', segment(7, ['  five();'], ['  FIVE();']), CURRENT],
   ['a replacement of two lines', segment(6, ['  four();', '  five();'], ['  FOUR();', '  FIVE();']), CURRENT],
@@ -120,9 +108,6 @@ for (const [name, seg, current] of [
   });
 }
 
-// A blank line between the context and the change is skipped by the context but not by
-// the patch: the mark sits right after the context, so the blank line falls inside what
-// the hunk replaces, and the body writes it back. docs/07-findings.md, Ч1.
 const BLANKS = 'void f() {\n  one();\n\n   \n\n  two();\n\n\n  three();\n}\n';
 const TRAILING = 'void f() {\n  one();\n}\n\n\n';
 
@@ -150,8 +135,6 @@ test('template: an insertion under a blank line replaces the next line and write
     '# match cpp\n    ...\n    void f() {\n      one();\n    >>>\n      two();\n    <<<\n    ...\n# end\n# patch\n\n\n      x();\n      two();\n# end\n',
   );
 });
-
-// ── withDraft: the same failure, with the draft attached ─────────────────────────────
 
 test('withDraft: the message, reason, because and line stay; the draft is the hunks so far and the template', () => {
   const before: Hunk = template(segment(2, ['  one();'], ['  ONE();']), CURRENT);

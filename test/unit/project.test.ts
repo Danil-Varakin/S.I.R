@@ -10,14 +10,6 @@ import { handle } from '../../src/service/handler.ts';
 import type { ResponseMessage } from '../../src/service/protocol.ts';
 import { configFileFor } from '../../src/infra/project.ts';
 
-// Stage 2 of 0.4: a project and its upstream (infra/project.ts). The layouts are those of
-// docs/two-repos.md, on real git repositories:
-//
-//   L1  Brave      src/ (Chromium, a repository) ⊃ src/brave/ (a repository, the config,
-//                  "upstream": "..") and src/v8/ (a repository of its own)
-//   L2  inside     proj/ (a repository, the config, "upstream": "chromium") ⊃ proj/chromium/
-//   L3  beside     ws/proj/ (the config, "upstream": "../chromium/src") and ws/chromium/src/
-
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'src', 'bin', 'sir.ts');
 const OLD = 'void f() {\n  int a = 1;\n}\n';
 const NEW = 'void f() {\n  int a = 2;\n}\n';
@@ -26,7 +18,6 @@ function git(dir: string, ...args: string[]): string {
   return execFileSync('git', args, { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 }
 
-/** A repository at `dir` with `files` committed (paths from `dir`). */
 function repoAt(dir: string, files: Record<string, string>): void {
   mkdirSync(dir, { recursive: true });
   git(dir, 'init', '-q');
@@ -59,7 +50,6 @@ function ok(response: ResponseMessage): Record<string, unknown> {
 
 const call = (method: string, params: object): Promise<ResponseMessage> => handle({ id: 1, method, params });
 
-/** L1: Chromium in src/, Brave in src/brave with its config, v8 a repository of its own. */
 function brave(): { root: string; src: string; braveDir: string; browser: string; v8File: string } {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'sir-l1-')));
   const src = join(root, 'src');
@@ -80,7 +70,6 @@ test('L1 Brave: the config of a Chromium file is the one whose upstream claims i
   try {
     assert.equal(configFileFor(L.browser), join(L.braveDir, 'sir.config.json'));
     assert.equal(configFileFor(L.v8File), join(L.braveDir, 'sir.config.json'), 'v8 is a repository of its own, under src');
-    // a patch finds its config up from itself
     assert.equal(configFileFor(join(L.braveDir, 'patches', 'x.sirp'), { isPatch: true }), join(L.braveDir, 'sir.config.json'));
   } finally {
     rmSync(L.root, { recursive: true, force: true });
@@ -96,14 +85,12 @@ test('L1 Brave: generate puts the patch in src/brave/patches, Target from src, b
     const blob = git(L.src, 'rev-parse', 'HEAD:chrome/browser/ui/browser.h');
     assert.match(readFileSync(patch, 'utf8'), new RegExp(`^Sir: 2\nTarget: chrome/browser/ui/browser\\.h\nBase-Blob: ${blob}\n`));
 
-    // v8: the patch in Brave's tree, the base out of the v8 repository
     const v8 = sir(L.src, 'generate', '--in', L.v8File);
     assert.equal(v8.status, 0, v8.stderr);
     const v8Patch = join(L.braveDir, 'patches', 'v8', 'src', 'objects', 'js-objects.cc.sirp');
     assert.match(readFileSync(v8Patch, 'utf8'), /^Sir: 2\nTarget: v8\/src\/objects\/js-objects\.cc\n/);
     assert.match(readFileSync(v8Patch, 'utf8'), new RegExp(`Base-Blob: ${git(join(L.src, 'v8'), 'rev-parse', 'HEAD:src/objects/js-objects.cc')}`));
 
-    // apply --verify with only the patch: the file from Target, the base from generate.base
     const verify = sir(L.braveDir, 'apply', '--verify', '--match', 'patches/chrome/browser/ui/browser.h.sirp');
     assert.equal(verify.status, 0, verify.stderr);
     assert.match(verify.stdout, /verify: ok/);
@@ -134,7 +121,6 @@ test('L1 Brave: the service pairs both ways and resolves against the config\'s b
     const resolved = ok(await call('resolve', { path: L.browser, patch: g['patch'] }));
     assert.equal(resolved['baseSpec'], 'HEAD:chrome/browser/ui/browser.h');
 
-    // regenerating the same file's patch is not asked about; outTarget says whose it is
     const again = ok(await call('generate', { path: L.browser, newText: NEW }));
     assert.equal(again['outExists'], true);
     assert.equal(again['outTarget'], 'chrome/browser/ui/browser.h');
@@ -181,7 +167,6 @@ test('L3: beside — nothing claims the file from where it is; --config, SIR_CON
     const fromProj = sir(proj, 'generate', '--in', code);
     assert.equal(fromProj.status, 0, fromProj.stderr);
 
-    // a patch away from its project: its config is not up from it, --config names it
     const away = join(root, 'away.cc.sirp');
     writeFileSync(away, readFileSync(join(proj, 'patches', 'base', 'a.cc.sirp'), 'utf8'));
     assert.equal(sir(root, 'apply', '--match', away, '--verify').status, 1);
@@ -262,8 +247,6 @@ test('init --upstream writes the layout, and refuses an upstream that is not the
   }
 });
 
-// ── stage 3: what the extension asks the core instead of working out itself ──────
-
 test('3.2/3.3 Brave: config answers the project and the Target; resolve and apply take the patch\'s path', async () => {
   const L = brave();
   try {
@@ -278,7 +261,6 @@ test('3.2/3.3 Brave: config answers the project and the Target; resolve and appl
     writeFileSync(patchPath, String(g['patch']));
     assert.equal(ok(await call('config', { path: patchPath }))['target'], 'chrome/browser/ui/browser.h');
 
-    // only the patch's path: its text from disk, the code by Target, the base from its config
     const r = ok(await call('resolve', { path: patchPath }));
     assert.equal(r['code'], L.browser);
     assert.equal(r['baseSpec'], 'HEAD:chrome/browser/ui/browser.h');
@@ -292,12 +274,9 @@ test('3.2/3.3 Brave: config answers the project and the Target; resolve and appl
     assert.equal(a['text'], NEW);
     assert.equal(a['code'], L.browser);
 
-    // the old way still works: the code as path, the patch as text
     const old = ok(await call('resolve', { path: L.browser, patch: g['patch'] }));
     assert.equal(old['code'], L.browser);
 
-    // a patch that names nothing it is for: refused with why
-    // no Target, and outside Brave's patch tree: nothing names its file
     const nameless = join(L.braveDir, 'elsewhere', 'x.cc.sirp');
     mkdirSync(dirname(nameless), { recursive: true });
     writeFileSync(nameless, '# match cpp\n    a\n    >>>\n# end\n# patch\n    b\n# end\n');

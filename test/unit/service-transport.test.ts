@@ -4,9 +4,6 @@ import { Readable, Writable } from 'node:stream';
 
 import { serve } from '../../src/service/index.ts';
 
-// The transport of the service (`service/index.ts`), with streams of the test's making:
-// a client that reads slowly, an output that breaks, a last line with no newline.
-
 const VERSION = (id: number): string => JSON.stringify({ id, method: 'version' });
 
 function ids(lines: string[]): number[] {
@@ -16,14 +13,12 @@ function ids(lines: string[]): number[] {
 test('service: a client that stops reading stops being read from — every reply arrives, none is lost', async () => {
   const written: string[] = [];
   let reads = 0;
-  // one request per chunk, counted as it is taken
   const input = new Readable({
     read() {
       reads++;
       this.push(reads <= 5 ? `${VERSION(reads)}\n` : null);
     },
   });
-  // a buffer of one byte: every reply fills it, and it drains only later
   const output = new Writable({
     highWaterMark: 1,
     write(chunk, _enc, done) {
@@ -66,7 +61,6 @@ test('service: a line cut over chunks, and CRLF line ends, read as one request e
   assert.deepEqual(ids(lines).sort(), [1, 2]);
 });
 
-/** process.stderr written to, for the length of `run`. */
 async function stderrOf(run: () => Promise<void>): Promise<string> {
   const original = process.stderr.write.bind(process.stderr);
   let text = '';

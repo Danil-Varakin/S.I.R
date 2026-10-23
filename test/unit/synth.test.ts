@@ -116,8 +116,6 @@ test('special cases: a BOF insertion, an EOF append, and replacing the whole fil
   await roundtrip('int a = 1;\n', 'int a = 1;\nint z = 9;\n');
 
   const whole = synthesize('int old = 1;\n', 'int a = 2;\nint b = 3;\n', cppAdapter);
-  // the whole file spells what it replaces: `>>> ... <<<` would fit every file and write
-  // over whatever upstream added to it (07-findings Н5)
   assert.equal(printPattern(whole[0]!.match).replace(/\s/g, ''), '...>>>intold=1;<<<...');
   await roundtrip('int old = 1;\n', 'int a = 2;\nint b = 3;\n');
 });
@@ -216,8 +214,6 @@ test('robustness: the edit still fits when its neighbours DRIFT, as they do upst
   assert.ok(source.includes('LOG(hi);'), 'the neighbour survived');
 });
 
-// ── edges of file and block: bounds come from POSITION, not from a line number ─
-
 test('the edge of a file: blank lines above and below do not disturb anchoring', async () => {
   await roundtrip('\nvoid f() {}\n', '\nint g = 0;\nvoid f() {}\n');
   await roundtrip('void f() {}\n\n', 'void f() {}\nint g = 0;\n\n');
@@ -254,8 +250,6 @@ test('a file with no trailing newline does not grow one', async () => {
   await roundtrip('int a = 1;\nint b = 2;', 'int a = 1;\nint c = 3;');
   await roundtrip('int a = 1;\n', 'int a = 1;\nint b = 2;');
 });
-
-// ── the closer of a parent: an unclosed `{` orders the search without locking it ─
 
 test('the parent is CLOSED in the pattern, or the anchor catches a sibling block too', async () => {
   await cppAdapter.init();

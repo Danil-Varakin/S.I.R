@@ -24,7 +24,6 @@ export interface ResolvedConfig {
   readonly version: number;
   readonly generate: GenerateSettings;
   readonly file: string | undefined;
-  /** the schema version the file names (the newest when it names none); null without a file */
   readonly schemaVersion: number | null;
   readonly origins: Readonly<Record<string, string>>;
 }
@@ -52,9 +51,6 @@ export function findConfigFile(startDir: string): string | undefined {
   return last !== undefined && isFile(last) ? last : undefined;
 }
 
-/** Every place the search from `startDir` looks, nearest first, up to the file it finds
- *  — or, finding none, to the repository root (never above the home directory). A file
- *  created at any of them would change what the search finds. */
 export function configCandidates(startDir: string): string[] {
   const out: string[] = [];
   for (const dir of upwards(startDir)) {
@@ -89,9 +85,6 @@ function readConfigFileVersioned(file: string): { settings: PartialSettings; ver
   return readVersioned(parsed as Record<string, unknown>, file);
 }
 
-/** A config object, `$schema` and `version` included, checked as the loader checks a
- *  file: the schema version first, then every key against THAT version's keys, then
- *  each value. A config without `version` is read as the newest schema. */
 export function readSettings(parsed: Readonly<Record<string, unknown>>, file: string | undefined): PartialSettings {
   return readVersioned(parsed, file).settings;
 }
@@ -143,8 +136,6 @@ export function resolveConfig(options: {
 
   const fileOrigin = options.file !== undefined ? `config ${options.file}` : 'config';
 
-  // Already checked by readConfigFile, where the file's name is still at hand; flags
-  // arrive raw and are checked below.
   for (const [key, value] of Object.entries(options.fromFile ?? {})) {
     if (value === undefined) continue;
     const spec = FIELD_BY_KEY.get(key as keyof GenerateSettings);

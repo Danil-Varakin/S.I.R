@@ -12,9 +12,6 @@ import { handle } from '../../src/service/handler.ts';
 import { FIELDS } from '../../src/infra/config/schema.ts';
 import { SPEC as GENERATE_SPEC } from '../../src/cli/generate.ts';
 
-// The parts of VERSIONING.md a machine can hold. A failure here is not a flaky test: it
-// means a number moved without the rule that governs it — read VERSIONING.md first.
-
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = (name: string): string => readFileSync(join(ROOT, name), 'utf8');
 const json = (name: string): Record<string, unknown> => JSON.parse(read(name)) as Record<string, unknown>;
@@ -114,7 +111,6 @@ test('C1: every config schema in the range has its own frozen JSON Schema, holdi
       `${file}: exactly the keys of v${v}`,
     );
   }
-  // The file SchemaStore points at is the newest schema, with the whole range for "version".
   const newest = json(`schemas/sir.config.v${CONFIG_VERSION}.schema.json`) as Record<string, Record<string, unknown>>;
   const root = json('sir.config.schema.json') as Record<string, Record<string, unknown>>;
   assert.deepEqual(root['properties']!['generate'], newest['properties']!['generate']);
@@ -142,7 +138,7 @@ test('P7: a released config schema is read from its release tag, which is a rele
 test('P7: once a release is being cut, every config schema it ships has its tag in SCHEMA_RELEASED_IN', () => {
   const changelog = read('CHANGELOG.md');
   const top = /^## (.+)$/m.exec(changelog.slice(changelog.indexOf('\n## ')))![1]!;
-  if (top.startsWith('Unreleased')) return; // work in progress on dev: a new version may still lack its tag
+  if (top.startsWith('Unreleased')) return;
   const release = /^(\d+\.\d+\.\d+) — /.exec(top)![1]!;
   const order = (tag: string): number[] => tag.replace(/^v/, '').split('.').map(Number);
   const notAfter = (a: number[], b: number[]): boolean => {

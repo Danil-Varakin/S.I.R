@@ -11,8 +11,6 @@ import type { Ask } from '../../src/infra/ask.ts';
 import { GitError } from '../../src/core/errors.ts';
 import { buildRepo, version, OTHER, SIDE_ONLY } from '../git-repo.ts';
 
-// The repository and what each coordinate points at: see test/git-repo.ts.
-
 const R = buildRepo('sir-git-source-');
 after(() => rmSync(R.dir, { recursive: true, force: true }));
 
@@ -23,10 +21,7 @@ interface Case {
   readonly error?: readonly RegExp[];
 }
 
-// Every combination of the three coordinates, each one pointing at something that is
-// there and at something that is not — the table IS the specification.
 const CASES: readonly Case[] = [
-  // ── all three defaulted, and one coordinate at a time ──────────────────────
   { name: 'nothing named: the last commit of the branch we are on, the path of --in',
     source: {}, text: version(2) },
   { name: 'branch alone: the last commit of THAT branch',
@@ -48,7 +43,6 @@ const CASES: readonly Case[] = [
   { name: 'path alone: an absolute path inside the repository',
     source: { path: join(R.dir, 'src', 'core', 'other.cc') }, text: OTHER },
 
-  // ── two and three coordinates together ─────────────────────────────────────
   { name: 'branch + commit: a commit that branch holds',
     source: { branch: R.branch, commit: R.a }, text: version(1) },
   { name: 'branch + commit: the fork point, held by both branches',
@@ -62,7 +56,6 @@ const CASES: readonly Case[] = [
   { name: 'all three at once',
     source: { branch: 'side', commit: R.s, path: 'src/core/side-only.cc' }, text: SIDE_ONLY },
 
-  // ── coordinates that name nothing ──────────────────────────────────────────
   { name: 'unknown branch',
     source: { branch: 'nope' }, error: [/--branch nope/, /no such branch/] },
   { name: 'unknown commit',
@@ -74,7 +67,6 @@ const CASES: readonly Case[] = [
   { name: 'a path that exists in the commit named, but not in the branch named',
     source: { branch: R.branch, path: 'src/core/side-only.cc' }, error: [/no such file/] },
 
-  // ── coordinates that name the wrong KIND of thing ──────────────────────────
   { name: 'a tag is not a branch, and the refusal says which flag takes one',
     source: { branch: 'v1.0' }, error: [/--branch v1\.0/, /not a branch/, /refs\/tags\/v1\.0/, /--commit/] },
   { name: 'a raw sha is not a branch either',
@@ -84,14 +76,12 @@ const CASES: readonly Case[] = [
   { name: 'a path outside the repository',
     source: { path: '../../etc/passwd' }, error: [/--repo-path/, /outside its repository root/] },
 
-  // ── the combination that can contradict itself ─────────────────────────────
   { name: 'branch + commit: a commit that branch never held',
     source: { branch: R.branch, commit: R.s },
     error: [new RegExp(`commit ${R.s} is not on branch ${R.branch}`), /--branch/, /--commit/] },
   { name: 'commit alone stands on its own: no branch is named, so none is checked',
     source: { commit: R.s }, text: version(3) },
 
-  // ── which coordinate is judged first ───────────────────────────────────────
   { name: 'the branch is judged before the commit',
     source: { branch: 'nope', commit: 'alsonope' }, error: [/--branch nope/] },
   { name: 'the commit is judged before the path',
@@ -100,8 +90,6 @@ const CASES: readonly Case[] = [
     source: { branch: R.branch, commit: R.a, path: 'nope.cc' }, error: [/--repo-path nope\.cc/] },
 ];
 
-/** The message as the CLI prints it: the core names no flag, `cli/command.ts` puts it
- *  in front. */
 function asTheCliSaysIt(e: GitError): string {
   return e.flag !== undefined ? `${e.flag} ${e.message}` : e.message;
 }
@@ -133,7 +121,6 @@ for (const c of CASES) {
       assert.equal((await fileFromGit(c.source, R.inPath)).text, c.text);
       return;
     }
-    // A refusal is judged by what it SAYS: a named error, and the flag to change in it.
     await assert.rejects(
       () => fileFromGit(c.source, R.inPath),
       (e: unknown) => {
@@ -145,9 +132,6 @@ for (const c of CASES) {
   });
 }
 
-// ── asking: only a request git CAN carry out, but that may not mean what it says ──
-
-/** An Ask that records every question and answers them all the same way. */
 function answering(answer: boolean): { ask: Ask; asked: string[] } {
   const asked: string[] = [];
   return { ask: (q) => (asked.push(q), Promise.resolve(answer)), asked };
@@ -170,7 +154,6 @@ test('git source: answered yes, a tag or a sha given as --branch is read as a re
 
 test('git source: a tag accepted as the branch still holds the commit named beside it', async () => {
   const { ask, asked } = answering(true);
-  // v1.0 is B, which holds A: one question (the tag), and none about containment
   assert.equal((await fileFromGit({ branch: 'v1.0', commit: R.a }, R.inPath, ask)).text, version(1));
   assert.equal(asked.length, 1);
 });
@@ -260,8 +243,6 @@ test('git source: a repository with no commits yet says so, and does not blame t
 });
 
 test('git source: a branch that shares its name with a tag is read as the BRANCH, unasked', async () => {
-  // Its own repository: a tag `side` on B (version 2), beside the branch `side` on S
-  // (version 3). Git calls the short name ambiguous and, left to itself, reads the tag.
   const repo = buildRepo('sir-git-same-name-');
   try {
     execFileSync('git', ['tag', 'side', repo.b], { cwd: repo.dir, stdio: 'ignore' });

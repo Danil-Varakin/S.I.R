@@ -96,9 +96,6 @@ test('the suffix is the caller\'s: apply writes a source file, generate a .sirp'
   }
 });
 
-// ── with an upstream (infra/project.ts) ──────────────────────────────────────────
-
-/** A project whose config is at `configDir`, patching the code under `upstreamRoot`. */
 function project(configDir: string, upstreamRoot: string): Project {
   return { configFile: join(configDir, 'sir.config.json'), projectRoot: configDir, upstreamRoot };
 }
@@ -108,16 +105,13 @@ test('upstream: the tree under <config dir>/<out> repeats the path from the upst
   const cwd = process.cwd();
   try {
     process.chdir(tmpdir());
-    // "upstream": "." — the one-repository tree that generate.mirror used to give
     const one = resolveOutPath({ inPath: IN(root), out: 'patches', project: project(root, root) });
     assert.equal(one.path, join(root, 'patches', 'chromium_src', 'browser', 'core', 'apdate.cc.sirp'));
     assert.equal(one.target, 'chromium_src/browser/core/apdate.cc');
-    // Brave: the config in a subdirectory, the upstream its parent
     const brave = join(root, 'brave');
     mkdirSync(brave);
     const inside = resolveOutPath({ inPath: IN(root), out: 'patches', project: project(brave, root) });
     assert.equal(inside.path, join(brave, 'patches', 'chromium_src', 'browser', 'core', 'apdate.cc.sirp'));
-    // an absolute out receives the same tail; a .sirp named outright is that file
     const elsewhere = join(tmpdir(), 'sir-out-abs');
     assert.equal(
       resolveOutPath({ inPath: IN(root), out: elsewhere, project: project(brave, root) }).path,

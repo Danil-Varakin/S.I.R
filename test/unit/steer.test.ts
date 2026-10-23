@@ -14,9 +14,6 @@ import { resolveHunks } from '../../src/core/resolve.ts';
 import { SynthesisError } from '../../src/core/errors.ts';
 import { cppAdapter } from '../../src/lang/cpp/index.ts';
 
-// The person is played by the test: what they answer, and what they type into the
-// editor, scripted; what sir asked and showed them, recorded.
-
 interface Script {
   readonly verdicts?: Verdict[];
   readonly offers?: boolean[];
@@ -67,14 +64,12 @@ test('steer: nobody objecting, the hunks give the new version, as synthesize doe
 });
 
 test('steer: a change left out is not in the .md, and the next hunks are built without it', async () => {
-  // Two insertions where the second leans on the first (golden cpp/41's shape): left
-  // out after the fact, the second did not land; built without it, it does.
   const old = 'void f() {\n  step();\n  step();\n  step();\n}\n';
   const neu = 'void f() {\n  step(5);\n  step();\n  step();\n  done();\n}\n';
   const { run } = await steer(old, neu, { verdicts: ['skip', 'keep'] });
   const result = await run;
   assert.equal(result.reproducesNew, false);
-  const text = applied(old, result.hunks); // every hunk lands — no more "left out, the rest broke"
+  const text = applied(old, result.hunks);
   assert.ok(!text.includes('step(5)'), 'the change left out is not there');
   assert.ok(text.includes('done();'), 'the change after it is');
 });
@@ -138,8 +133,6 @@ test('steer: an edit that does not land names the hunk and the line', async () =
   assert.match(asked[1]!, /hunk 1 \(line \d+\) does not land/);
 });
 
-// Golden cpp/57's shape: two identical if-blocks, the change in the second — synthesis
-// cannot anchor it.
 const TWIN_OLD =
   'void f() {\n  if (cond) {\n    a();\n    work();\n  }\n  if (cond) {\n    a();\n    work();\n  }\n}\n';
 const TWIN_NEW = TWIN_OLD.replace(/work\(\);(?![\s\S]*work\(\);)/, 'work(2);');
@@ -188,8 +181,6 @@ test('steer: a change that cannot be anchored, and no editor wanted — the synt
   const { run } = await steer(TWIN_OLD, TWIN_NEW, { offers: [false] });
   await assert.rejects(run, (e) => e instanceof SynthesisError);
 });
-
-// ── what steering passes on, asks and shows ───────────────────────────────────────
 
 async function steerWith(request: Partial<SteerRequest> & { oldText: string; newText: string }, steering: Steering) {
   await cppAdapter.init();
@@ -291,8 +282,6 @@ test('steer: the editor opens on a note — what to do, the reason, the change q
   assert.ok(hunks!.startsWith('# match cpp\n'), hunks!);
 });
 
-// ── keep: the hunk that does not land, named ───────────────────────────────────────
-
 const KEEP_A = '# match cpp\n    ...\n    void f() {\n    ...\n    >>>\n      a();\n    <<<\n    ...\n# end\n# patch\n    a2();\n# end\n';
 
 test('steer: a keep whose hunk does not land throws its kind, with the hunk and its line on it', async () => {
@@ -307,7 +296,6 @@ test('steer: a keep whose hunk does not land throws its kind, with the hunk and 
 });
 
 test('steer: a keep hunk that lands only on the old version, not after the hunks before it, says so', async () => {
-  // the second hunk anchors on a(); — which the first one has just rewritten
   const keep = `${KEEP_A}\n${KEEP_A.replace('a2();', 'a3();')}`;
   await assert.rejects(steerWith({ oldText: OLD, newText: NEW, keep }, unattended), (e) => {
     assert.ok(e instanceof MatchError, String(e));
@@ -318,7 +306,6 @@ test('steer: a keep hunk that lands only on the old version, not after the hunks
 });
 
 test('steer: of the hunks before it, the one that rewrote the anchor is named — not the last', async () => {
-  // hunk 1 rewrites a(); hunk 2 touches g() only; hunk 3 anchors on a()
   const keepG = KEEP_A.replace('void f()', 'void g()').replace('  a();', '  b();').replace('a2();', 'b2();');
   const keep = `${KEEP_A}\n${keepG}\n${KEEP_A.replace('a2();', 'a3();')}`;
   await assert.rejects(steerWith({ oldText: OLD, newText: NEW, keep }, unattended), (e) => {
@@ -330,7 +317,6 @@ test('steer: of the hunks before it, the one that rewrote the anchor is named �
 });
 
 test('steer: what a kept hunk wrote stays settled when a hunk made later shifts it', async () => {
-  // keep writes g()'s body unlike newText; synthesis then changes f() above it
   const keepG = KEEP_A.replace('void f()', 'void g()').replace('  a();', '  b();').replace('a2();', 'b9();');
   const result = await steerWith({ oldText: OLD, newText: NEW, keep: keepG }, unattended);
   assert.equal(result.hunks.length, 2, 'the kept hunk and the one for f(); g() is not offered again');
