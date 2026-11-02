@@ -61,5 +61,12 @@ export const javascriptAdapter = makeAdapter({
   },
   extensions: ['.js', '.mjs', '.cjs', '.jsx'],
   normalize,
+  lines: {
+    comments: ['//'],
+    blockComments: [['/*', '*/']],
+    closers: ',;)]}',
+    continues: '([{<,',
+    resumes: ')]}>',
+  },
   blockOf: javascriptBlockOf,
 });

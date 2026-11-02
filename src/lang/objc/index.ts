@@ -59,5 +59,18 @@ export const objcAdapter = makeAdapter({
   },
   extensions: ['.m', '.mm'],
   normalize,
+  preproc: {
+    open: /^[ \t]*#[ \t]*(?:if|ifdef|ifndef)\b/,
+    middle: /^[ \t]*#[ \t]*(?:else|elif|elifdef|elifndef)\b/,
+    close: /^[ \t]*#[ \t]*endif\b/,
+  },
+  lines: {
+    comments: ['//'],
+    blockComments: [['/*', '*/']],
+    closers: ',;)]}',
+    continues: '([{<,',
+    resumes: ')]}>',
+    continuation: '\\',
+  },
   blockOf: objcBlockOf,
 });

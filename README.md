@@ -306,6 +306,10 @@ under "Exit codes" below).
 --language, -l <lang>      the language; else `# match <lang>` in the patch, else
                            the extension of --in
 --dry-run                  print the edits the patch would make; write nothing
+--strict                   a hunk that fits but stands against the edges of a line is
+                           refused (exit 3): its literal next to `>>>` / `<<<` was the whole
+                           of its line in the patch and is the middle of one in the file.
+                           Without it the hunk is laid, with a warning
 --verify                   check that the patch applies: the answer is the exit code
                            alone (0 — it applies), nothing is written. The patch is
                            checked on a version out of git: the flags above, else
@@ -460,7 +464,7 @@ do to the code around the patch.
 
 | task | in `sir.config.json` | what you gain | what you pay |
 |---|---|---|---|
-| the general case | nothing | the patch survives a new argument on a neighbour and on the function, reindenting, blocks inserted and moved (not in Python and YAML — see below) | a renamed parent or a renamed line above the edit — refused |
+| the general case | nothing | the patch survives a new argument on a neighbour and on the function, reindenting, blocks inserted and moved (not in YAML, and moved blocks are refused in Python — see below) | a renamed parent or a renamed line above the edit — refused |
 | the code has copies: generated code, the same method in several classes | `"parents": { "min": 99 }` | a copy of the function elsewhere is never taken for it | renaming any enclosing block (function, class, namespace) — refused |
 | the upstream often renames functions and classes | `"siblings": { "min": 2 }` | a renamed container survives twice as often | an edit to the line two above the change — refused |
 | shorter, more readable hunks | `"parents": { "detail": { "base": 1 } }` | parent headers with their arguments; in C++ a fifth shorter pattern | a new function parameter or a renamed condition — refused |
@@ -485,8 +489,8 @@ What depends on the language:
 |---|---|---|
 | C++, Java, JavaScript, TypeScript | names; arguments and conditions are `( ... )` | built-in values |
 | Go, Rust, Kotlin, IDL | the condition of a block (`if ctx.ready {`, `group ready {`) | built-in values; a renamed condition is refused with any settings |
-| Python | the condition of a block (`if ctx.ready:`) | built-in values; a renamed condition is refused with any settings; a block that changes its place among its neighbours (moved, swapped with one, a new block next to it) may land in the wrong place without an error, with any settings |
-| YAML | lines as they are; read as text, its indentation makes no blocks | built-in values; as in Python, a block that changes its place among its neighbours may land in the wrong place without an error |
+| Python | the condition of a block (`if ctx.ready:`); the class or function the change is in, when the next one's first line would be all that tells it apart | built-in values; a renamed condition is refused with any settings; a block that changes its place among its neighbours (moved, swapped with one, a new block next to it) is refused, not laid in a neighbour — and so is one whose class or function upstream renamed |
+| YAML | lines as they are; read as text, its indentation makes no blocks | built-in values; a block that changes its place among its neighbours may land in the wrong place without an error |
 | HTML, XML | attribute values in headers and neighbouring lines | built-in values; an attribute edited next to the patch is refused at any detail |
 | JSON | keys | built-in values; a renamed neighbouring key is refused |
 | CSS | the selector; arguments are `( ... )` | built-in values |
@@ -892,15 +896,19 @@ What sir does not do, on purpose or not yet — worth knowing before you rely on
   language has no "the n-th occurrence": when two places match word for word, their
   neighbours included, `generate` reports ambiguity and `apply` exits `4`. Write that
   anchor by hand, leaning on code that differs — often what comes *after* the edit.
-- **"Already applied" is not recognized — the workflow rules it out instead.** sir
-  does not check whether a patch is in the file already: it finds the place and writes.
-  Laid a second time on its own result, a patch may lay an insertion again with exit 0
-  — `... void g() { ... >>> } ...` still finds the end of `g()`; on the wrong file it
-  usually ends in exit `3`. So every run that matters starts from a clean base:
-  `apply --verify` and `sir-apply` read the file out of git (`--head`, `--branch`,
-  `--commit` or `generate.base`), and `generate` checks every hunk on the old text it
-  was given. Patch the files on disk (`sir apply` without a git coordinate,
-  `--base-from-disk`) only when they are that clean base, never a file already patched.
+- **"Already applied" is told by the patch's base, and only by it.** A hunk that inserts
+  text already standing at its place is checked against the blob the patch's header
+  names in `Base-Blob`: more copies there than in that base — upstream took the change,
+  or the patch is laid on its own result — and `apply` refuses, exit `3`, `already
+  there`; as many — the second copy is the patch's own — and it lands. The text alone
+  cannot tell the two apart, so without that blob — no `Base-Blob` (a patch written by
+  hand), a shallow or partial clone that lacks it (it is never fetched), the patch not
+  laying on it — the hunk lands as before, with a warning that it may be there twice. A
+  change upstream took under another name, or moved, is not recognized. Every run that
+  matters still starts from a clean base: `apply --verify` and `sir-apply` read the file
+  out of git (`--head`, `--branch`, `--commit` or `generate.base`), and `generate`
+  checks every hunk on the old text it was given. Patch the files on disk (`sir apply`
+  without a git coordinate, `--base-from-disk`) only when they are that clean base.
 - **Line endings belong to the file, not to the patch.** A patch writes its lines
   with the ending of the line the edit starts on, so a patch cannot convert CRLF lines
   to LF (or back) where it starts on a CRLF line.

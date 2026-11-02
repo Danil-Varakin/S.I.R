@@ -8,6 +8,7 @@ import type {
   SirFile,
   Note,
   SirHeader,
+  LiteralLine,
 } from './ast.ts';
 import { ParseError } from './errors.ts';
 import { headerFields, parseHeader } from './header.ts';
@@ -28,7 +29,7 @@ class PatternBuilder {
     this.blockLine = blockLine;
   }
 
-  addLiteral(raw: string, mdLine: number): void {
+  addLiteral(raw: string, mdLine: number, at: LiteralLine): void {
     const prev = this.steps[this.steps.length - 1];
     const gapIsFresh =
       this.gap.mode.op === 'tight' &&
@@ -39,12 +40,16 @@ class PatternBuilder {
       const lit = prev.anchor.literal;
       lit.raw += '\n' + raw;
       lit.mdSpan[1] = mdLine;
+      if (lit.line !== undefined) {
+        lit.line.closes = at.closes;
+        lit.line.indent.last = at.indent.last;
+      }
       return;
     }
 
     this.steps.push({
       gap: this.gap,
-      anchor: { target: 'literal', literal: { raw, mdSpan: [mdLine, mdLine] } },
+      anchor: { target: 'literal', literal: { raw, mdSpan: [mdLine, mdLine], line: at } },
     });
     this.gap = freshGap();
     this.skipSeen = false;
@@ -126,17 +131,35 @@ const OP_RE = /(?<=^|\s)(\.\.\.|>>>|<<<)(?=\s|$)/g;
 const ESCAPE_RE = /(?<=^|\s)\\(?=\\*(?:\.\.\.|>>>|<<<)(?:\s|$))/g;
 
 function scanLineInto(line: string, mdLine: number, builder: PatternBuilder): void {
+  const parts: { frag: string; op?: string }[] = [];
   let last = 0;
-  let atLineStart = true;
   for (const m of line.matchAll(OP_RE)) {
     const idx = m.index ?? 0;
     const op = m[0] ?? '';
-    feedFragment(line.slice(last, idx), atLineStart, mdLine, builder);
-    feedOperator(op, mdLine, builder);
+    parts.push({ frag: line.slice(last, idx), op });
     last = idx + op.length;
+  }
+  parts.push({ frag: line.slice(last) });
+  const blanks = /^[ \t]*/.exec(line)![0];
+
+  const solid = (p: { frag: string }): boolean => p.frag.replace(ESCAPE_RE, '').trim() !== '';
+  let atLineStart = true;
+  for (const [k, part] of parts.entries()) {
+    const before = parts.slice(0, k);
+    const after = parts.slice(k + 1);
+    const textBefore = before.some(solid);
+    const gapBefore = before.some((p) => p.op === '...');
+    const textAfter = after.some(solid);
+    const gapAfter = parts.slice(k).some((p) => p.op === '...');
+    const at: LiteralLine = {
+      opens: !textBefore && !gapBefore,
+      closes: !textAfter && !gapAfter,
+      indent: { first: blanks, last: blanks },
+    };
+    feedFragment(part.frag, atLineStart, mdLine, builder, at);
+    if (part.op !== undefined) feedOperator(part.op, mdLine, builder);
     atLineStart = false;
   }
-  feedFragment(line.slice(last), atLineStart, mdLine, builder);
 }
 
 function feedFragment(
@@ -144,11 +167,12 @@ function feedFragment(
   atLineStart: boolean,
   mdLine: number,
   builder: PatternBuilder,
+  at: LiteralLine,
 ): void {
   const unescaped = frag.replace(ESCAPE_RE, '');
   const raw = atLineStart ? unescaped.trimEnd() : unescaped.trim();
   if (raw === '') return;
-  builder.addLiteral(raw, mdLine);
+  builder.addLiteral(raw, mdLine, at);
 }
 
 /** A literal as the parser reads it back once `printPattern` has written it: line by

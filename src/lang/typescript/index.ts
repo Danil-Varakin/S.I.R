@@ -61,5 +61,12 @@ export const typescriptAdapter = makeAdapter({
   },
   extensions: ['.ts', '.mts', '.cts'],
   normalize,
+  lines: {
+    comments: ['//'],
+    blockComments: [['/*', '*/']],
+    closers: ',;)]}',
+    continues: '([{<,',
+    resumes: ')]}>',
+  },
   blockOf: typescriptBlockOf,
 });

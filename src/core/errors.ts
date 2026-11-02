@@ -50,6 +50,7 @@ export class MatchError extends SirError {
   readonly matchedText: string | undefined;
   readonly matchedPos: number | undefined;
   readonly hint: string | undefined;
+  readonly reason: MatchReason | undefined;
 
   constructor(
     message: string,
@@ -62,6 +63,7 @@ export class MatchError extends SirError {
       readonly matchedText?: string;
       readonly matchedPos?: number;
       readonly hint?: string;
+      readonly reason?: MatchReason;
     } = {},
   ) {
     super(message);
@@ -73,6 +75,7 @@ export class MatchError extends SirError {
     this.matchedText = detail.matchedText;
     this.matchedPos = detail.matchedPos;
     this.hint = detail.hint;
+    this.reason = detail.reason;
   }
 
   override detail(): Record<string, unknown> {
@@ -81,9 +84,12 @@ export class MatchError extends SirError {
       ...(this.totalSteps !== undefined ? { totalSteps: this.totalSteps } : {}),
       ...(this.origPos !== undefined ? { origPos: this.origPos } : {}),
       ...(this.anchorText !== undefined ? { anchorText: this.anchorText } : {}),
+      ...(this.reason !== undefined ? { reason: this.reason } : {}),
     };
   }
 }
+
+export type MatchReason = 'already-there' | 'line-edge' | 'indent';
 
 export class PathError extends SirError {
   readonly exitCode = 1;

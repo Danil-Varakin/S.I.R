@@ -1,5 +1,5 @@
 import type { MatchPattern, Gap, Literal } from './ast.ts';
-import type { SourceMap } from '../lang/source-map.ts';
+import type { BlockSpan, SourceMap } from '../lang/source-map.ts';
 import { isWordChar } from '../lang/word.ts';
 import { MatchError, AmbiguityError } from './errors.ts';
 
@@ -8,14 +8,27 @@ export interface LocatedMark {
   side: 'left' | 'right';
 }
 
+export interface Landed {
+  readonly step: number;
+  readonly pos: number;
+  readonly len: number;
+}
+
 export interface MatchMarks {
   insert: LocatedMark;
   replaceEnd?: LocatedMark;
+  landed: readonly Landed[];
 }
 
 interface Marks {
   insert?: LocatedMark;
   replaceEnd?: LocatedMark;
+}
+
+function landedOf(last: Matched | null): Landed[] {
+  const out: Landed[] = [];
+  for (let m = last; m !== null; m = m.prev) out.push({ step: m.step, pos: m.pos, len: m.len });
+  return out.reverse();
 }
 
 export function matchPattern(
@@ -29,10 +42,8 @@ export function matchPattern(
   const normCache = new Map<Literal, string>();
   const normOf = (lit: Literal): string => {
     let n = normCache.get(lit);
-    // Stryker disable next-line ConditionalExpression: a cache — without it a literal is normalized again, to the same text
     if (n === undefined) {
       n = normalize(lit.raw);
-      // Stryker disable next-line CallExpression: a cache — see above
       normCache.set(lit, n);
     }
     return n;
@@ -52,26 +63,31 @@ export function matchPattern(
       deepestMatched = last;
     }
   };
+  const enclosingCache = new Map<number, BlockSpan[]>();
+  const enclosing = (p: number): BlockSpan[] => {
+    let spans = enclosingCache.get(p);
+    if (spans === undefined) {
+      spans = map.enclosing(p);
+      enclosingCache.set(p, spans);
+    }
+    return spans;
+  };
 
   const advance = (norm: string, A: number, stack: readonly number[]): { pos: number; stack: number[] } => {
     const B = A + norm.length;
     const s = stack.slice();
     while (s[s.length - 1]! >= A && s[s.length - 1]! < B) s.pop();
-    const entered = map.enclosing(B).filter((sp) => sp.open >= A);
+    const entered = enclosing(B).filter((sp) => sp.open >= A);
     for (let k = entered.length - 1; k >= 0; k--) s.push(entered[k]!.close);
     return { pos: B, stack: s };
   };
 
   const isCloser = (p: number, len: number): boolean =>
-    map.enclosing(p).some((s) => s.close < p + len);
+    enclosing(p).some((s) => s.close < p + len);
 
-  // A closer met with an overdue block on the stack steps out of that block — unless the
-  // language closes by outdent and the overdue block, one with no closing token, lies
-  // inside a block this closer ends: the outdent closed both at once (`class B:` at column
-  // 0 ends the method and the class before it).
   const closedTogether = (overdue: readonly number[], p: number, len: number): boolean => {
     if (!map.closesByOutdent || !overdue.every((c) => map.endsImplicitBlock(c))) return false;
-    const closed = map.enclosing(p).filter((s) => s.close < p + len && s.closeEnd === undefined);
+    const closed = enclosing(p).filter((s) => s.close < p + len && s.closeEnd === undefined);
     return overdue.every((c) => closed.some((s) => s.open < c));
   };
 
@@ -82,11 +98,6 @@ export function matchPattern(
     return m;
   };
 
-  // Between two words the canon keeps one space, and it belongs to neither literal: in
-  // `foo >>> bar` the operator took the spaces of the pattern, so `bar` would have to
-  // start on that space and never could. A tight gap steps over it — only there, so a
-  // pattern that fitted before fits the same (a word literal can never stand right before
-  // a word, `boundaryOk`), and the marks of the gap stay before the space.
   const wordGapAt = (i: number, pos: number, norm: string): boolean => {
     const prev = i > 0 ? steps[i - 1]!.anchor : undefined;
     if (prev === undefined || prev.target !== 'literal') return false;
@@ -94,8 +105,8 @@ export function matchPattern(
     return isWordChar(before[before.length - 1]!) && isWordChar(norm[0]!) && map.matchesAt(' ', pos);
   };
 
-  const recordFull = (m: Marks): void => {
-    edits.set(`${m.insert!.pos}|${m.replaceEnd?.pos}`, m as MatchMarks);
+  const recordFull = (m: Marks, last: Matched | null): void => {
+    edits.set(`${m.insert!.pos}|${m.replaceEnd?.pos}`, { ...m, landed: landedOf(last) } as MatchMarks);
     if (edits.size >= 2) stop = true;
   };
 
@@ -105,7 +116,7 @@ export function matchPattern(
         recordDeepest(pos, i, undefined, last);
         return false;
       }
-      recordFull(marks);
+      recordFull(marks, last);
       return true;
     }
 
@@ -129,15 +140,19 @@ export function matchPattern(
         return false;
       }
       const adv = advance(norm, at, stack);
-      return walk(i + 1, adv.pos, adv.stack, mL, { text: anchor.literal.raw, pos: at });
+      return walk(i + 1, adv.pos, adv.stack, mL, { text: anchor.literal.raw, pos: at, len: norm.length, step: i, prev: last });
     }
 
     const W = stack[stack.length - 1] ?? -1;
-    const obligation = W >= pos && map.matchesAt(norm, W);
+    let obligation = W >= pos && map.matchesAt(norm, W);
+    if (obligation && map.closesByOutdent) {
+      const left = stack.filter((c) => c < W && map.endsImplicitBlock(c));
+      obligation = left.length === 0 || closedTogether(left, W, norm.length);
+    }
     if (obligation) {
       const mR = applySide(mL, gap, 'right', W);
       const adv = advance(norm, W, stack);
-      if (walk(i + 1, adv.pos, adv.stack, mR, { text: anchor.literal.raw, pos: W })) return true;
+      if (walk(i + 1, adv.pos, adv.stack, mR, { text: anchor.literal.raw, pos: W, len: norm.length, step: i, prev: last })) return true;
       if (stop) return edits.size > 0;
     }
 
@@ -154,7 +169,7 @@ export function matchPattern(
       sawCandidate = true;
       const mR = applySide(mL, gap, 'right', p);
       const adv = advance(norm, p, open);
-      if (walk(i + 1, adv.pos, adv.stack, mR, { text: anchor.literal.raw, pos: p })) found = true;
+      if (walk(i + 1, adv.pos, adv.stack, mR, { text: anchor.literal.raw, pos: p, len: norm.length, step: i, prev: last })) found = true;
       if (stop) return edits.size > 0;
     }
     if (!found && !sawCandidate && !obligation) recordDeepest(pos, i, anchor.literal.raw, last);
@@ -210,4 +225,7 @@ export function matchPattern(
 interface Matched {
   readonly text: string;
   readonly pos: number;
+  readonly len: number;
+  readonly step: number;
+  readonly prev: Matched | null;
 }

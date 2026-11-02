@@ -21,5 +21,12 @@ export const mojomAdapter = makeTextAdapter({
   name: 'mojom',
   extensions: ['.mojom'],
   normalize,
+  lines: {
+    comments: ['//'],
+    blockComments: [['/*', '*/']],
+    closers: ',;)]}',
+    continues: '([{<,',
+    resumes: ')]}>',
+  },
   zones: ZONES,
 });

@@ -81,7 +81,7 @@ landed.
 | kind | `detail` |
 |---|---|
 | `ParseError` | `mdLine`, `hint?` |
-| `MatchError` | `failedStepIndex`, `totalSteps?`, `origPos?`, `anchorText?`; `hunk`, `mdLine` for a hunk of `generate`'s `keep` that does not land (protocol 5) |
+| `MatchError` | `failedStepIndex`, `totalSteps?`, `origPos?`, `anchorText?`; `hunk`, `mdLine` for a hunk of `generate`'s `keep` that does not land (protocol 5); `reason?` — `already-there` (protocol 6, see `failure` below) |
 | `AmbiguityError` | `positions`; `hunk`, `mdLine` as for `MatchError` (protocol 5) |
 | `PathError` | `path`, `blocker` |
 | `LanguageError` | `language?`, `extension?` |
@@ -317,7 +317,7 @@ back. Protocol 4 adds:
 |---|---|
 | `code` | the file the patch was laid on, absolute — `path`, or the file `Target` names; `null` without a `path` |
 | `header` | the patch's header as read: `format`, and `target`, `baseBlob`, `sirVersion`, `grammar` when present (`baseBlob`, `sirVersion`: protocol 5). A patch with no header is `{ "format": 2 }` |
-| `warningsAt` | as in `generate`, computed on the patch as it is now — a patch edited by hand keeps its marks; headings spelled `## patch:` are found as well |
+| `warningsAt` | as in `generate`, computed on the patch as it is now — a patch edited by hand keeps its marks; headings spelled `## patch:` are found as well. Protocol 6: also a hunk that landed where the text it inserts already stood, with no base to tell whether upstream wrote it (`mdLine` its `# match` line) |
 
 A `path` to a patch that names no file (no `Target`, and no place in the layout to undo)
 is a `BadRequest` that says why (`pair`'s `reason`). **One call per `.sirp`**, not per hunk: hunks are
@@ -523,6 +523,7 @@ it, but name the hunk it depends on; its `final` is exact.
 | `origPos` | how far the pattern got before it gave up, in base coordinates |
 | `anchorText` | the anchor that did not match |
 | `candidates` | for `ambiguous`: every place the pattern fits, in base coordinates |
+| `reason` | `already-there`: the pattern fitted, but the text the hunk inserts stands at its place more times than in the patch's own base (its `Base-Blob`) — upstream wrote it. `mdLine` is then the hunk's `# match` line (protocol 6). `line-edge`, `indent`: the notes of a hunk that was laid, below, as a refusal — only the CLI's `--strict` makes them one; the service lays the hunk and names the note in `warningsAt` |
 
 ## Not in the replies, on purpose
 
@@ -681,3 +682,38 @@ Everything below is additive within protocol 5.
   `toml`, `text` (and `txt`). A block there is a pair of `()`, `[]` or `{}` that balances
   outside the format's strings and comments. A `.sirp` for such a file has no
   `Grammar` in its header, and `config` answers a `header` without it.
+
+### Protocol 6
+
+`protocolMin` stays 5: everything is additive (R4), a client of protocol 5 is served
+as before.
+
+- **"Already there"** in `resolve` and `apply`. A hunk that inserts text standing at its
+  place already is checked against the patch's own base — the blob its header names in
+  `Base-Blob`, read out of the repository around `path` (never from the network); for
+  a git base of that very blob, the base itself. More copies at the place than in that
+  base: upstream wrote them, and the hunk fails as `MatchError` with `reason:
+  "already-there"` and `mdLine` its `# match` line; `apply`'s `text` is laid without it.
+  As many copies: the patch means a second one, and it lands as before. No base to ask
+  — no `Base-Blob`, the blob not in the repository, or the patch not laying on it: the
+  hunk lands as before, and `warningsAt` names it. A hunk whose text is not at its
+  place is not checked, and nothing is read.
+- **Edges of a line and indentation** in `resolve` and `apply` (`warningsAt`, protocol 6).
+  A hunk is laid where it fits; `warningsAt` also names it when (1) the literal next to its
+  `>>>` or `<<<` stands in the middle of a line of the file while the patch had it as the
+  whole of its line — a character before it other than blanks, or after it other than a
+  comment, `,` `;` `)` `]` `}`, or a `\` in a language that continues lines — `line-edge`
+  (not when `...` stands in the same line of the pattern; not in a language that gives no
+  such rule); (2) the text it inserts moved with the line it stands by (Python, YAML,
+  `text`: the file is indented deeper than the base) and holds lines deeper than its first,
+  which kept their depth — `indent`. The text is laid, and moved, in both. A hunk that
+  inserts on the level of the line it stands by is written as deep as that line is in the
+  file (a fix: it was written with the indentation of the base, outside the block or in
+  none). A patch on its own base says nothing.
+- **Python: a pattern stays with the class it names.** The line a pattern names as the
+  end of a block closes no block the pattern opened and left: `resolve` and `apply`
+  refuse (`MatchError`) a patch that landed in another class; `generate` checks its
+  patterns by the same rule. Blocks of `{ }` are as before.
+- **Python: `generate` names the class of a change** when the next class's first line
+  would be all that tells it apart; where even the names do not, `SynthesisError`
+  `ambiguous`, as for blocks of `{ }`.

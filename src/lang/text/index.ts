@@ -18,4 +18,5 @@ export const textAdapter = makeTextAdapter({
   extensions: ['.txt'],
   normalize,
   zones: ZONES,
+  indentIsStructure: true,
 });

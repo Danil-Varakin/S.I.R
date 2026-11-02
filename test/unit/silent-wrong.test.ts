@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { adapterForLanguage } from '../../src/lang/adapter.ts';
 import { patchOf } from '../matrix.ts';
-import { applyAll } from '../../src/core/apply.ts';
+import { alreadyThere, applyAll } from '../../src/core/apply.ts';
 import { tuneOne } from '../../bench/run.ts';
 import { TUNE_FLAT, TUNE_SYNTAX } from '../../bench/corpus.ts';
 
@@ -96,9 +96,14 @@ const ADOPTED: [string, string, string][] = [
 ];
 
 for (const [language, tpl, line] of ADOPTED) {
-  test(`Н11 ${language}: upstream already holds the change — it is not laid twice`, { todo: '11-silent-landings Н11' }, async () => {
+  test(`Н11 ${language}: upstream already holds the change — refused against the patch's base`, async () => {
+    const a = adapterForLanguage(language);
+    await a.init();
+    const oldText = tpl.replace('X', '');
     const result = tpl.replace('X', line);
-    await landsRightOrRefuses(language, tpl.replace('X', ''), result, result, result);
+    const patch = patchOf(oldText, result, a);
+    const laid = applyAll(result, patch, a);
+    assert.deepEqual(alreadyThere(laid.copies, patch, a, oldText), { kind: 'taken', hunks: [0] });
   });
 }
 
@@ -125,7 +130,7 @@ const FAMILY: [string, string][] = [
 ];
 
 for (const [form, drift] of FAMILY) {
-  test(`Ф1 ${form}: the unit moved to the start of the file — the patch does not land in another`, { todo: '11-silent-landings Ф1' }, async () => {
+  test(`Ф1 ${form}: the unit moved to the start of the file — the patch does not land in another`, form === 'python' ? {} : { todo: '11-silent-landings Ф1' }, async () => {
     const syntax = TUNE_SYNTAX[form] ?? TUNE_FLAT[form]!;
     await adapterForLanguage(syntax.language).init();
     let wrong = 0;
@@ -147,7 +152,7 @@ test('Ф3 cpp: the body wrapped in a new block — a line appended at the end st
   assert.notEqual(c.drifts.get('wrap'), 'WRONG');
 });
 
-test('Н13 cpp: #if / #else each opening a `{` — the patch does not move to the next function', { todo: '11-silent-landings Н13' }, async () => {
+test('Н13 cpp: #if / #else each opening a `{` — the patch does not move to the next function', async () => {
   const unit = (name: string, extra: string, body: string): string => `void ${name}(int x) {\n${extra}  if (x) {\n${body}  }\n}\n`;
   const ab = '    a(x);\n    b(x);\n';
   const split = '#if BUILDFLAG(A)\n  if (y) {\n#else\n  if (z) {\n#endif\n    c(x);\n  }\n';
@@ -167,7 +172,7 @@ const UNCLOSED: [string, (name: string, extra: string, body: string) => string, 
 ];
 
 for (const [language, unit, extra, what] of UNCLOSED) {
-  test(`Н13 ${language}: ${what} — the patch does not move to the next section`, { todo: '11-silent-landings Н13' }, async () => {
+  test(`Н13 ${language}: ${what} — the patch does not move to the next section`, async () => {
     const ab = '    alpha\n    beta\n';
     await landsRightOrRefuses(
       language,

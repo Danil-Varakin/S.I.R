@@ -4,8 +4,10 @@ import { mapFor } from '../lang/source-map.ts';
 import type { Edit } from './patcher.ts';
 import { matchPattern } from './matcher.ts';
 import { applyEdit } from './patcher.ts';
-import { planHunk } from './apply.ts';
+import { copiesAt, planHunk } from './apply.ts';
+import type { HunkNote } from './apply.ts';
 import { AmbiguityError, MatchError } from './errors.ts';
+import type { MatchReason } from './errors.ts';
 
 export interface Span {
   readonly start: number;
@@ -23,6 +25,7 @@ export interface LinkFailure {
   readonly origPos?: number;
   readonly anchorText?: string;
   readonly candidates?: readonly number[];
+  readonly reason?: MatchReason;
 }
 
 export interface HunkLink {
@@ -43,22 +46,35 @@ export interface ResolveResult {
   readonly applied: string;
 }
 
+export interface ResolvedHunks extends ResolveResult {
+  readonly copies: readonly number[];
+  readonly notes: readonly HunkNote[];
+}
+
 export function resolveHunks(
   baseline: string,
   file: SirFile,
   adapter: LanguageAdapter,
   maps?: MapCache,
-): ResolveResult {
+  refused?: ReadonlyMap<number, MatchError>,
+): ResolvedHunks {
   const baselineMap = mapFor(adapter, baseline, maps);
   const staged: (Edit | null)[] = [];
   const drafts: Draft[] = [];
+  const copies: number[] = [];
+  const notes: HunkNote[] = [];
   let current = baseline;
 
   for (const [index, hunk] of file.hunks.entries()) {
     const untouched = current === baseline;
     const map = untouched ? baselineMap : mapFor(adapter, current, maps);
     try {
-      const edit = planHunk(current, map, hunk, adapter);
+      const refusal = refused?.get(index);
+      if (refusal !== undefined) throw refusal;
+      const planned = planHunk(current, map, hunk, adapter);
+      const edit = planned.edit;
+      for (const n of planned.notes) notes.push({ hunk: index, ...n });
+      copies.push(copiesAt(current, edit));
       drafts.push({
         index,
         hunk,
@@ -70,10 +86,11 @@ export function resolveHunks(
     } catch (e) {
       drafts.push({ index, hunk, edit: null, dependsOnEarlier: false, failure: describe(e, hunk) });
       staged.push(null);
+      copies.push(0);
     }
   }
 
-  return { links: drafts.map((d) => project(d, staged, current)), applied: current };
+  return { links: drafts.map((d) => project(d, staged, current)), applied: current, copies, notes };
 }
 
 type Draft =
@@ -174,7 +191,7 @@ function describe(e: unknown, hunk: Hunk): LinkFailure {
   const message = e instanceof Error ? e.message : String(e);
 
   if (e instanceof MatchError) {
-    const mdLine = anchorLine(hunk, e.failedStepIndex);
+    const mdLine = e.reason !== undefined ? hunk.mdSpan?.[0] : anchorLine(hunk, e.failedStepIndex);
     return {
       kind: 'MatchError',
       message,
@@ -183,6 +200,7 @@ function describe(e: unknown, hunk: Hunk): LinkFailure {
       ...(e.totalSteps !== undefined ? { totalSteps: e.totalSteps } : {}),
       ...(e.origPos !== undefined ? { origPos: e.origPos } : {}),
       ...(e.anchorText !== undefined ? { anchorText: e.anchorText } : {}),
+      ...(e.reason !== undefined ? { reason: e.reason } : {}),
     };
   }
 

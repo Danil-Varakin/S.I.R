@@ -21,5 +21,12 @@ export const idlAdapter = makeTextAdapter({
   name: 'idl',
   extensions: ['.idl', '.webidl'],
   normalize,
+  lines: {
+    comments: ['//'],
+    blockComments: [['/*', '*/']],
+    closers: ',;)]}',
+    continues: '([{<,',
+    resumes: ')]}>',
+  },
   zones: ZONES,
 });

@@ -1,8 +1,15 @@
 import type { Canon } from './canon.ts';
 import type { SourceMap, BlockSpan } from './source-map.ts';
 import { isWordChar } from './word.ts';
+import { lineEdgeFault } from './line-edges.ts';
+import type { LineRules } from './line-edges.ts';
 
-export function makeSourceMap(canon: Canon, spans: readonly BlockSpan[], closesByOutdent = false): SourceMap {
+export function makeSourceMap(
+  canon: Canon,
+  spans: readonly BlockSpan[],
+  closesByOutdent = false,
+  lines?: LineRules,
+): SourceMap {
   const text = canon.text;
   const eof = text.length;
 
@@ -33,6 +40,14 @@ export function makeSourceMap(canon: Canon, spans: readonly BlockSpan[], closesB
   return {
     eof,
     closesByOutdent,
+    source: canon.source,
+
+    lineEdge(pos: number, len: number, raw: string, opens: boolean, closes: boolean) {
+      if (lines === undefined || (!opens && !closes)) return null;
+      const start = canon.toOriginalPos(pos, 'right');
+      const end = canon.toOriginalPos(pos + len, 'left');
+      return lineEdgeFault(canon.source, lines, start, end, raw, opens, closes);
+    },
 
     endsImplicitBlock(close: number): boolean {
       return implicitEnds !== null && implicitEnds.has(close);

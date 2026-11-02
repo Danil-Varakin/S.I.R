@@ -98,8 +98,9 @@ for (const language of languages) {
         });
         const md = header + printSirFile(synthesize(oldStr, newStr, adapter), adapter.name);
 
-        const applied = applyAll(oldStr, parseSirFile(md), adapter).source;
-        assert.equal(applied, newStr, 'applying the generated patch did not reproduce the new file');
+        const laid = applyAll(oldStr, parseSirFile(md), adapter);
+        assert.equal(laid.source, newStr, 'applying the generated patch did not reproduce the new file');
+        assert.deepEqual(laid.notes, [], 'the generated patch says something laid on its own base');
 
         if (UPDATE) {
           writeFileSync(goldenPath, md);

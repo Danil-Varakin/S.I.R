@@ -12,6 +12,13 @@ export interface PlacedMark {
 export interface Literal {
   raw: string;
   mdSpan: [number, number];
+  line?: LiteralLine;
+}
+
+export interface LiteralLine {
+  opens: boolean;
+  closes: boolean;
+  indent: { first: string; last: string };
 }
 
 export interface Gap {

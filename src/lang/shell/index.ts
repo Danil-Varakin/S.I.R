@@ -8,6 +8,12 @@ const ZONES: readonly StringRule[] = [
   { open: "'", close: "'" },
 ];
 
+const HEREDOC: StringRule = {
+  open: /(?<!<)(?<!\(\([^\n]*)<<(?!<)(-?)[ \t]*(?:'([A-Za-z_]\w*)'|"([A-Za-z_]\w*)"|\\?([A-Za-z_]\w*))/,
+  close: (m) => new RegExp(`\\n${m[1] === '-' ? '[ \\t]*' : ''}${m[2] ?? m[3] ?? m[4]}[ \\t]*(?=\\n|$)`),
+  multiline: true,
+};
+
 // The indentation of a line stays as it is: a here-document keeps it. A run of whitespace
 // inside a line reads as one space, and a space is never dropped — in shell `a = 1` runs
 // the command `a`, `a=1` sets a variable.
@@ -25,5 +31,13 @@ export const shellAdapter = makeTextAdapter({
   extensions: ['.sh', '.bash'],
   fileNames: ['postinst', 'postrm', 'preinst', 'prerm'],
   normalize,
+  lines: {
+    comments: ['#'],
+    closers: ';,)]}',
+    continues: '([{,',
+    resumes: ')]}',
+    continuation: '\\',
+  },
   zones: ZONES,
+  noBrackets: [HEREDOC],
 });

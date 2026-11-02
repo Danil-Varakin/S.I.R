@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { synthesize, sameIgnoringSpace } from '../src/generate/synth.ts';
 import { printSirFile } from '../src/generate/printer.ts';
 import { parseSirFile } from '../src/core/sir-parser.ts';
-import { applyAll } from '../src/core/apply.ts';
+import { alreadyThere, applyAll } from '../src/core/apply.ts';
 import { AmbiguityError, MatchError, SynthesisError } from '../src/core/errors.ts';
 import { adapterForLanguage } from '../src/lang/adapter.ts';
 import type { LanguageAdapter } from '../src/lang/source-map.ts';
@@ -318,7 +318,7 @@ export function runMatrix(f: Fixture): void {
   });
 
   if (f.indentIsSyntax === true) {
-    test(`matrix ${L} К6 код сдвинут глубже — отказ или верный отступ`, { todo: FINDING_N2 }, async () => {
+    test(`matrix ${L} К6 код сдвинут глубже — отказ или верный отступ`, { todo: L === 'shell' ? FINDING_N2 : false }, async () => {
       const a = await adapterOf(L);
       const [oldText, newText] = pair(insert);
       const wide = (t: string): string => t.replace(/^([ \t]+)/gm, (sp) => sp + sp);
@@ -434,12 +434,15 @@ export function runMatrix(f: Fixture): void {
     });
   }
 
-  test(`matrix ${L} С4 повторный apply вставляет снова (ограничение)`, async () => {
+  test(`matrix ${L} С4 повторный apply: по тексту — второй раз, по базе патча — уже есть`, async () => {
     const a = await adapterOf(L);
     const [oldText, newText] = pair(insert);
     const patch = patchOf(oldText, newText, a);
-    const twice = apply(apply(oldText, patch, a), patch, a);
-    assert.equal(twice, render({ edit: `${one}\n${added}\n${added}` }));
+    const once = apply(oldText, patch, a);
+    const again = applyAll(once, patch, a);
+    assert.equal(again.source, render({ edit: `${one}\n${added}\n${added}` }));
+    assert.deepEqual(alreadyThere(again.copies, patch, a, oldText), { kind: 'taken', hunks: [0] });
+    assert.deepEqual(alreadyThere(again.copies, patch, a, undefined), { kind: 'unwitnessed', hunks: [0] });
   });
 
   test(`matrix ${L} С5 многострочный якорь, вторая строка с другим отступом`, async () => {

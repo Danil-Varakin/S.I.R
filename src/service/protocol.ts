@@ -8,7 +8,7 @@
 // unchanged, every client written for PROTOCOL_MIN or later. Every change to the wire
 // raises PROTOCOL_VERSION (once per release); only a change an older client would trip
 // over raises PROTOCOL_MIN with it. Rules: VERSIONING.md.
-export const PROTOCOL_VERSION = 5;
+export const PROTOCOL_VERSION = 6;
 export const PROTOCOL_MIN = 5;
 
 export interface RequestMessage {
@@ -49,6 +49,7 @@ export interface LinkFailure {
   readonly origPos?: number;
   readonly anchorText?: string;
   readonly candidates?: readonly number[];
+  readonly reason?: 'already-there' | 'line-edge' | 'indent';
 }
 
 export interface HunkLink {

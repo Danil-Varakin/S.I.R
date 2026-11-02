@@ -59,5 +59,18 @@ export const cAdapter = makeAdapter({
   },
   extensions: ['.c'],
   normalize,
+  preproc: {
+    open: /^[ \t]*#[ \t]*(?:if|ifdef|ifndef)\b/,
+    middle: /^[ \t]*#[ \t]*(?:else|elif|elifdef|elifndef)\b/,
+    close: /^[ \t]*#[ \t]*endif\b/,
+  },
+  lines: {
+    comments: ['//'],
+    blockComments: [['/*', '*/']],
+    closers: ',;)]}',
+    continues: '([{<,',
+    resumes: ')]}>',
+    continuation: '\\',
+  },
   blockOf: cBlockOf,
 });

@@ -106,7 +106,7 @@ interface Laid {
 
 function laidOn(state: Laid, hunk: Hunk, request: SteerRequest): Laid {
   const { adapter, maps } = request;
-  const edit = planHunk(state.current, mapFor(adapter, state.current, maps), hunk, adapter);
+  const { edit } = planHunk(state.current, mapFor(adapter, state.current, maps), hunk, adapter);
   return {
     hunks: [...state.hunks, hunk],
     current: applyEdit(state.current, edit),

@@ -3,6 +3,7 @@ import { makeSourceMap } from './build-map.ts';
 import { stringZones, inZone } from './zones.ts';
 import type { StringRule } from './zones.ts';
 import type { BlockSpan, SourceMap, LanguageAdapter } from './source-map.ts';
+import type { LineRules } from './line-edges.ts';
 
 export interface TextRules {
   name: string;
@@ -10,6 +11,9 @@ export interface TextRules {
   fileNames?: readonly string[];
   normalize: (raw: string) => string;
   zones: readonly StringRule[];
+  noBrackets?: readonly StringRule[];
+  lines?: LineRules;
+  indentIsStructure?: boolean;
 }
 
 const CLOSER_OF: Readonly<Record<string, string>> = { '(': ')', '[': ']', '{': '}' };
@@ -23,13 +27,14 @@ export function makeTextAdapter(rules: TextRules): LanguageAdapter {
     fileNames: rules.fileNames,
     normalize: rules.normalize,
     grammar: undefined,
+    indentIsStructure: rules.indentIsStructure,
 
     async init(): Promise<void> {},
 
     buildMap(source: string): SourceMap {
       if (typeof source !== 'string') throw new TypeError('adapter.buildMap: source is not a string');
       const canon = buildCanon(source, rules.normalize);
-      const spans = bracketSpans(source, rules.zones).map((s) => {
+      const spans = bracketSpans(source, [...rules.zones, ...(rules.noBrackets ?? [])]).map((s) => {
         const out: BlockSpan = {
           open: canon.toCanonPos(s.open),
           close: canon.toCanonPos(s.close),
@@ -38,7 +43,7 @@ export function makeTextAdapter(rules: TextRules): LanguageAdapter {
         if (s.headerStart !== undefined) out.headerStart = canon.toCanonPos(s.headerStart);
         return out;
       });
-      return makeSourceMap(canon, spans, false);
+      return makeSourceMap(canon, spans, false, rules.lines);
     },
   };
 }
@@ -62,9 +67,11 @@ export function bracketSpans(source: string, zones: readonly StringRule[]): Pair
       stack.push(i);
       continue;
     }
-    const top = stack[stack.length - 1];
-    if (top === undefined || CLOSER_OF[source[top]!] !== ch) continue;
-    stack.pop();
+    let k = stack.length - 1;
+    while (k >= 0 && CLOSER_OF[source[stack[k]!]!] !== ch) k--;
+    if (k < 0) continue;
+    const top = stack[k]!;
+    stack.length = k;
     openerOf.set(i, top);
     const pair: Pair = { open: top, close: i };
     const header = headerOf(source, top, openerOf);

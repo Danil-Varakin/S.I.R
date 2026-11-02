@@ -63,5 +63,12 @@ export const cssAdapter = makeAdapter({
   },
   extensions: ['.css'],
   normalize,
+  lines: {
+    comments: [],
+    blockComments: [['/*', '*/']],
+    closers: ',;)]}',
+    continues: '([{,',
+    resumes: ')]}',
+  },
   blockOf: cssBlockOf,
 });

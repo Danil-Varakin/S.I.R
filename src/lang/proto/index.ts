@@ -22,5 +22,12 @@ export const protoAdapter = makeTextAdapter({
   name: 'proto',
   extensions: ['.proto'],
   normalize,
+  lines: {
+    comments: ['//'],
+    blockComments: [['/*', '*/']],
+    closers: ',;)]}',
+    continues: '([{<,',
+    resumes: ')]}>',
+  },
   zones: ZONES,
 });

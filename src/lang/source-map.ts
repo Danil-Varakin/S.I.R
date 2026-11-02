@@ -1,3 +1,5 @@
+import type { LineEdgeFault } from './line-edges.ts';
+
 export interface GrammarSource {
   readonly file: string;
   readonly package?: string;
@@ -24,7 +26,11 @@ export interface SourceMap {
   endsImplicitBlock(close: number): boolean;
   toOriginalPos(pos: number, side: 'left' | 'right'): number;
   toCanonPos(origPos: number): number;
+  readonly source: string;
+  lineEdge(pos: number, len: number, raw: string, opens: boolean, closes: boolean): LineEdgeFault | null;
 }
+
+export type { LineEdgeFault, LineRules } from './line-edges.ts';
 
 export type MapCache = Map<string, SourceMap>;
 
@@ -51,4 +57,6 @@ export interface LanguageAdapter {
   readonly fileNames?: readonly string[] | undefined;
 
   readonly grammar?: GrammarSource | undefined;
+
+  readonly indentIsStructure?: boolean | undefined;
 }

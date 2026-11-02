@@ -60,5 +60,12 @@ export const goAdapter = makeAdapter({
   },
   extensions: ['.go'],
   normalize,
+  lines: {
+    comments: ['//'],
+    blockComments: [['/*', '*/']],
+    closers: ',;)]}',
+    continues: '([{<,',
+    resumes: ')]}>',
+  },
   blockOf: goBlockOf,
 });

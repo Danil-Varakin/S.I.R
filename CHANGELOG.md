@@ -5,6 +5,129 @@ from 0.4, patch format range —
 then what changed, breaking changes first. The rules for all three are in
 [VERSIONING.md](./VERSIONING.md); an entry is written before its tag (P6).
 
+## Unreleased
+
+**Protocol 5–6 · config schema 3–3 · patch format 2–2**
+
+### Fixed
+
+- **A change upstream already took is no longer laid a second time.** The patch went
+  upstream, the clean base out of git holds it, and `apply` wrote the insertion again
+  with exit 0 — a second `import`, a second call, silently; a second `case` or method,
+  until the build. The text alone cannot tell that from a patch that means a second
+  copy, so the patch's own base decides: a hunk that inserts text already standing at
+  its place is laid on the blob its header names in `Base-Blob` too, and finds more
+  copies there than in that base — upstream wrote them: refused, exit 3, `hunk N of M:
+  already there`. As many copies — the second one is the patch's own — and it lands as
+  before. `sir apply`, `--verify`, `--dry-run` and `sir-apply` decide it the same way.
+  The blob is read out of the repository around the file, never from the network (a
+  shallow or partial clone that lacks it has no witness). No witness — no `Base-Blob`,
+  the blob not there, or the patch not laying on it — and the hunk lands as before,
+  with `warning: hunk N of M: the text it inserts already stands at its place, …`. A
+  hunk whose text is not at its place is not checked and nothing is read: a patch that
+  fits costs the same. A patch laid again on its own result is refused the same way.
+  Not breaking (P3): what is refused now is the second copy of a change, which was the
+  bug; a patch whose base held the copy, and every patch without a `Base-Blob`, lays as
+  before.
+- **Python, YAML, `text`: an inserted line follows the line it stands by.** Upstream wraps
+  a body in an `if`, or indents a file by 4 where it was 2; the matcher forgives blanks and
+  finds the place, and the line went in with the indentation the base had — outside the
+  `if`, or in no block at all (`SyntaxError`, exit 0: the `return` of the 2 → 4 re-indent of
+  a Brave script). A hunk that inserts text on the level of the line it stands by — the one
+  literal next to `>>>` — now writes it as deep as that line is in the file, by as many
+  columns as the line moved. The lines it holds below its first keep their depth below it,
+  and the hunk says so (`indent`, below). A hunk that replaces lines, one whose text is not
+  on the level of the line it stands by, and one with nothing next to `>>>` (`... >>> ...`)
+  are written as before; so is a file in a language where the indentation is no structure
+  (`{ }`, and shell). Every apply golden lays as before. Not breaking (P3): the old result
+  was the bug.
+- **A function the reading could not close no longer lets a patch walk into the next
+  one.** A block of the map is a pair of brackets the reading found; it is what keeps a
+  pattern inside the unit it named. When a bracket had no pair the reading gave the unit
+  up, and a hook meant for `Foo::OnLoad` went into the identical `Bar::OnLoad` — exit 0 —
+  once upstream had renamed its target and written the function for two builds (`#if` /
+  `if (y) {` / `#else` / `if (z) {` / `#endif`, one `}` for both); with the target kept,
+  the patch was refused as ambiguous instead of landing in `Foo`. Three causes, three
+  cures. C, C++ and Objective-C: a file the grammar cannot read, with `#if` groups in it,
+  is read once for each build (branch *k* of every group, the directives and the other
+  branches blanked), and its blocks are those of the builds that read clean; one `}` that
+  closes the `if` of both builds is one block. A group that balances its own brackets (an
+  include guard) is not read as false, and a file no build reads clean keeps the parse it
+  has. Text formats (`text`, YAML, TOML, IDL, Mojom, Proto, shell): a closer that meets an
+  opener of another kind, with its own below, closes down to it and the openers between are
+  dropped — a `(` of prose that was never closed stood on the stack to the end of the file
+  and kept every `}` after it from reaching its block. Shell: a here-document (`<<EOF`,
+  `<<-EOF`, `<<'EOF'`, `<<"EOF"`) is text, and `{` in it opens nothing; how the file is
+  matched does not change (its whitespace reads as before). A file that reads clean costs
+  nothing more; one the grammar gave up on, with `#if`, costs two more parses. A patch that
+  landed right in such a file lands as before; one that landed in the neighbour is refused
+  now. Not breaking (P3): the old result was the bug. The form `generate` prints changes in
+  a few places where the map changed (`cpp/generate/6` names the first branch's `if`).
+- **Python: a pattern that names its class no longer lands in another one.** Nothing
+  marks where a Python block ends, so a pattern that named `class G2:` could go on in the
+  class after it — and the line it names as the end (`class G3:`) closed that class's
+  blocks while G2 was left open. Upstream moved G2 to the top of the file, and the patch
+  wrote into G1, exit 0. The closer a block owes is now held to the rule a closer found by
+  search already was (0.5): every block the pattern opened and left must end there too.
+  Such a patch is refused now (exit 3); where the class is followed by the line the
+  pattern names, it lands as before. Only blocks that end by outdent: in a language of
+  `{ }` a pattern may still step out of a block (`cpp/apply/17`). Every apply golden lays
+  as before; a pattern of the kind that 0.5 refused as ambiguous now lands in the class
+  it names.
+- **Python: `generate` names the class a change is in where the next class alone told it
+  apart.** In classes alike but for their names, a change at the end of one was written
+  as `... def run( ... ): ... >>> class G5: ...` — the next class's first line was all
+  that made the pattern unique, and when upstream moved the classes the patch landed in
+  whichever one now stood before `G5`. That line is not written alone any more:
+  `generate` names the class too, `class G4: ... >>> class G5:`, so a moved class is
+  refused (Т2-1 above), and where even the names do not tell the classes apart it answers
+  `SynthesisError` (`ambiguous`) as it does in C++. The price: a pattern a few lines
+  longer, and a patch whose class or function upstream renamed is refused where it used
+  to land. A line inside the class (a `return` after a loop) is written as before. With
+  `generate.parents` 1 (`--parents 1`) the class cannot be named, and `generate` answers
+  `ambiguous` where it wrote that pattern — not breaking (P3): the pattern it wrote was
+  the defect. A `.sirp` written by 0.5 lays as it did; regenerate a Python patch to get
+  the new form.
+
+### Changed
+
+- **The form `generate` prints for Python** where the classes are alike: it names the
+  class of the change (Fixed, above). The goldens of `python/generate/2` record it.
+- **`generate` is faster on large files.** The matcher asked the file's map for the blocks
+  around a position at every step, and the map does not change while one pattern is
+  matched: the answer is kept for that match now. The patches written are the same, byte
+  for byte; synthesis of three changes in a C++ file of 1 400–2 800 lines takes 0.15–1.1 s
+  where it took 2–45 s, and deeply nested Python is faster as well.
+
+### Added
+
+- **A hunk that fits but stands against the edges of a line says so.** The literal next
+  to `>>>` or `<<<` is where the text goes, and the patch had it as the whole of its line
+  (`if (cond)`, `value = base`, `cancel();`). In the file it stands in the middle of one —
+  `if (cond) {`, `value = base + extra`, `other.cancel();`, `$cancel();`, `// b();` —
+  and the text landed between `)` and `{`, inside an expression, in a comment: exit 0, no
+  word. The hunk is laid where it fits all the same, as before, and now with `warning:
+  hunk N of M: 'if (cond)' stands in the middle of a line (on the line, after it: '{') …`.
+  A comment after the literal and the closers `,` `;` `)` `]` `}` are no edge; neither is
+  a literal written with `...` beside it in its line. `--strict` (also of `sir-apply`)
+  makes the warning a refusal: exit 3, nothing written. Known for C, C++, Objective-C,
+  Java, JavaScript, TypeScript, TSX, Go, Kotlin, Rust, Python, CSS, IDL, Mojom, Proto,
+  YAML, TOML and shell; a language that gives no such rule is not checked. A patch laid on
+  its own base says nothing: the 370 generated and 219 hand-written goldens are quiet.
+  Any format: the warning changes no result.
+- Protocol 6 (`protocolMin` stays 5): the same in `resolve` and `apply` — the hunk fails
+  as `MatchError` with `failure.reason: "already-there"` and `mdLine` its `# match`
+  line, and `apply`'s `text` is laid without it; with no witness the hunk lands and
+  `warningsAt` names it. `MatchError` answers `detail.reason`.
+- Protocol 6 (`protocolMin` stays 5): `warningsAt` of `resolve` and `apply` also carries
+  the notes above — `line-edge` and `indent` — as messages of the hunk; the `MatchError`
+  `reason` is also `line-edge` or `indent` (a refusal of `--strict`, in the CLI). The
+  warning of the indentation, `indent`: the text moved with the line it stands by, and its
+  inner lines kept their depth below its first — if the file changed the step of its
+  indentation, they need moving too.
+- `ApplyResult.copies` in the package: per hunk, the copies of the text it inserts that
+  already stand at its place.
+
 ## 0.5.0 — 2026-10-22
 
 **Protocol 5–5 · config schema 3–3 · patch format 2–2**

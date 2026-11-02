@@ -60,5 +60,12 @@ export const rustAdapter = makeAdapter({
   },
   extensions: ['.rs'],
   normalize,
+  lines: {
+    comments: ['//'],
+    blockComments: [['/*', '*/']],
+    closers: ',;)]}',
+    continues: '([{<,',
+    resumes: ')]}>',
+  },
   blockOf: rustBlockOf,
 });

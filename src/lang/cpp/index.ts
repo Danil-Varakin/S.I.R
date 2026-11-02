@@ -61,5 +61,18 @@ export const cppAdapter = makeAdapter({
   },
   extensions: ['.cc', '.cpp', '.cxx', '.h', '.hpp', '.inc'],
   normalize,
+  preproc: {
+    open: /^[ \t]*#[ \t]*(?:if|ifdef|ifndef)\b/,
+    middle: /^[ \t]*#[ \t]*(?:else|elif|elifdef|elifndef)\b/,
+    close: /^[ \t]*#[ \t]*endif\b/,
+  },
+  lines: {
+    comments: ['//'],
+    blockComments: [['/*', '*/']],
+    closers: ',;)]}',
+    continues: '([{<,',
+    resumes: ')]}>',
+    continuation: '\\',
+  },
   blockOf: cppBlockOf,
 });

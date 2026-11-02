@@ -97,6 +97,17 @@ function asOnDisk(text: string, abs: string): string {
   return end === undefined ? text : withLineEnds(text, end);
 }
 
+export async function blobText(near: string, id: string): Promise<string | undefined> {
+  if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(id)) return undefined;
+  const root = findRepoRoot(dirname(resolve(near)));
+  if (root === undefined) return undefined;
+  const git = gitAt(root);
+  const text = await attempt(git, ['--no-lazy-fetch', 'cat-file', 'blob', id]);
+  if (text !== undefined) return text;
+  const promisor = await attempt(git, ['config', '--get-regexp', '^(remote\\..*\\.promisor|extensions\\.partialclone)$']);
+  return promisor === undefined || promisor.trim() === '' ? attempt(git, ['cat-file', 'blob', id]) : undefined;
+}
+
 export async function headRefFiles(inPath: string): Promise<string[]> {
   const root = findRepoRoot(dirname(resolve(inPath)));
   return root === undefined ? [] : refFiles(gitAt(root), root, 'HEAD');

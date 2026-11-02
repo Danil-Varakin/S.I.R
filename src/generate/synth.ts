@@ -664,6 +664,8 @@ function buildTail(
   for (let i = 0; i < parentCount; i++) {
     const span = context.parents[i]!;
     if (span.closeEnd === undefined && i > 0 && context.parents[i - 1]!.close === span.close) continue;
+    const unit = context.parents[context.parents.length - 1]!;
+    if (span.closeEnd === undefined && parentCount < context.parents.length && unit.closeEnd === undefined && unit.close === span.close) break;
     const closer = closerStep(context, span);
     if (closer === null) break;
     steps.push(closer);

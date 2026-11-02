@@ -22,6 +22,8 @@ ${GIT_USAGE}
   Without a git coordinate: generate.base of the project's sir.config.json.
   --base-from-disk        the files on disk ARE the clean base: patch them as they are
 
+  --strict                a hunk that fits but stands against the edges of a line is a
+                          refusal (exit 3), not a warning
   --config <file>         the config instead of the one up from the patch
   --no-config             none (then --in is required)
   --language, -l <lang>   force language (else: '# match <lang>' in the patch, else
@@ -60,6 +62,7 @@ const COMMON_OPTIONS = [
   '--language', '-l',
   '--config', '--no-config',
   '--base-from-disk',
+  '--strict',
   '--log',
   '--help', '-h',
 ] as const;

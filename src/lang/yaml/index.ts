@@ -24,5 +24,12 @@ export const yamlAdapter = makeTextAdapter({
   name: 'yaml',
   extensions: ['.yaml', '.yml'],
   normalize,
+  lines: {
+    comments: ['#'],
+    closers: ',)]}',
+    continues: '([{,',
+    resumes: ')]}',
+  },
   zones: ZONES,
+  indentIsStructure: true,
 });

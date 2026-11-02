@@ -68,5 +68,12 @@ export const kotlinAdapter = makeAdapter({
   },
   extensions: ['.kt', '.kts'],
   normalize,
+  lines: {
+    comments: ['//'],
+    blockComments: [['/*', '*/']],
+    closers: ',;)]}',
+    continues: '([{<,',
+    resumes: ')]}>',
+  },
   blockOf: kotlinBlockOf,
 });

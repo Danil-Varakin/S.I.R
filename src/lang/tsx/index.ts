@@ -61,5 +61,12 @@ export const tsxAdapter = makeAdapter({
   },
   extensions: ['.tsx'],
   normalize,
+  lines: {
+    comments: ['//'],
+    blockComments: [['/*', '*/']],
+    closers: ',;)]}',
+    continues: '([{<,',
+    resumes: ')]}>',
+  },
   blockOf: tsxBlockOf,
 });

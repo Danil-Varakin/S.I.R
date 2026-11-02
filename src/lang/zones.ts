@@ -1,7 +1,6 @@
-
 export interface StringRule {
   readonly open: string | RegExp;
-  readonly close: string | ((open: RegExpExecArray) => string);
+  readonly close: string | ((open: RegExpExecArray) => string | RegExp);
   readonly escape?: string;
   readonly multiline?: boolean;
   readonly opaque?: boolean;
@@ -56,7 +55,7 @@ export function inZone(zones: readonly Zone[], offset: number): boolean {
 
 interface Compiled {
   readonly open: string | RegExp;
-  readonly close: string | ((open: RegExpExecArray) => string);
+  readonly close: string | ((open: RegExpExecArray) => string | RegExp);
   readonly escape: string | undefined;
   readonly multiline: boolean;
   readonly opaque: boolean | undefined;
@@ -104,8 +103,9 @@ function matchOpen(
   return { length: m[0].length, match: m };
 }
 
-function findClose(text: string, from: number, closer: string, rule: Compiled): number {
+function findClose(text: string, from: number, closer: string | RegExp, rule: Compiled): number {
   const esc = rule.escape;
+  const sticky = typeof closer === 'string' ? undefined : new RegExp(closer.source, stickyFlags(closer));
   for (let i = from; i < text.length; i++) {
     const ch = text[i]!;
     if (esc !== undefined && ch === esc) {
@@ -113,7 +113,13 @@ function findClose(text: string, from: number, closer: string, rule: Compiled): 
       continue;
     }
     if (!rule.multiline && ch === '\n') return i;
-    if (text.startsWith(closer, i)) return i + closer.length;
+    if (sticky === undefined) {
+      if (text.startsWith(closer as string, i)) return i + (closer as string).length;
+    } else {
+      sticky.lastIndex = i;
+      const m = sticky.exec(text);
+      if (m !== null && m.index === i) return i + m[0].length;
+    }
   }
   return text.length;
 }

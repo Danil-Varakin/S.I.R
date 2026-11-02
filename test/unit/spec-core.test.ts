@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { parseSirFile } from '../../src/core/sir-parser.ts';
-import { applyAll } from '../../src/core/apply.ts';
+import { alreadyThere, applyAll } from '../../src/core/apply.ts';
 import { synthesize } from '../../src/generate/synth.ts';
 import { printSirFile } from '../../src/generate/printer.ts';
 import { AmbiguityError, MatchError, ParseError } from '../../src/core/errors.ts';
@@ -112,13 +112,16 @@ test('API: applyAll "throws MatchError or AmbiguityError on the first hunk that 
   );
 });
 
-test('known limitation: a patch laid a second time on its own result inserts again', async () => {
+test('a patch laid a second time on its own result: by the text, again; against its base, already there', async () => {
   await cppAdapter.init();
   const patch = sirMd([{ match: '...\nvoid g() {\n...\n>>>\n}\n...', patch: 'X();' }]);
-  const once = applyText('void g() {\n  a();\n}\n', patch);
+  const base = 'void g() {\n  a();\n}\n';
+  const once = applyText(base, patch);
   const twice = applyText(once, patch);
   assert.equal(once.split('X();').length - 1, 1);
-  assert.equal(twice.split('X();').length - 1, 2, 'no error, and the insertion is there twice');
+  assert.equal(twice.split('X();').length - 1, 2, 'the core alone lays it again');
+  const file = parseSirFile(patch);
+  assert.deepEqual(alreadyThere(applyAll(once, file, cppAdapter).copies, file, cppAdapter, base), { kind: 'taken', hunks: [0] });
 });
 
 test('round trip: "applying a generated patch to the old file reproduces the new file" — from and to an EMPTY file', async () => {

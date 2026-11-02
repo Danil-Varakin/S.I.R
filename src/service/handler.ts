@@ -31,6 +31,8 @@ import { PROTOCOL_MIN, PROTOCOL_VERSION } from './protocol.ts';
 import { parseSirFile } from '../core/sir-parser.ts';
 import { FORMAT_MIN } from '../core/header.ts';
 import { resolveHunks } from '../core/resolve.ts';
+import { alreadyThereError } from '../core/apply.ts';
+import { alreadyThereAt, unwitnessedWarning } from '../infra/already-there.ts';
 import { GitError, SirError, NoChanges } from '../core/errors.ts';
 import { generatePatch, patchHeader } from '../generate/pipeline.ts';
 import { trailingSpaceWarningsAt } from '../generate/printer.ts';
@@ -292,12 +294,23 @@ async function resolveRequest(
   const at: ResolveParams = code === undefined ? p : { ...p, path: code };
   const base = await baseOf(patchedBase(at, byPatch ? p.path : code), at);
   const adapter = await ready(at, file.language);
-  const facts = {
-    header: file.header ?? { format: FORMAT_MIN },
-    code: code ?? null,
-    warningsAt: trailingSpaceWarningsAt(file.hunks, patchText),
-  };
-  return { result: resolveHunks(base.text, file, adapter), base, facts };
+  const warningsAt = trailingSpaceWarningsAt(file.hunks, patchText);
+  let result = resolveHunks(base.text, file, adapter);
+  const verdict = await alreadyThereAt(result.copies, file, adapter, at.path, base);
+  if (verdict.kind === 'taken') {
+    const total = file.hunks.length;
+    const placeOf = (i: number): number => result.links[i]!.base?.start ?? 0;
+    result = resolveHunks(base.text, file, adapter, undefined, new Map(verdict.hunks.map((i) => [i, alreadyThereError([i], total, placeOf(i))])));
+  } else if (verdict.kind === 'unwitnessed') {
+    for (const i of verdict.hunks) {
+      warningsAt.push({ hunk: i + 1, mdLine: file.hunks[i]!.mdSpan?.[0] ?? 1, message: unwitnessedWarning(i, file.hunks.length, file) });
+    }
+  }
+  for (const n of result.notes) {
+    warningsAt.push({ hunk: n.hunk + 1, mdLine: file.hunks[n.hunk]!.mdSpan?.[0] ?? 1, message: n.message });
+  }
+  const facts = { header: file.header ?? { format: FORMAT_MIN }, code: code ?? null, warningsAt };
+  return { result, base, facts };
 }
 
 function readPatch(path: string): string {

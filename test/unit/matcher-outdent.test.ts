@@ -6,7 +6,7 @@ import { cppAdapter } from '../../src/lang/cpp/index.ts';
 import { matchPattern } from '../../src/core/matcher.ts';
 import type { MatchPattern } from '../../src/core/ast.ts';
 import type { SourceMap } from '../../src/lang/source-map.ts';
-import { AmbiguityError, MatchError } from '../../src/core/errors.ts';
+import { MatchError } from '../../src/core/errors.ts';
 import { firstMatch, wrapMatch } from '../helpers.ts';
 
 function pattern(...lines: string[]): MatchPattern {
@@ -108,7 +108,29 @@ test('outdent: brace languages are untouched — a } past an overdue block is st
   );
 });
 
-test('outdent: a pattern that landed in the wrong class is now ambiguous', async () => {
+test('outdent: a pattern that names its class lands in it, not in a later class with the same method', async () => {
   const source = 'class A:\n    def g(self):\n        return 1\n    def h(self):\n        return 2\nclass B:\n    def g(self):\n        return 3\nclass B:\n    pass\n';
-  await assert.rejects(landsAt(source, pattern('...', 'class A:', '...', '>>>', '    def g(self):', '<<<', '...', 'class B:', '...')), AmbiguityError);
+  await pythonAdapter.init();
+  const map = pythonAdapter.buildMap(source);
+  const marks = matchPattern(pattern('...', 'class A:', '...', '>>>', '    def g(self):', '<<<', '...', 'class B:', '...'), map, normalize);
+  assert.equal(map.toOriginalPos(marks.insert.pos, marks.insert.side), source.indexOf('def g(self):'), 'the g of class A, not of a class B');
+});
+
+const UNIT = (name: string): string[] => [`class ${name}:`, '    def run(self, ctx):', '        if ctx.on:', '            step1()', '            step2()', '', ''];
+const TO_G2 = ['...', 'class G2:', '...', '    def run(', '...', '):', '...', '        if ctx.on:', '...', '            step2()', '>>>', '...', 'class G3:', '...'];
+
+test('outdent: a pattern that left the class it named is no escape through the closer the next block owes — refused', async () => {
+  const moved = [...UNIT('G2'), ...UNIT('G1'), ...UNIT('G3')].join('\n');
+  await assert.rejects(landsAt(moved, pattern(...TO_G2)), MatchError);
+});
+
+test('outdent: the same pattern where its class is followed by the closer it names — lands in that class', async () => {
+  await pythonAdapter.init();
+  const source = [...UNIT('G1'), ...UNIT('G2'), ...UNIT('G3')].join('\n');
+  const map = pythonAdapter.buildMap(source);
+  const marks = matchPattern(pattern(...TO_G2), map, normalize);
+  const at = map.toOriginalPos(marks.insert.pos, marks.insert.side);
+  const g2 = source.indexOf('class G2:');
+  assert.ok(at > g2 && at < source.indexOf('class G3:'), 'inside G2');
+  assert.equal(source.slice(source.lastIndexOf('\n', at - 1) + 1, at).trim(), 'step2()', 'right after its step2()');
 });

@@ -1,8 +1,9 @@
 import { resolve } from 'node:path';
 import { parseSirFile } from '../core/sir-parser.ts';
-import { ConfigError } from '../core/errors.ts';
-import { applyAll } from '../core/apply.ts';
+import { ConfigError, MatchError } from '../core/errors.ts';
+import { alreadyThereError, applyAll } from '../core/apply.ts';
 import type { AppliedEdit } from '../core/apply.ts';
+import { alreadyThereAt, unwitnessedWarning } from '../infra/already-there.ts';
 import type { SirFile } from '../core/ast.ts';
 import { ensureParent, isFile, readIfReadable, readInputFile, replacesFile, writeFileAtomic } from '../infra/fs.ts';
 import { resolveOutPath } from '../infra/out-path.ts';
@@ -37,6 +38,7 @@ export interface Options extends GitOptions, ConfirmOptions {
   baseFromDisk: boolean;
   dryRun: boolean;
   verify: boolean;
+  strict: boolean;
   help: boolean;
 }
 
@@ -73,6 +75,10 @@ ${CONFIRM_USAGE}
                           generate.base of the config. With neither, a person at a
                           terminal is asked whether the files on disk are that base;
                           with nobody to ask it is refused (see --base-from-disk)
+  --strict                a hunk that fits but stands against the edges of a line
+                          (its literal opened or closed a line of the patch and is in
+                          the middle of one in the file) is a refusal, exit 3: it is
+                          a warning without it
   --base-from-disk        --verify against the files on disk as they are, without
                           asking: they are the clean base
   --config <file>         the config to use instead of the one up from the patch
@@ -90,6 +96,7 @@ export const SPEC: ArgSpec<Options> = {
     ...CONFIRM_ARGS.flags,
     '--dry-run': 'dryRun',
     '--verify': 'verify',
+    '--strict': 'strict',
     '--base-from-disk': 'baseFromDisk',
     '--help': 'help',
     '-h': 'help',
@@ -113,6 +120,7 @@ export const INITIAL: Options = {
   baseFromDisk: false,
   dryRun: false,
   verify: false,
+  strict: false,
   help: false,
 };
 
@@ -253,7 +261,23 @@ async function applyWith(run: ApplyRun): Promise<void> {
   const source = opts.verify || run.mode === 'sir-apply' ? await verifiedBase(run) : await sourceOf(run);
   seen.source = source;
   log.trace(`source: ${source.spec} (${source.text.length} bytes), ${file.hunks.length} hunk(s)`);
-  const { source: result, edits } = applyAll(source.text, file, adapter);
+  const { source: result, edits, copies, notes } = applyAll(source.text, file, adapter);
+  const verdict = await alreadyThereAt(copies, file, adapter, inPath, source);
+  if (verdict.kind === 'taken') throw alreadyThereError(verdict.hunks, file.hunks.length, edits[verdict.hunks[0]!]!.edit.start);
+  if (verdict.kind === 'unwitnessed') {
+    for (const i of verdict.hunks) log.note(`warning: ${unwitnessedWarning(i, file.hunks.length, file)}`);
+  }
+
+  for (const n of notes) log.note(`warning: hunk ${n.hunk + 1} of ${file.hunks.length}: ${n.message}`);
+  if (opts.strict && notes.length > 0) {
+    const first = notes[0]!;
+    throw new MatchError(
+      `hunk ${first.hunk + 1} of ${file.hunks.length}${notes.length > 1 ? ` (and ${notes.length - 1} more)` : ''}: ${first.message} — refused by --strict`,
+      edits[first.hunk]!.edit.start,
+      0,
+      { reason: first.reason, origPos: edits[first.hunk]!.edit.start },
+    );
+  }
 
   if (opts.dryRun) {
     for (const [i, e] of edits.entries()) log.info(describeEdit(e, i, edits.length));

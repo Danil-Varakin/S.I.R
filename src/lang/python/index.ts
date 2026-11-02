@@ -62,6 +62,14 @@ export const pythonAdapter = makeAdapter({
   extensions: ['.py', '.pyi', '.star'],
   fileNames: ['DEPS'],
   normalize,
+  lines: {
+    comments: ['#'],
+    closers: ',;)]}',
+    continues: '([{,',
+    resumes: ')]}',
+    continuation: '\\',
+  },
   blockOf: pythonBlockOf,
   closesByOutdent: true,
+  indentIsStructure: true,
 });

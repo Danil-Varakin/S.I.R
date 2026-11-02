@@ -1,4 +1,6 @@
-import { applyAll } from '../src/core/apply.ts';
+import { simpleGit } from 'simple-git';
+
+import { alreadyThere, applyAll } from '../src/core/apply.ts';
 import { parseSirFile } from '../src/core/sir-parser.ts';
 import { printPattern } from '../src/core/sir-printer.ts';
 import { resolveHunks } from '../src/core/resolve.ts';
@@ -110,6 +112,47 @@ async function caseApply(opts: Options): Promise<void> {
       await cell(opts, () => { applyAll(source, one, cppAdapter); }),
       await cell(opts, () => { resolveHunks(source, one, cppAdapter); }),
       await cell(opts, () => { applyAll(source, ten, cppAdapter); }),
+    ], W));
+  }
+}
+
+async function caseAlready(opts: Options): Promise<void> {
+  const W = [16, 9, 11, 11, 10] as const;
+  console.log(row(['lines', 'KB', 'apply 10', 'taken 10', 'git blob'], W));
+  const git = simpleGit(process.cwd());
+  const blob = (await git.revparse(['HEAD:package.json']).catch(() => '')).trim();
+  for (const funcs of sizes(opts)) {
+    const source = cppFile(funcs);
+    const stride = Math.max(1, Math.floor(funcs / 10));
+    const ten = parseSirFile(
+      `Sir: 2\n\n${Array.from({ length: 10 }, (_, i) => patchFor(i * stride).split('\n\n').slice(1).join('\n\n')).join('\n')}`,
+    );
+    const taken = applyAll(source, ten, cppAdapter).source;
+    console.log(row([
+      String(source.split('\n').length),
+      (source.length / 1024).toFixed(0),
+      await cell(opts, () => { alreadyThere(applyAll(source, ten, cppAdapter).copies, ten, cppAdapter, source); }),
+      await cell(opts, () => { alreadyThere(applyAll(taken, ten, cppAdapter).copies, ten, cppAdapter, source); }),
+      blob === '' ? '—' : await cell(opts, async () => { await git.catFile(['blob', blob]); }),
+    ], W));
+  }
+}
+
+const DAMAGED = 'void damaged(int x) {\n#if A\n  if (y) {\n#else\n  if (z) {\n#endif\n    a(x);\n  }\n}\n\n';
+
+async function casePreproc(opts: Options): Promise<void> {
+  const W = [16, 9, 11, 13, 14] as const;
+  console.log(row(['lines', 'KB', 'clean', '1 damaged', 'all damaged'], W));
+  for (const funcs of sizes(opts)) {
+    const clean = cppFile(funcs);
+    const one = clean + DAMAGED;
+    const all = DAMAGED.repeat(Math.round(clean.split('\n').length / DAMAGED.split('\n').length));
+    console.log(row([
+      String(clean.split('\n').length),
+      (clean.length / 1024).toFixed(0),
+      await cell(opts, () => { cppAdapter.buildMap(clean); }),
+      await cell(opts, () => { cppAdapter.buildMap(one); }),
+      await cell(opts, () => { cppAdapter.buildMap(all); }),
     ], W));
   }
 }
@@ -441,6 +484,8 @@ function sizes(opts: Options): number[] {
 const CASES = new Map<string, (opts: Options) => Promise<void>>([
   ['parse', caseParse],
   ['apply', caseApply],
+  ['already', caseAlready],
+  ['preproc', casePreproc],
   ['generate', caseGenerate],
   ['probes', caseProbes],
   ['depth', caseDepth],

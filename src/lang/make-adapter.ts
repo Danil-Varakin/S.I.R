@@ -4,7 +4,10 @@ import { buildCanon } from './canon.ts';
 import { makeSourceMap } from './build-map.ts';
 import { collectBlockSpans } from './block-spans.ts';
 import type { BlockOf } from './block-spans.ts';
-import type { SourceMap, LanguageAdapter } from './source-map.ts';
+import type { SourceMap, LanguageAdapter, BlockSpan } from './source-map.ts';
+import type { LineRules } from './line-edges.ts';
+import { preprocVariants } from './preproc-variants.ts';
+import type { PreprocRules } from './preproc-variants.ts';
 import { resolveGrammar } from '../infra/grammar-store.ts';
 import type { GrammarSource } from '../infra/grammar-store.ts';
 
@@ -16,6 +19,9 @@ export interface LanguageRules {
   normalize: (raw: string) => string;
   blockOf: BlockOf;
   closesByOutdent?: boolean;
+  lines?: LineRules;
+  indentIsStructure?: boolean;
+  preproc?: PreprocRules;
 }
 
 export type GrammarAdapter = LanguageAdapter & { readonly grammar: GrammarSource };
@@ -29,6 +35,7 @@ export function makeAdapter(rules: LanguageRules): GrammarAdapter {
     fileNames: rules.fileNames,
     normalize: rules.normalize,
     grammar: rules.grammar,
+    indentIsStructure: rules.indentIsStructure,
 
     async init(): Promise<void> {
       const input = await resolveGrammar(rules.grammar, rules.name);
@@ -42,11 +49,39 @@ export function makeAdapter(rules: LanguageRules): GrammarAdapter {
       const tree = parse(grammar, source);
       try {
         const canon = buildCanon(source, rules.normalize);
-        const spans = collectBlockSpans(tree, canon.toCanonPos, rules.blockOf);
-        return makeSourceMap(canon, spans, rules.closesByOutdent === true);
+        let spans = collectBlockSpans(tree, canon.toCanonPos, rules.blockOf);
+        if (rules.preproc !== undefined && tree.rootNode.hasError) {
+          spans = blocksByBuilds(grammar, source, canon.toCanonPos, rules, rules.preproc) ?? spans;
+        }
+        return makeSourceMap(canon, spans, rules.closesByOutdent === true, rules.lines);
       } finally {
         tree.delete();
       }
     },
   };
+}
+
+function blocksByBuilds(
+  grammar: Language,
+  source: string,
+  toCanonPos: (origPos: number) => number,
+  rules: LanguageRules,
+  preproc: PreprocRules,
+): BlockSpan[] | null {
+  const seen = new Map<number, BlockSpan>();
+  let clean = 0;
+  for (const variant of preprocVariants(source, preproc)) {
+    const tree = parse(grammar, variant);
+    try {
+      if (tree.rootNode.hasError) continue;
+      clean++;
+      for (const span of collectBlockSpans(tree, toCanonPos, rules.blockOf)) {
+        const known = seen.get(span.close);
+        if (known === undefined || span.open < known.open) seen.set(span.close, span);
+      }
+    } finally {
+      tree.delete();
+    }
+  }
+  return clean === 0 ? null : [...seen.values()];
 }

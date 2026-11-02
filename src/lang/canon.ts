@@ -1,4 +1,5 @@
 export interface Canon {
+  source: string;
   text: string;
   toCanonPos(origPos: number): number;
   toOriginalPos(canonPos: number, side: 'left' | 'right'): number;
@@ -20,6 +21,7 @@ export function buildCanon(
   }
 
   return {
+    source,
     text,
     toCanonPos(origPos: number): number {
       if (!Number.isInteger(origPos) || origPos < 0 || origPos > source.length) {

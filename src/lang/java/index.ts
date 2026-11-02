@@ -61,5 +61,12 @@ export const javaAdapter = makeAdapter({
   },
   extensions: ['.java'],
   normalize,
+  lines: {
+    comments: ['//'],
+    blockComments: [['/*', '*/']],
+    closers: ',;)]}',
+    continues: '([{<,',
+    resumes: ')]}>',
+  },
   blockOf: javaBlockOf,
 });

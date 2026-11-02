@@ -58,11 +58,6 @@ test('tuning: the only wrong landings are the two known kinds', async () => {
   }
   assert.deepEqual([...wrong].sort(), [
     'braces wrap end',
-    'python move *',
-    'python move-first *',
-    'python next-new *',
-    'python swap-next *',
-    'python swap-prev *',
     'yaml move *',
     'yaml move-first *',
     'yaml near-args *',
@@ -88,12 +83,11 @@ test('tuning: the README claims — what each setting buys and costs', async () 
   for (const language of ['html', 'xml']) {
     assert.equal((await run(language, 'default')).drifts.get('near-args'), 'refused', language);
   }
-  for (const language of ['cpp', 'java', 'go', 'rust', 'idl']) {
+  for (const language of ['cpp', 'java', 'go', 'rust', 'idl', 'python']) {
     assert.equal((await run(language, 'parents 1', { regime: 'distinct' })).gen, 'ok', language);
     assert.equal((await run(language, 'parents 1')).gen, 'ambiguous', language);
   }
-  assert.equal((await run('python', 'parents 1')).gen, 'ok');
-  assert.equal((await run('python', 'default', { at: 'end' })).drifts.get('move'), 'WRONG');
+  assert.equal((await run('python', 'default', { at: 'end' })).drifts.get('move'), 'refused');
   assert.equal((await run('python', 'min-parents 9', { at: 'end' })).drifts.get('move'), 'refused');
   for (const language of ['python', 'go', 'rust']) {
     assert.equal((await run(language, 'default', { depth: 3, regime: 'distinct' })).drifts.get('cond-rename'), 'refused', language);

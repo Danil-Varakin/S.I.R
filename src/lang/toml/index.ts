@@ -23,5 +23,11 @@ export const tomlAdapter = makeTextAdapter({
   name: 'toml',
   extensions: ['.toml'],
   normalize,
+  lines: {
+    comments: ['#'],
+    closers: ',)]}',
+    continues: '([{,',
+    resumes: ')]}',
+  },
   zones: ZONES,
 });
