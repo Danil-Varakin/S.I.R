@@ -3,7 +3,8 @@ name: nightly
 # The property tests (test/unit/property.test.ts) on a seed of their own every night, 25
 # times the cases `npm test` runs: the corpus edits `npm test` draws are the same every
 # run, these are new each night. A failure names its seed; the summary says how to run it
-# again — the same seed draws the same cases on every machine.
+# again — the same seed draws the same cases on every machine. On `dev`: a schedule runs on
+# the default branch, `main`, which holds only the last release.
 
 on:
   schedule:
@@ -24,6 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: dev
 
       - uses: actions/setup-node@v4
         with:

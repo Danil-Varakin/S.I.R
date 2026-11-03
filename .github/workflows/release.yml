@@ -6,6 +6,8 @@ on:
 
 permissions:
   contents: write
+  # to read ci.yml's result for the tagged commit
+  actions: read
 
 jobs:
   check:
@@ -27,11 +29,23 @@ jobs:
             exit 1
           fi
 
-      - name: typecheck
-        run: npm run typecheck
-
-      - name: test
-        run: npm test
+      # The tests ran on this commit when it was pushed (ci.yml) and are not run again here:
+      # the release waits for that result. A tag on a commit ci never passed is refused.
+      - name: ci passed on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for _ in $(seq 120); do
+            runs="$(gh run list -R "$GITHUB_REPOSITORY" -w ci.yml -c "$GITHUB_SHA" --json status,conclusion)"
+            if jq -e 'any(.[]; .conclusion == "success")' <<<"$runs" >/dev/null; then exit 0; fi
+            if ! jq -e 'any(.[]; .status != "completed")' <<<"$runs" >/dev/null; then
+              echo "ci has not passed on $GITHUB_SHA: push it to dev, and once ci is green re-run this workflow" >&2
+              exit 1
+            fi
+            sleep 30
+          done
+          echo "ci is still running on $GITHUB_SHA after an hour" >&2
+          exit 1
 
       - name: pack
         run: npm pack

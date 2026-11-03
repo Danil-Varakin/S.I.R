@@ -166,24 +166,26 @@ a grammar of one's own; the pin is checked all the same.
 breaking, and the release steps (§5). Every release has its [CHANGELOG.md](./CHANGELOG.md)
 entry before its tag.
 
-Releases are cut by CI. The last step of §5 pushes the tag:
+Releases are cut by CI. The last step of §5 makes and pushes the tag, on the commit
+`ci` passed and `main` was fast-forwarded to:
 
 ```bash
-git push origin v<version>
+git tag v<version> && git push origin v<version>
 ```
 
 `.github/workflows/release.yml` then:
 
 1. checks the tag against `version` in `package.json` — a tag on code that still carries
    the previous version is refused;
-2. runs typecheck and tests;
+2. waits for `ci.yml` on the tagged commit and refuses one it did not pass — the tests
+   are not run again;
 3. runs `npm pack` (`prepack` fetches the grammars and builds `dist/`);
 4. builds `sir-apply` for linux-x64, linux-arm64, darwin-arm64 and win-x64 and runs the
    apply goldens and `test/unit/sir-apply.test.ts` through each binary;
 5. writes `SHA256SUMS` and publishes the GitHub Release with the `.tgz`, the binaries and
    the sums. Nothing goes to the npm registry.
 
-Before the tag, run the mutation workflow (or `npm run mutation`). A score below the last
+Before the tag, run `npm run mutation` on your machine. A score below the last
 one is a reason to look at what the tests stopped catching, not a blocked release.
 
 To build the archive locally (`npm run check`, then `npm pack`), sending nothing anywhere:
@@ -206,10 +208,12 @@ How users install each form of sir: README, "Install".
 
 ## Checks (CI)
 
-`.github/workflows/ci.yml` runs on every push and pull request:
+`.github/workflows/ci.yml` runs once per commit: on a push to any branch but `main`, which
+only ever takes `dev` as it is (VERSIONING.md §5). There is no run for pull requests: from
+`dev` they would run the same tree again.
 
 - **matrix** — Linux, macOS and Windows, each on every Node version the project supports
-  (the list is in `ci.yml`). `grammars/` is cached between runs, keyed by the pins in
+  (the list is in `ci.yml`); Linux on Node 24 is the coverage job below. `grammars/` is cached between runs, keyed by the pins in
   `src/lang/*/index.ts`;
 - **coverage** — the code of the package (`src/`) at ≥ 98 % of lines and ≥ 95 % of
   branches. Not part of `npm run check`: coverage slows the suite every commit waits for.
@@ -225,8 +229,8 @@ How users install each form of sir: README, "Install".
 - **sir-apply (linux-x64)** — builds the binary and runs the apply goldens and its tests
   through it, so an import that does not bundle is caught before a release.
 
-`.github/workflows/nightly.yml` runs the property tests every night on a new seed, 25 times
-the cases `npm test` draws (also by hand: *Run workflow*, with a seed to repeat one). A
+`.github/workflows/nightly.yml` runs the property tests of `dev` every night on a new seed,
+25 times the cases `npm test` draws (also by hand: *Run workflow*, with a seed to repeat one). A
 failing case names its seed; the run's summary gives the command that draws the same cases
 again:
 
@@ -237,8 +241,10 @@ SIR_PROP_SEED=<seed> SIR_PROP_RUNS=25 node --test --experimental-strip-types tes
 A failing seed is a bug like any other: fix it and add the case as a test of its own — a
 seed is not a test, because the property's generator may change.
 
-`.github/workflows/mutation.yml` runs `npm run mutation` — Stryker (`stryker.config.json`)
-over `core/` and synthesis: the share of planted bugs the tests catch — weekly and by hand.
+`npm run mutation` runs Stryker (`stryker.config.json`) over `core/` and synthesis: the
+share of planted bugs the tests catch. By hand, on a developer's machine, not in CI: a
+whole run is about 50 minutes on 12 cores (`docs/BACKLOG.md`, "М"), and a 4-core runner
+did not finish one within its 4 hours.
 It is incremental: after the first run only mutants whose code or tests changed run again.
 That check looks at the mutated code and the tests that cover it, not at the code around
 it: after an edit that changes what a mutant means — a guard removed near it, say — a
@@ -248,7 +254,7 @@ result is reused that no longer holds. After such an edit run it whole:
 Two runs compare only if both ran on an idle machine and on the same stand (machine, Node,
 `concurrency`, config). Stryker counts a timeout as a caught mutant: load inflates the
 score, and even an idle machine moves it by a timeout or two. Never more workers than
-cores — `mutation.yml` gives a 4-core runner 4. Scores, stands and durations are kept in
+cores — `stryker.config.json` asks for 6. Scores, stands and durations are kept in
 `docs/BACKLOG.md`, section "М".
 
 A mutant that can never change a result is first a reason to simplify the code: a check

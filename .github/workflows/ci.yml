@@ -1,9 +1,13 @@
 name: ci
 
+# Once per commit: a push to any branch but `main`. `main` only ever takes `dev` as it is
+# (VERSIONING.md §5), so its commits were checked here already, and a pull request from
+# `dev` would run the same tree a second time. release.yml asks this workflow's result
+# for the tagged commit instead of running the tests again.
 on:
   push:
-    branches: ['**']
-  pull_request:
+    branches-ignore: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -18,6 +22,9 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         node: [22, 24]
+        # `coverage` runs every test on Linux and Node 24
+        exclude:
+          - { os: ubuntu-latest, node: 24 }
 
     steps:
       - uses: actions/checkout@v4
@@ -49,6 +56,7 @@ jobs:
     # the code of the package, not the scripts around it: a test that stops reaching a
     # branch fails here rather than going unnoticed (docs: test plan, stage 0). Not in
     # `npm run check` — coverage slows the suite every commit would wait for.
+    # also the matrix cell of Linux and Node 24: the same tests, once
     name: coverage (src ≥ 98% lines, ≥ 95% branches)
     runs-on: ubuntu-latest
     steps:
