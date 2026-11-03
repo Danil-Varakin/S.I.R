@@ -169,15 +169,24 @@ field of params and results, error kinds and their `detail`, and every validatio
    `SCHEMA_RELEASED_IN` (`src/infra/config/template.ts`) with this release's tag: from
    then on a written config's `"$schema"` points at that tag, which never moves (P7),
    so the released schema file cannot change under anyone.
-2. `npm run check` is green.
-3. The version bump, alone in its commit (P5):
-   `npm version minor -m "поднята версия"` (or `patch`, by P2).
-4. `git push origin dev`, then a pull request `dev` → `main`, merged.
-5. `git push origin vX.Y.Z` — the tag starts `.github/workflows/release.yml`, which
-   checks the tag against `package.json`, runs typecheck and tests, packs, builds
+2. `npm run check` is green, and `npm run mutation` has run on the developer's machine
+   (CONTRIBUTING, "Releasing").
+3. The version bump, alone in its commit (P5), with no tag yet:
+   `npm version minor --no-git-tag-version` (or `patch`, by P2), then
+   `git commit -am "поднята версия"`.
+4. `git push origin dev`, and `ci` is green on that commit.
+5. `git push origin dev:main` — `main` takes `dev` as it is, a fast-forward: no pull
+   request, no merge commit, nothing for `ci` to run a second time.
+6. `git tag vX.Y.Z && git push origin vX.Y.Z` — the tag starts
+   `.github/workflows/release.yml`, which checks the tag against `package.json`, refuses
+   a commit `ci` has not passed (it does not run the tests again), packs, builds
    `sir-apply` for every platform (linux-x64, linux-arm64, darwin-arm64, win-x64),
    runs the apply goldens through each binary, writes `SHA256SUMS` and publishes the
    GitHub Release with all of it. Nothing goes to the npm registry.
+
+*(Changed 2026-11-03: the tag was made by `npm version` before `ci` had seen the
+commit, and `main` took `dev` through a pull request that ran the same tree twice more;
+the release ran the tests a fourth time.)*
 
 ## 6. Compatibility
 
